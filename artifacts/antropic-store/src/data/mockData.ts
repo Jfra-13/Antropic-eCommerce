@@ -15,9 +15,13 @@ export const PRODUCTS: Product[] = [
   { id: "4", name: "Top Deportivo Coral", price: "$24.99", category: "Active", image: COMMON_IMAGE },
   { id: "5", name: "Camiseta Básica Sol", price: "$19.99", category: "Tops", image: COMMON_IMAGE },
   { id: "6", name: "Chaqueta Denim Ligera", price: "$59.99", category: "Denim", image: COMMON_IMAGE },
+  { id: "7", name: "Top Floral 50% Off", price: "$14.99", category: "Sale", image: COMMON_IMAGE },
+  { id: "8", name: "Shorts Coral Oferta", price: "$19.99", category: "Sale", image: COMMON_IMAGE },
+  { id: "9", name: "Camiseta Nueva Temporada", price: "$25.99", category: "Novedades", image: COMMON_IMAGE },
+  { id: "10", name: "Falda Plisada Verano", price: "$34.99", category: "Novedades", image: COMMON_IMAGE },
 ];
 
-export const CATEGORIES = ["Tops", "Shorts", "Denim", "Active", "Accesorios", "Swim"];
+export const CATEGORIES = ["Tops", "Shorts", "Denim", "Active", "Accesorios", "Swim", "Sale", "Novedades"];
 
 export const MOCK_USER = {
   name: "María García",

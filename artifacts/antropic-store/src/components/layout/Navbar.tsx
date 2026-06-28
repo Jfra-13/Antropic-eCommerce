@@ -49,8 +49,8 @@ export function Navbar() {
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center space-x-8 font-sans font-semibold">
-          <Link href="/search?category=sale" className="text-[#EA4C75] hover:opacity-80 cursor-pointer">Sale</Link>
-          <Link href="/search?category=new" className="text-[#3d1a24] hover:text-[#EA4C75] cursor-pointer">New</Link>
+          <Link href="/search?category=Sale" className="text-[#EA4C75] hover:opacity-80 cursor-pointer">Sale</Link>
+          <Link href="/search?category=Novedades" className="text-[#3d1a24] hover:text-[#EA4C75] cursor-pointer">New</Link>
           <Link href="/search" className="text-[#3d1a24] hover:text-[#EA4C75] cursor-pointer">Ropa</Link>
         </div>
 
@@ -84,8 +84,8 @@ export function Navbar() {
       {/* Mobile Dropdown */}
       {isOpen && (
         <div className="md:hidden border-t border-[#f0c4d0] bg-white py-4 px-6 shadow-md absolute w-full font-sans font-semibold text-lg flex flex-col gap-4">
-          <Link href="/search?category=sale" onClick={() => setIsOpen(false)} className="text-[#EA4C75] cursor-pointer">Sale</Link>
-          <Link href="/search?category=new" onClick={() => setIsOpen(false)} className="text-[#3d1a24] cursor-pointer">New</Link>
+          <Link href="/search?category=Sale" onClick={() => setIsOpen(false)} className="text-[#EA4C75] cursor-pointer">Sale</Link>
+          <Link href="/search?category=Novedades" onClick={() => setIsOpen(false)} className="text-[#3d1a24] cursor-pointer">New</Link>
           <Link href="/search" onClick={() => setIsOpen(false)} className="text-[#3d1a24] cursor-pointer">Ropa</Link>
           <Link href="/profile" onClick={() => setIsOpen(false)} className="text-[#3d1a24] border-t border-[#f0c4d0] pt-4 mt-2 flex items-center gap-2 cursor-pointer">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
