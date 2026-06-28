@@ -1,11 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearch } from "wouter";
 import { PRODUCTS, CATEGORIES } from "../data/mockData";
 import { ProductCard } from "../components/ProductCard";
 import { FlowerIcon } from "../components/ui/icons";
 
 export default function Search() {
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const urlCategory = params.get("category");
+
+  const resolvedCategory = urlCategory
+    ? (CATEGORIES.find(c => c.toLowerCase() === urlCategory.toLowerCase()) ?? null)
+    : null;
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(resolvedCategory);
+
+  useEffect(() => {
+    const p = new URLSearchParams(searchString);
+    const cat = p.get("category");
+    const matched = cat
+      ? (CATEGORIES.find(c => c.toLowerCase() === cat.toLowerCase()) ?? null)
+      : null;
+    setActiveCategory(matched);
+  }, [searchString]);
 
   const filteredProducts = PRODUCTS.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());

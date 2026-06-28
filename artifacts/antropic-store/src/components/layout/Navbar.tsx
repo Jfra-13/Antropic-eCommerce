@@ -67,7 +67,7 @@ export function Navbar() {
               </span>
             )}
           </Link>
-          <Link href="/profile" className="hidden md:block hover:text-[#EA4C75] cursor-pointer" data-testid="link-profile">
+          <Link href="/profile" className="hover:text-[#EA4C75] cursor-pointer" data-testid="link-profile">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </Link>
           <Link href="/cart" className="hover:text-[#EA4C75] cursor-pointer relative" data-testid="link-cart">
