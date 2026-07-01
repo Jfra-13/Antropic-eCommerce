@@ -111,16 +111,16 @@ export default function Search() {
   const activeFilterCount = selectedSizes.length + selectedColors.length;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#F8F1EC] pb-20">
+    <div className="min-h-[calc(100vh-4rem)] bg-[#FDE9E6] pb-20">
       {/* Search + category selector (scrolls with the page) */}
-      <div className="bg-white border-b border-[#E3CBCF]">
+      <div className="bg-white border-b border-[#f0c4d0]">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="relative">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-[#6E4351]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a4a5f]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
             <input
               type="text"
               placeholder="Buscar productos..."
-              className="w-full bg-[#F1E6E1] border-none rounded-full py-3 pl-12 pr-4 font-sans text-[#341620] placeholder:text-[#6E4351] focus:ring-2 focus:ring-[#B4536E] outline-none"
+              className="w-full bg-[#f5e0e5] border-none rounded-full py-3 pl-12 pr-4 font-sans text-[#3d1a24] placeholder:text-[#8a4a5f] focus:ring-2 focus:ring-[#EA4C75] outline-none"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -152,7 +152,7 @@ export default function Search() {
       <div className="max-w-7xl mx-auto px-4 pt-8">
         {/* Header row */}
         <div className="mb-6">
-          <h1 className="font-serif text-3xl md:text-4xl text-[#341620] mb-4">
+          <h1 className="font-serif text-3xl md:text-4xl text-[#3d1a24] mb-4">
             {activeCategory ?? "Todos los productos"}
           </h1>
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -160,37 +160,37 @@ export default function Search() {
               <button
                 type="button"
                 onClick={() => setShowFilters((v) => !v)}
-                className="flex items-center gap-2 font-sans font-bold text-sm bg-white border border-[#E3CBCF] text-[#341620] px-4 py-2 rounded-full hover:border-[#B4536E] transition-colors"
+                className="flex items-center gap-2 font-sans font-bold text-sm bg-white border border-[#f0c4d0] text-[#3d1a24] px-4 py-2 rounded-full hover:border-[#EA4C75] transition-colors"
                 data-testid="button-filters"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="16" y2="16" /></svg>
                 Filtros
                 {activeFilterCount > 0 && (
-                  <span className="bg-[#B4536E] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  <span className="bg-[#EA4C75] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                     {activeFilterCount}
                   </span>
                 )}
               </button>
-              <span className="font-sans text-sm text-[#6E4351]" data-testid="text-item-count">
+              <span className="font-sans text-sm text-[#8a4a5f]" data-testid="text-item-count">
                 {filteredProducts.length} {filteredProducts.length === 1 ? "artículo" : "artículos"}
               </span>
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="font-sans text-sm text-[#6E4351] hidden sm:inline">Ordenar por</label>
+              <label className="font-sans text-sm text-[#8a4a5f] hidden sm:inline">Ordenar por</label>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
                 <SelectTrigger
-                  className="w-auto min-w-[11rem] h-auto rounded-full border-[#E3CBCF] bg-white text-[#341620] font-sans font-bold text-sm px-4 py-2 shadow-none focus:ring-2 focus:ring-[#B4536E]"
+                  className="w-auto min-w-[11rem] h-auto rounded-full border-[#f0c4d0] bg-white text-[#3d1a24] font-sans font-bold text-sm px-4 py-2 shadow-none focus:ring-2 focus:ring-[#EA4C75]"
                   data-testid="select-sort"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl border-[#E3CBCF] bg-white">
+                <SelectContent className="rounded-2xl border-[#f0c4d0] bg-white">
                   {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
                     <SelectItem
                       key={key}
                       value={key}
-                      className="font-sans text-[#341620] rounded-full cursor-pointer focus:bg-[#F8F1EC] focus:text-[#B4536E]"
+                      className="font-sans text-[#3d1a24] rounded-full cursor-pointer focus:bg-[#FDE9E6] focus:text-[#EA4C75]"
                     >
                       {SORT_LABELS[key]}
                     </SelectItem>
@@ -202,11 +202,11 @@ export default function Search() {
 
           {/* Collapsible filter panel */}
           {showFilters && (
-            <div className="mt-4 bg-white border border-[#E3CBCF] rounded-2xl p-5 flex flex-col gap-5">
+            <div className="mt-4 bg-white border border-[#f0c4d0] rounded-2xl p-5 flex flex-col gap-5">
               <div className="flex flex-col gap-3">
-                <span className="font-sans font-bold text-sm text-[#341620]">Tallas disponibles</span>
+                <span className="font-sans font-bold text-sm text-[#3d1a24]">Tallas disponibles</span>
                 <div className="flex flex-wrap gap-2">
-                  {availableSizes.length === 0 && <span className="text-sm text-[#6E4351]">Sin tallas disponibles</span>}
+                  {availableSizes.length === 0 && <span className="text-sm text-[#8a4a5f]">Sin tallas disponibles</span>}
                   {availableSizes.map((size) => (
                     <button
                       key={size}
@@ -214,8 +214,8 @@ export default function Search() {
                       onClick={() => toggleSize(size)}
                       className={`min-w-[3rem] px-4 py-2 rounded-full border font-sans font-bold text-sm transition-all ${
                         selectedSizes.includes(size)
-                          ? "bg-[#B4536E] text-white border-[#B4536E]"
-                          : "bg-white text-[#341620] border-[#E3CBCF] hover:border-[#B4536E]"
+                          ? "bg-[#EA4C75] text-white border-[#EA4C75]"
+                          : "bg-white text-[#3d1a24] border-[#f0c4d0] hover:border-[#EA4C75]"
                       }`}
                       data-testid={`filter-size-${size}`}
                     >
@@ -226,9 +226,9 @@ export default function Search() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <span className="font-sans font-bold text-sm text-[#341620]">Colores disponibles</span>
+                <span className="font-sans font-bold text-sm text-[#3d1a24]">Colores disponibles</span>
                 <div className="flex flex-wrap gap-3">
-                  {availableColors.length === 0 && <span className="text-sm text-[#6E4351]">Sin colores disponibles</span>}
+                  {availableColors.length === 0 && <span className="text-sm text-[#8a4a5f]">Sin colores disponibles</span>}
                   {availableColors.map((color) => (
                     <button
                       key={color.name}
@@ -238,8 +238,8 @@ export default function Search() {
                       title={color.name}
                       className={`w-9 h-9 rounded-full border transition-all ${
                         selectedColors.includes(color.name)
-                          ? "ring-2 ring-offset-2 ring-[#B4536E] border-transparent"
-                          : "border-[#E3CBCF]"
+                          ? "ring-2 ring-offset-2 ring-[#EA4C75] border-transparent"
+                          : "border-[#f0c4d0]"
                       }`}
                       style={{ backgroundColor: color.hex }}
                       data-testid={`filter-color-${color.name}`}
@@ -252,7 +252,7 @@ export default function Search() {
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="self-start font-sans font-bold text-sm text-[#B4536E] hover:underline"
+                  className="self-start font-sans font-bold text-sm text-[#EA4C75] hover:underline"
                   data-testid="button-clear-filters"
                 >
                   Limpiar filtros
@@ -271,11 +271,11 @@ export default function Search() {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="text-[#E3CBCF] w-24 h-24 mb-6">
+            <div className="text-[#f0c4d0] w-24 h-24 mb-6">
               <FlowerIcon />
             </div>
-            <h3 className="font-serif text-2xl text-[#341620] mb-2">No se encontraron resultados</h3>
-            <p className="font-sans text-[#6E4351]">Intenta buscar con otros términos o cambia los filtros.</p>
+            <h3 className="font-serif text-2xl text-[#3d1a24] mb-2">No se encontraron resultados</h3>
+            <p className="font-sans text-[#8a4a5f]">Intenta buscar con otros términos o cambia los filtros.</p>
             <button
               type="button"
               onClick={() => {
@@ -283,7 +283,7 @@ export default function Search() {
                 clearFilters();
                 goToCategory(null);
               }}
-              className="mt-6 font-sans font-bold text-[#B4536E] hover:underline"
+              className="mt-6 font-sans font-bold text-[#EA4C75] hover:underline"
             >
               Borrar filtros
             </button>
