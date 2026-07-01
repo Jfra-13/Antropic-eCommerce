@@ -1,6 +1,7 @@
 import { Link } from "wouter";
-import { PRODUCTS, CATEGORIES } from "../data/mockData";
+import { PRODUCTS, CATEGORIES, categoryImage } from "../data/mockData";
 import { ProductCard } from "../components/ProductCard";
+import { CategoryCard } from "../components/CategoryCard";
 import { FlowerIcon } from "../components/ui/icons";
 
 export default function Home() {
@@ -30,18 +31,19 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 2. Category Strip */}
+      {/* 2. Category Carousel */}
       <section className="py-8 px-4 overflow-hidden relative">
-        <div className="max-w-6xl mx-auto flex overflow-x-auto gap-3 pb-4 snap-x hide-scrollbar">
-          {CATEGORIES.map(category => (
-            <Link 
-              key={category} 
-              href={`/search?category=${category.toLowerCase()}`}
-              className="snap-start flex-none border-2 border-[#EA4C75] text-[#EA4C75] font-sans font-bold text-sm px-6 py-2 rounded-full hover:bg-[#EA4C75] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
-            >
-              {category}
-            </Link>
-          ))}
+        <div className="max-w-6xl mx-auto overflow-x-auto hide-scrollbar">
+          <div className="flex gap-4 md:gap-6 w-max mx-auto pb-4 px-2">
+            {CATEGORIES.map(category => (
+              <CategoryCard
+                key={category}
+                label={category}
+                image={categoryImage(category)}
+                href={`/search?category=${category}`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 

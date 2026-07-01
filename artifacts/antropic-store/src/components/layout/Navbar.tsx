@@ -13,7 +13,7 @@ export function Navbar() {
     <div className="sticky top-0 z-50 bg-[#FDE9E6] shadow-sm">
       <div className="bg-[#EA4C75] text-white text-xs font-sans text-center py-2 px-4 whitespace-nowrap overflow-hidden">
         <div className="animate-marquee md:animate-none inline-block">
-          🌸 Envío gratis en compras mayores a $50 — ¡Descubre la nueva colección!
+          🌸 Envío gratis en compras mayores a S/ 50 — ¡Descubre la nueva colección!
         </div>
       </div>
 
