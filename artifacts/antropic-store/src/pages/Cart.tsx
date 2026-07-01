@@ -1,5 +1,5 @@
 import { useStore } from "../context/StoreContext";
-import { PRODUCTS } from "../data/mockData";
+import { PRODUCTS, priceToNumber } from "../data/mockData";
 import { Link } from "wouter";
 
 export default function Cart() {
@@ -11,7 +11,7 @@ export default function Cart() {
   }).filter(item => item.product !== undefined);
 
   const subtotal = cartItems.reduce((acc, item) => {
-    const price = parseFloat(item.product!.price.replace('$', ''));
+    const price = priceToNumber(item.product!.price);
     return acc + (price * item.qty);
   }, 0);
 
@@ -72,21 +72,21 @@ export default function Cart() {
                 <div className="flex flex-col gap-4 font-sans text-lg mb-6">
                   <div className="flex justify-between text-[#8a4a5f]">
                     <span>Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>S/ {subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-[#8a4a5f]">
                     <span>Envío</span>
-                    <span>{shipping === 0 ? 'Gratis' : `$${shipping.toFixed(2)}`}</span>
+                    <span>{shipping === 0 ? 'Gratis' : `S/ ${shipping.toFixed(2)}`}</span>
                   </div>
                   {shipping > 0 && (
                     <div className="text-xs text-[#EA4C75] text-right mt- -2">
-                      Te faltan ${(50 - subtotal).toFixed(2)} para envío gratis
+                      Te faltan S/ {(50 - subtotal).toFixed(2)} para envío gratis
                     </div>
                   )}
                   <div className="border-t border-[#f0c4d0] my-2"></div>
                   <div className="flex justify-between font-bold text-2xl text-[#3d1a24]">
                     <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>S/ {total.toFixed(2)}</span>
                   </div>
                 </div>
                 <button className="w-full bg-[#EA4C75] text-white font-sans font-bold text-lg py-4 rounded-full hover:bg-[#3d1a24] transition-colors shadow-md">
