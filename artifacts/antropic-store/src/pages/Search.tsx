@@ -4,6 +4,13 @@ import { PRODUCTS, CATEGORIES, priceToNumber, categoryImage } from "../data/mock
 import { ProductCard } from "../components/ProductCard";
 import { CategoryCard } from "../components/CategoryCard";
 import { FlowerIcon } from "../components/ui/icons";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type SortKey = "destacados" | "precio-asc" | "precio-desc" | "rating" | "likes";
 
@@ -105,8 +112,8 @@ export default function Search() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#FDE9E6] pb-20">
-      {/* Sticky search + category selector */}
-      <div className="bg-white border-b border-[#f0c4d0] sticky top-24 z-40">
+      {/* Search + category selector (scrolls with the page) */}
+      <div className="bg-white border-b border-[#f0c4d0]">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="relative">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a4a5f]" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
@@ -170,18 +177,26 @@ export default function Search() {
             </div>
 
             <div className="flex items-center gap-2">
-              <label htmlFor="sort" className="font-sans text-sm text-[#8a4a5f] hidden sm:inline">Ordenar por</label>
-              <select
-                id="sort"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortKey)}
-                className="font-sans font-bold text-sm bg-white border border-[#f0c4d0] text-[#3d1a24] px-4 py-2 rounded-full focus:ring-2 focus:ring-[#EA4C75] outline-none cursor-pointer"
-                data-testid="select-sort"
-              >
-                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                  <option key={key} value={key}>{SORT_LABELS[key]}</option>
-                ))}
-              </select>
+              <label className="font-sans text-sm text-[#8a4a5f] hidden sm:inline">Ordenar por</label>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+                <SelectTrigger
+                  className="w-auto min-w-[11rem] h-auto rounded-full border-[#f0c4d0] bg-white text-[#3d1a24] font-sans font-bold text-sm px-4 py-2 shadow-none focus:ring-2 focus:ring-[#EA4C75]"
+                  data-testid="select-sort"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl border-[#f0c4d0] bg-white">
+                  {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                    <SelectItem
+                      key={key}
+                      value={key}
+                      className="font-sans text-[#3d1a24] rounded-full cursor-pointer focus:bg-[#FDE9E6] focus:text-[#EA4C75]"
+                    >
+                      {SORT_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

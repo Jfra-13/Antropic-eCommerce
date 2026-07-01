@@ -4,6 +4,7 @@ import { PRODUCTS } from "../data/mockData";
 import { useStore } from "../context/StoreContext";
 import { Stars } from "../components/Stars";
 import { ProductCard } from "../components/ProductCard";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NotFound from "./not-found";
 
 export default function ProductDetail() {
@@ -13,6 +14,7 @@ export default function ProductDetail() {
   const { addToCart, toggleFavorite, favorites } = useStore();
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
 
   if (!product) return <NotFound />;
 
@@ -41,9 +43,28 @@ export default function ProductDetail() {
           <div className="w-full md:w-2/3">
             <div className="grid grid-cols-2 gap-2 md:gap-3">
               {[0, 1].map((i) => (
-                <div key={i} className="aspect-[3/4] rounded-2xl overflow-hidden bg-[#f5e0e5] border border-[#f0c4d0]">
-                  <img src={product.image} alt={`${product.name} ${i + 1}`} className="w-full h-full object-cover object-center" />
-                </div>
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setZoomIndex(i)}
+                  className="group relative aspect-[3/4] rounded-2xl overflow-hidden bg-[#f5e0e5] border border-[#f0c4d0] cursor-zoom-in"
+                  aria-label={`Ampliar imagen de ${product.name}`}
+                  data-testid={`button-zoom-${i}`}
+                >
+                  <img
+                    src={product.image}
+                    alt={`${product.name} ${i + 1}`}
+                    className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <span className="absolute bottom-3 right-3 bg-white/80 backdrop-blur-sm rounded-full p-2 text-[#EA4C75] opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8" />
+                      <path d="m21 21-4.3-4.3" />
+                      <line x1="11" x2="11" y1="8" y2="14" />
+                      <line x1="8" x2="14" y1="11" y2="11" />
+                    </svg>
+                  </span>
+                </button>
               ))}
             </div>
           </div>
@@ -162,6 +183,18 @@ export default function ProductDetail() {
           </section>
         )}
       </div>
+
+      {/* Image lightbox */}
+      <Dialog open={zoomIndex !== null} onOpenChange={(open) => !open && setZoomIndex(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-white border-[#f0c4d0] rounded-2xl">
+          <DialogTitle className="sr-only">{product.name}</DialogTitle>
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-auto max-h-[80vh] object-contain rounded-xl"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

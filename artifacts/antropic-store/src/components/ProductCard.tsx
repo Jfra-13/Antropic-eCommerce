@@ -13,10 +13,11 @@ export function ProductCard({ product }: { product: Product }) {
       className="group relative z-10 flex flex-col bg-white rounded-2xl overflow-hidden shadow-sm border border-[#f0c4d0] transition-all duration-300 hover:scale-[1.03] hover:shadow-xl hover:z-20"
       data-testid={`card-product-${product.id}`}
     >
-      {/* Stretched link makes the whole card navigable without nesting buttons in an anchor */}
+      {/* Stretched link sits above the image + text (z-10) so the whole card navigates;
+          the action buttons sit above it (z-20) to stay independently clickable. */}
       <Link
         href={`/product/${product.id}`}
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 z-10"
         aria-label={product.name}
         data-testid={`link-product-${product.id}`}
       />
@@ -25,18 +26,18 @@ export function ProductCard({ product }: { product: Product }) {
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-full object-cover object-center"
+          className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
           loading="lazy"
         />
         {isOut && (
-          <span className="absolute top-3 left-3 z-10 bg-[#3d1a24] text-white text-[10px] font-sans font-bold uppercase tracking-wider px-2 py-1 rounded-full">
+          <span className="absolute top-3 left-3 z-20 pointer-events-none bg-[#3d1a24] text-white text-[10px] font-sans font-bold uppercase tracking-wider px-2 py-1 rounded-full">
             Agotado
           </span>
         )}
         <button
           type="button"
           onClick={() => toggleFavorite(product.id)}
-          className="absolute top-3 right-3 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-full text-[#EA4C75] hover:bg-[#EA4C75] hover:text-white transition-colors"
+          className="absolute top-3 right-3 z-20 p-2 bg-white/80 backdrop-blur-sm rounded-full text-[#EA4C75] hover:bg-[#EA4C75] hover:text-white transition-colors"
           aria-label={isFavorite ? "Quitar de favoritos" : "Agregar a favoritos"}
           data-testid={`button-favorite-${product.id}`}
         >
@@ -64,7 +65,7 @@ export function ProductCard({ product }: { product: Product }) {
             type="button"
             onClick={() => addToCart(product.id)}
             disabled={isOut}
-            className="relative z-10 text-sm font-sans font-bold bg-[#FDE9E6] text-[#EA4C75] px-4 py-2 rounded-full hover:bg-[#EA4C75] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#FDE9E6] disabled:hover:text-[#EA4C75]"
+            className="relative z-20 text-sm font-sans font-bold bg-[#FDE9E6] text-[#EA4C75] px-4 py-2 rounded-full hover:bg-[#EA4C75] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#FDE9E6] disabled:hover:text-[#EA4C75]"
             data-testid={`button-add-cart-${product.id}`}
           >
             Agregar
