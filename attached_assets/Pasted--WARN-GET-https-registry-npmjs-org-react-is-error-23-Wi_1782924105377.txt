@@ -1,0 +1,36 @@
+[WARN] GET https://registry.npmjs.org/react-is error (23). Will retry in 10 seconds. 2 retries left.
+Downloading react-icons@5.6.0: 22.42 MB/22.42 MB, done
+Progress: resolved 473, reused 0, downloaded 473, added 473, done
+
+devDependencies:
++ prettier 3.8.4
++ typescript 5.9.3
+
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+│ 'sh' is not recognized as an internal or external command,
+│ operable program or batch file.
+└─ Failed in 52ms at C:\software\projects\Antropic-UIUX
+[ELIFECYCLE] Command failed with exit code 1.
+PS C:\software\projects\Antropic-UIUX> $env:PORT=5173; $env:BASE_PATH="/"; pnpm --filter @workspace/antropic-store run dev
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (verified 3m ago)
+Lockfile is up to date, resolution step is skipped
+Already up to date
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+│ 'sh' is not recognized as an internal or external command,
+│ operable program or batch file.
+└─ Failed in 28ms at C:\software\projects\Antropic-UIUX
+[ELIFECYCLE] Command failed with exit code 1.
+[ERROR] Command failed with exit code 1: "C:\Program Files\nodejs\node.exe" "C:\Users\juanf\AppData\Roaming\npm\node_modules\pnpm\bin\pnpm.mjs" install
+
+pnpm: Command failed with exit code 1: "C:\Program Files\nodejs\node.exe" "C:\Users\juanf\AppData\Roaming\npm\node_modules\pnpm\bin\pnpm.mjs" install
+    at getFinalError (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:34291:14)
+    at makeError (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:36598:21)
+    at getSyncResult (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:38442:10)
+    at spawnSubprocessSync (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:38402:14)
+    at execaCoreSync (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:38332:23)
+    at callBoundExeca (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:40860:23)
+    at boundExeca (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:40837:49)
+    at sync (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:40996:10)
+    at runPnpmCli (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:247126:5)
+    at runDepsStatusCheck (file:///C:/Users/juanf/AppData/Roaming/npm/node_modules/pnpm/dist/pnpm.mjs:248869:7)
