@@ -1,7 +1,7 @@
 export function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
   const rounded = Math.round(rating);
   return (
-    <div className="flex items-center text-[#FCC261]" aria-label={`Calificación ${rating} de 5`}>
+    <div className="flex items-center text-[#C89B5E]" aria-label={`Calificación ${rating} de 5`}>
       {[1, 2, 3, 4, 5].map((i) => (
         <svg
           key={i}

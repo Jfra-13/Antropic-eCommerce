@@ -1,0 +1,1 @@
+- [ANTROPIC color architecture](antropic-color-architecture.md) — brand colors live in BOTH index.css HSL tokens AND raw hex arbitrary values; mockData.ts swatches are product colors, never brand colors.
