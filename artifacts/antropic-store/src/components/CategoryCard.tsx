@@ -14,8 +14,8 @@ export function CategoryCard({ label, image, active, href, onClick }: CategoryCa
       <div
         className={`w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${
           active
-            ? "border-[#EA4C75] ring-2 ring-[#EA4C75]/30"
-            : "border-[#f0c4d0] group-hover:border-[#EA4C75]"
+            ? "border-[#B4536E] ring-2 ring-[#B4536E]/30"
+            : "border-[#E3CBCF] group-hover:border-[#B4536E]"
         }`}
       >
         <img
@@ -26,7 +26,7 @@ export function CategoryCard({ label, image, active, href, onClick }: CategoryCa
       </div>
       <span
         className={`text-xs md:text-sm font-sans font-bold text-center transition-colors ${
-          active ? "text-[#EA4C75]" : "text-[#8a4a5f] group-hover:text-[#EA4C75]"
+          active ? "text-[#B4536E]" : "text-[#6E4351] group-hover:text-[#B4536E]"
         }`}
       >
         {label}
