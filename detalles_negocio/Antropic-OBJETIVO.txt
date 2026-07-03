@@ -1,0 +1,75 @@
+﻿Estructura de Requerimientos Técnicos y Funcionales: Ecommerce Antropic
+Este documento tiene como objetivo definir el alcance técnico y funcional para el desarrollo de la plataforma de ecommerce. Como desarrollador, esta información te permitirá estructurar la base de datos, las rutas de la aplicación y la lógica de negocio.
+1. Stack Tecnológico y Arquitectura Base
+* Lenguaje y Framework: ¿Qué tecnologías se utilizarán para el Frontend y Backend?
+* Base de Datos: ¿Se optará por una base de datos relacional (SQL) o no relacional (NoSQL)?
+* Infraestructura: ¿Dónde se alojará la aplicación (AWS, Vercel, DigitalOcean)?
+* Seguridad: ¿Qué protocolos de cifrado y autenticación (JWT, OAuth) se implementarán?
+2. Definición de Roles y Permisos (Matriz de Acceso)
+Responde a las siguientes preguntas para cada perfil de usuario:
+A. Usuario Externo (Invitado)
+* Navegación: ¿Puede ver precios sin estar registrado?
+* Carrito: ¿Puede añadir productos al carrito y mantenerlos mediante sesiones/cookies?
+* Restricciones: ¿Es obligatorio el registro para ver el catálogo completo o realizar el checkout?
+B. Cliente Registrado
+* Perfil: ¿Qué datos personales podrá editar (direcciones, teléfonos, preferencias de talla)?
+* Historial: ¿Podrá descargar facturas o boletas de pedidos anteriores?
+* Fidelización: ¿Tendrá una lista de deseos (Wishlist) persistente?
+* Autenticación: ¿Se permitirá el login con redes sociales (Google/Facebook)?
+C. Empleado (Operaciones/Logística)
+* Gestión de Inventario: ¿Podrá actualizar stock de forma individual o masiva?
+* Gestión de Pedidos: ¿Qué estados de pedido podrá cambiar (En preparación, Enviado, Entregado)?
+* Atención al Cliente: ¿Tendrá acceso a los formularios de devolución para contactar al cliente por WhatsApp?
+D. Administrador (Dueño/Gerente)
+* Dashboard: ¿Qué métricas críticas debe visualizar (Conversión, productos top, carritos abandonados)?
+* Gestión de Usuarios: ¿Puede crear nuevos perfiles de "Empleado" o bloquear clientes?
+* Configuración Global: ¿Puede activar/desactivar cupones de descuento o cambiar banners promocionales?
+3. Módulos Técnicos Específicos
+Módulo
+	Pregunta Técnica / Funcional
+	Respuesta / Definición
+	Catálogo
+	¿Cómo se manejarán las variaciones de productos (Color, Talla, Tela)?
+	
+
+	Integraciones
+	¿Se conectará con la aplicación de "Paolo" para el recomendador de tallas?
+	
+
+	Pagos
+	¿Qué pasarelas se integrarán (Culqi, MercadoPago, Stripe) y cómo se manejarán los Webhooks?
+	
+
+	Logística
+	¿Se calculará el costo de envío dinámicamente según la zona o será una tarifa plana?
+	
+
+	Notificaciones
+	¿Qué eventos dispararán correos automáticos o mensajes (Confirmación de compra, stock disponible)?
+	
+
+	4. Flujos de Trabajo (Workflows)
+Flujo de Compra
+1. Estado inicial: Carrito de compras.
+2. Paso 1: Selección de método de envío (Recojo o Delivery).
+3. Paso 2: Aplicación de cupón (si existe).
+4. Paso 3: Selección de método de pago (Pasarela o transferencia).
+5. Estado final: Generación de orden y decremento de inventario.
+Flujo de Devolución
+* ¿El cliente llena un formulario web y el sistema genera automáticamente un ticket de seguimiento?
+* ¿Cómo se notifica al empleado que hay una solicitud pendiente?
+5. Cronograma y Entregables Sugeridos
+* Fase 1: Diseño de Base de Datos y API Base.
+* Fase 2: Implementación de Vistas de Usuario (Catálogo y Checkout).
+* Fase 3: Panel Administrativo (Backoffice) y Gestión de Inventario.
+* Fase 4: Integraciones de Terceros (Pagos y Recomendador de Tallas).
+* Fase 5: Pruebas de Estrés y Despliegue en Producción.
+
+
+________________
+
+
+
+
+Responsable del Proyecto: Person
+Fecha de Inicio: Date

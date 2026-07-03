@@ -50,3 +50,5 @@ Thumbs.db
 
 # Agent tooling
 .atl/
+
+.agents/
