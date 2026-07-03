@@ -17,8 +17,8 @@ export interface Product {
   fit: string;
   details: string;
 }
-
-const COMMON_IMAGE = "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=800&q=80";
+import corcet_blanco from "../assets/corcet_blanco.png";
+const COMMON_IMAGE = corcet_blanco;
 
 const DEFAULT_DETAILS =
   "Confeccionada con materiales suaves y de alta calidad, esta pieza combina comodidad y estilo para tu día a día. Diseño versátil pensado para acompañarte en cualquier ocasión y realzar tu look con la esencia ANTROPIC.";

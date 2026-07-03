@@ -3,7 +3,8 @@ import { PRODUCTS, CATEGORIES, categoryImage } from "../data/mockData";
 import { ProductCard } from "../components/ProductCard";
 import { CategoryCard } from "../components/CategoryCard";
 import { FlowerIcon } from "../components/ui/icons";
-
+import modelo_01 from "../assets/modelo_01.webp";
+import modelo_02 from "../assets/modelo_02.webp";
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#FDE9E6]">
@@ -12,7 +13,7 @@ export default function Home() {
         {/* Image on mobile (top), right on desktop */}
         <div className="md:order-2 w-full md:w-1/2 h-[60vw] md:h-[600px] relative bg-[#f5e0e5]">
           <img 
-            src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=800&q=80" 
+            src={modelo_01} 
             alt="Nueva Colección" 
             className="w-full h-full object-cover object-top"
           />
@@ -53,7 +54,7 @@ export default function Home() {
           <div className="w-full md:w-1/2 relative">
             <div className="aspect-[4/5] md:aspect-square overflow-hidden rounded-3xl shadow-xl">
                <img 
-                  src="https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=800&q=80" 
+                  src={modelo_02} 
                   alt="Estilo único" 
                   className="w-full h-full object-cover object-center"
                 />
