@@ -51,4 +51,7 @@ Thumbs.db
 # Agent tooling
 .atl/
 
+# AI me
 .agents/
+CLAUDE.md
+skills-lock.json
