@@ -1,0 +1,90 @@
+# Análisis UI/UX — Garage.com Homepage (Above the Fold + Primer Scroll)
+
+Voy a diseccionar esto por capas, como lo haría en una auditoría de arquitectura de información antes de pasarlo a un equipo de desarrollo.
+
+---
+
+## 1. Header / Navegación Global
+
+**Estructura:** Barra fija de altura reducida (~60-64px), grid de 3 zonas: logo (izq) — nav horizontal (centro) — utility icons (der).
+
+- **Logo:** Wordmark en magenta/fucsia saturado (#E6007E aprox), tipografía bold sans-serif condensada. Actúa como ancla cromática de marca — este color se va a repetir como acento en toda la página, no solo en el logo.
+- **Nav primario:** Enlaces de texto plano, sin dropdowns visibles a primera vista, jerarquía marcada por color — "Summer Sale" está en rojo/coral distinto al resto (negro), señalando urgencia promocional dentro de la navegación misma. Esto es una técnica deliberada: sacar el ítem de mayor prioridad comercial del sistema cromático neutro para que el ojo lo capture primero en el escaneo en F.
+- **Utility icons (der):** Search (lupa), Wishlist (corazón), Account (avatar circular con iniciales + badge de notificación rojo), Loyalty points ("0 pts" con underline, indicando que es clickeable/link), Cart (bolsa). Seis elementos, bien espaciados, sin labels de texto — dependencia total en iconografía universalmente reconocible para ahorrar espacio horizontal.
+
+**Nota técnica:** El account icon con iniciales personalizadas (JL) + badge rojo sugiere sistema de autenticación activo con indicador de notificaciones no leídas (típico patrón de e-commerce con loyalty program integrado).
+
+---
+
+## 2. Hero Banner Principal
+
+**Layout:** Split horizontal 50/50 (aprox), NO es un hero de imagen única con overlay de texto — es una composición de dos bloques independientes que comparten fondo cromático.
+
+- **Bloque izquierdo:** Fondo sólido burgundy/wine (#A6023A aprox — un rojo vino profundo, NO el mismo magenta del logo, hay dos acentos de marca coexistiendo). Jerarquía tipográfica en 3 niveles:
+  1. "NEW STYLES ADDED" — sans-serif bold, tracking amplio, todo mayúsculas, tamaño medio (kicker/eyebrow text)
+  2. "50%" — número gigante, el elemento de mayor peso visual de todo el hero, actúa como focal point
+  3. "OFF & MORE*" — itálica bold, tamaño intermedio, reconecta con el número
+  4. CTA button: fondo blanco sólido, texto negro, sin border-radius (esquinas rectas — coherente con la estética "urbana/streetwear" de la marca), alto contraste sobre el fondo burgundy
+  5. Legal disclaimer en tamaño micro (asterisco de exclusiones) — posicionado abajo a la izquierda, casi invisible pero presente por compliance
+
+- **Bloque derecho:** Imagen fotográfica pura, sin texto superpuesto. Crop en primer plano de tres modelos de espaldas mostrando shorts denim (producto). La decisión de NO poner texto sobre la imagen es importante — separan completamente la función informativa (texto) de la función inspiracional (imagen), en vez de sacrificar legibilidad con overlays semitransparentes.
+
+**Por qué funciona:** Este patrón de "mitad copy / mitad producto en contexto" es más efectivo que un hero unificado porque evita el problema clásico de contraste texto-sobre-imagen, y permite que cada mitad se optimice independientemente (tipografía sin restricciones de legibilidad vs. imagen sin compresión de mensaje).
+
+---
+
+## 3. Barra de Categorías Rápidas (Quick-Filter Bar)
+
+Inmediatamente debajo del hero: fila horizontal de **7 botones pill/rectangulares en el mismo burgundy del hero**, texto blanco, mayúsculas, bold. 
+
+- Funciona como **navegación secundaria contextual** — no es el nav global del header, es específica de la campaña de sale activa (Bestsellers under $45, Sale Tops, Sale Bottoms, Sale Fleece, Sale Swim, Sale Jeans, Sale Shorts & Skirts).
+- **Decisión de UX clave:** mantener el mismo color del hero crea continuidad visual — el usuario entiende subconscientemente que esta barra es una extensión funcional del mensaje de sale de arriba, no un módulo nuevo desconectado.
+- Distribución en grid de ancho completo, columnas de ancho variable según longitud del texto (no son cells de ancho fijo), lo cual es un detalle de implementación: probablemente `flex` con `justify-content: space-between` o `grid` con `auto-fit`.
+
+---
+
+## 4. Segundo Hero / Campaña de Producto ("Naughty Navy")
+
+Mismo patrón split 50/50 pero **invertido en orden** (imagen izquierda, texto derecha) — esto es intencional para romper la monotonía del patrón repetido y generar variación rítmica en el scroll.
+
+- **Imagen:** Foto de lifestyle con dos modelos en poses dinámicas (no estáticas, hay movimiento en el pelo, gesto corporal natural) vistiendo el producto destacado (conjunto negro). Fondo neutro gris claro, minimalista, para que el producto y las modelos sean el único punto focal sin distracción de contexto.
+- **Texto:** Sobre fondo blanco/gris muy claro (contraste con el burgundy anterior — variación cromática deliberada).
+  - Headline "NAUGHTY NAVY" en negro, bold, sans-serif grande — nombre de campaña/colección, no es un descuento, es storytelling de marca.
+  - Subcopy en peso ligero, una sola línea, tono conversacional/coloquial ("Our latest Color Crush may just be our naughtiest one yet") — voz de marca dirigida a audiencia Gen-Z, informal, juguetona.
+  - CTA en negro sólido (invierte el CTA blanco del hero anterior) — refuerza que es un módulo visualmente distinto aunque comparta estructura.
+
+---
+
+## 5. Módulo "Get The Look" — Shop-the-Outfit Pattern
+
+Este es el módulo más interesante desde el punto de vista de **arquitectura de conversión**.
+
+- **Formato:** Fila horizontal de 8 ítems, cada uno con:
+  - Ilustración vectorial simplificada del producto (NO fotografía) — flat icon style, línea fina, colores planos coincidentes con el producto real
+  - Label de categoría debajo (TOPS, SHORTS, FLEECE, DENIM, ACTIVE, SKIRTS, SWIM, PANTS)
+  
+- **Por qué ilustración y no foto:** Esto es una decisión de UX muy calculada. Al usar iconografía simplificada en vez de fotos de producto reales, el módulo funciona como **selector de categoría rápida disfrazado de "outfit builder"** — el usuario percibe que está viendo "el look completo" pero en realidad está navegando hacia colecciones por categoría. Es wayfinding con capa de storytelling encima. También reduce peso de carga (SVGs vs. múltiples fotos de alta resolución) — decisión de performance disfrazada de decisión estética.
+
+- **Función dual:** Sirve simultáneamente como (a) inspiración de outfit completo (asociado al hero "Naughty Navy" de arriba) y (b) navegación funcional hacia PLPs (Product Listing Pages) por categoría.
+
+---
+
+## 6. Grid de Producto — "The Must-Haves" (PLP Preview / Carousel)
+
+- **Layout:** Grid horizontal de 8 cards visibles con overflow scroll (nota la flecha ">" en el extremo derecho, indicando carrusel/slider, no grid estático).
+- **Card anatomy (cada ítem):**
+  - Imagen de producto en modelo (no flat lay, no producto solo) — mantiene consistencia con la estética "lifestyle" del resto de la página
+  - Nombre de producto debajo en texto pequeño, sans-serif regular (no bold) — jerarquía tipográfica claramente subordinada a la imagen
+  - Sin precio visible en este crop — sugiere que el precio aparece en hover o está cortado en este viewport
+- **Densidad:** 8 columnas es una densidad alta para un carrusel de producto — típico de audiencia que hace scroll rápido y espera volumen de opciones (fast-fashion pattern), contrario a un layout de lujo que mostraría 3-4 productos con más whitespace.
+
+---
+
+## Principios de Sistema de Diseño Observables
+
+1. **Sistema cromático de dos acentos:** Magenta (marca/logo) + Burgundy (promocional/sale) — no compiten porque tienen jerarquía de uso clara y separada.
+2. **Alternancia de layout split invertido** entre módulos hero consecutivos para evitar fatiga visual por repetición de patrón.
+3. **Separación estricta imagen/texto** — nunca hay overlay de texto sobre imagen fotográfica, todo texto vive en bloques de fondo sólido.
+4. **Esquinas rectas (sin border-radius)** en botones y contenedores — coherente en toda la página, refuerza identidad visual "urban/street" en vez de "soft/friendly" (que usaría rounded corners).
+5. **Tipografía:** Un solo type family sans-serif condensado/bold para todos los headlines, variando solo peso e itálica para jerarquía — no hay mezcla de familias tipográficas, lo cual mantiene consistencia pero depende 100% de escala y peso para crear jerarquía visual.
+6. **Ilustración vectorial como herramienta de navegación disfrazada** — patrón reutilizable en cualquier e-commerce que quiera combinar storytelling de outfit con funcionalidad de categoría.

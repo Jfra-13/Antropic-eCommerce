@@ -36,6 +36,9 @@
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-accent-border: var(--accent-border);
 
+  --color-promo: hsl(var(--promo));
+  --color-promo-foreground: hsl(var(--promo-foreground));
+
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-destructive-border: var(--destructive-border);
@@ -107,10 +110,18 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
 
-  --background: 9 68% 95%;
+  /*
+   * Brand color rules (see detalles_negocio/guia-estilos):
+   * - Page backgrounds stay neutral (white); brand pink is reserved for
+   *   identity, active states, and promotional highlights.
+   * - `primary` = brand pink (logo, active states, badges).
+   * - `promo` = second accent for sale/urgency only — never for neutral UI.
+   * - `muted` = soft blush for fills, image placeholders, and hover chips.
+   */
+  --background: 0 0% 100%;
   --foreground: 343 40% 17%;
-  
-  --border: 344 61% 86%;
+
+  --border: 345 30% 90%;
   
   --card: 0 0% 100%;
   --card-foreground: 343 40% 17%;
@@ -135,16 +146,19 @@
   --secondary: 38 97% 68%;
   --secondary-foreground: 343 40% 17%;
   
-  --muted: 346 54% 92%;
+  --muted: 345 40% 94%;
   --muted-foreground: 340 30% 42%;
-  
+
   --accent: 337 77% 78%;
   --accent-foreground: 343 40% 17%;
-  
+
+  --promo: 338 85% 36%;
+  --promo-foreground: 0 0% 100%;
+
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  
-  --input: 344 61% 86%;
+
+  --input: 345 30% 90%;
   --ring: 344 80% 61%;
   
   --chart-1: 344 80% 61%;
@@ -234,6 +248,8 @@
   --muted-foreground: 346 54% 92%;
   --accent: 337 77% 78%;
   --accent-foreground: 343 40% 17%;
+  --promo: 338 80% 55%;
+  --promo-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   --input: 340 30% 42%;
@@ -287,6 +303,15 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
+
+  /* Horizontal scrollers: keep scrolling, hide the scrollbar (carousels, pills). */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {

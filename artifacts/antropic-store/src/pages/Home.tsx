@@ -1,93 +1,73 @@
 import { Link } from "wouter";
-import { PRODUCTS, CATEGORIES, categoryImage } from "../data/mockData";
+import { PRODUCTS, CATEGORIES } from "../data/mockData";
 import { ProductCard } from "../components/ProductCard";
-import { CategoryCard } from "../components/CategoryCard";
-import { FlowerIcon } from "../components/ui/icons";
+import { ProductCarousel } from "../components/ProductCarousel";
+import { CategoryPills } from "../components/CategoryPills";
 import modelo_01 from "../assets/modelo_01.webp";
 import modelo_02 from "../assets/modelo_02.webp";
+
+// ponytail: "most wanted" has no real ranking signal yet (no API). Best-sellers
+// first, then fill to 8. Swap for a real criterion when the API lands.
+const MOST_WANTED = [...PRODUCTS]
+  .sort((a, b) => (a.badge === "mas-vendido" ? -1 : 0) - (b.badge === "mas-vendido" ? -1 : 0))
+  .slice(0, 8);
+
+const CATEGORY_PILLS = CATEGORIES.map((c) => ({ label: c, value: c }));
+
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#FDE9E6]">
-      {/* 1. Hero Banner */}
+    <div className="min-h-screen bg-background">
+      {/* 1. Hero — one strong color block, 3-level type hierarchy */}
       <section className="flex flex-col md:flex-row w-full max-h-[800px] overflow-hidden">
-        {/* Image on mobile (top), right on desktop */}
-        <div className="md:order-2 w-full md:w-1/2 h-[60vw] md:h-[600px] relative bg-[#f5e0e5]">
-          <img 
-            src={modelo_01} 
-            alt="Nueva Colección" 
-            className="w-full h-full object-cover object-top"
-          />
+        <div className="md:order-2 w-full md:w-1/2 h-[60vw] md:h-[600px] relative bg-muted">
+          <img src={modelo_01} alt="Nueva colección" className="w-full h-full object-cover object-top" />
         </div>
-        {/* Text area */}
-        <div className="md:order-1 w-full md:w-1/2 bg-[#EA4C75] text-white flex flex-col justify-center items-center md:items-start text-center md:text-left p-12 md:p-20 lg:p-24 relative overflow-hidden">
-          <div className="absolute top-4 right-4 text-[#F29CBD] opacity-30 w-32 h-32 md:w-48 md:h-48">
-             <FlowerIcon />
-          </div>
-          
-          <h2 className="font-serif text-5xl md:text-6xl lg:text-7xl mb-2 relative z-10 leading-tight">NUEVA<br/>COLECCIÓN</h2>
-          <p className="font-sans text-xl md:text-2xl mb-8 font-light italic relative z-10 text-[#f0c4d0]">Verano 2025</p>
-          <Link href="/search" className="inline-block bg-white text-[#EA4C75] font-sans font-bold text-lg px-8 py-4 rounded-full hover:scale-105 hover:shadow-lg transition-all relative z-10">
-            COMPRAR AHORA
+        <div className="md:order-1 w-full md:w-1/2 bg-primary text-primary-foreground flex flex-col justify-center items-center md:items-start text-center md:text-left p-12 md:p-20 lg:p-24">
+          <span className="font-sans text-sm uppercase tracking-[0.25em] mb-4 text-primary-foreground/80">Nueva colección</span>
+          <h1 className="font-sans font-bold text-5xl md:text-6xl lg:text-7xl uppercase leading-none mb-8">Verano<br />2025</h1>
+          <Link href="/search" className="inline-block bg-background text-foreground font-sans font-bold text-sm uppercase tracking-wider px-8 py-4 hover:bg-foreground hover:text-background transition-colors">
+            Comprar ahora
           </Link>
         </div>
       </section>
 
-      {/* 2. Category Carousel */}
-      <section className="py-8 px-4 overflow-hidden relative">
-        <div className="max-w-6xl mx-auto overflow-x-auto hide-scrollbar">
-          <div className="flex gap-4 md:gap-6 w-max mx-auto pb-4 px-2">
-            {CATEGORIES.map(category => (
-              <CategoryCard
-                key={category}
-                label={category}
-                image={categoryImage(category)}
-                href={`/search?category=${category}`}
-              />
-            ))}
-          </div>
-        </div>
+      {/* 2. Category quick-filter pills (no repeated imagery) */}
+      <section className="py-8 px-4 max-w-6xl mx-auto">
+        <CategoryPills items={CATEGORY_PILLS} hrefFor={(v) => `/search?category=${v}`} />
       </section>
 
-      {/* 3. Editorial Feature Section */}
-      <section className="w-full bg-[#FCC261] py-16 px-4 md:px-12 mt-4 relative overflow-hidden">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-10">
-          <div className="w-full md:w-1/2 relative">
-            <div className="aspect-[4/5] md:aspect-square overflow-hidden rounded-3xl shadow-xl">
-               <img 
-                  src={modelo_02} 
-                  alt="Estilo único" 
-                  className="w-full h-full object-cover object-center"
-                />
-            </div>
-            <div className="absolute -bottom-6 -right-6 text-[#EA4C75] w-24 h-24 rotate-12">
-               <FlowerIcon />
+      {/* 3. Editorial feature — neutral bg, inverted split, color in accents only */}
+      <section className="w-full bg-muted py-16 px-4 md:px-12">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row-reverse items-center gap-10">
+          <div className="w-full md:w-1/2">
+            <div className="aspect-[4/5] md:aspect-square overflow-hidden">
+              <img src={modelo_02} alt="Estilo único" className="w-full h-full object-cover object-center" />
             </div>
           </div>
-          
-          <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left text-[#3d1a24]">
-            <h2 className="font-serif text-4xl md:text-6xl mb-4 leading-tight">ESTILO QUE HABLA POR TI</h2>
-            <p className="font-sans text-xl mb-8">Descubre piezas únicas diseñadas para ti</p>
-            <Link href="/search" className="inline-block bg-[#3d1a24] text-white font-sans font-bold px-8 py-4 rounded-full hover:bg-[#EA4C75] transition-colors">
-              Ver Colección
+          <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left text-foreground">
+            <span className="font-sans text-sm uppercase tracking-[0.25em] text-primary mb-4">Editorial</span>
+            <h2 className="font-sans font-bold text-4xl md:text-5xl uppercase leading-tight mb-4">Estilo que habla por ti</h2>
+            <p className="font-sans text-lg text-muted-foreground mb-8">Descubre piezas únicas diseñadas para ti.</p>
+            <Link href="/search" className="inline-block bg-foreground text-background font-sans font-bold text-sm uppercase tracking-wider px-8 py-4 hover:bg-primary hover:text-primary-foreground transition-colors">
+              Ver colección
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 4. Product Grid */}
-      <section className="py-20 px-4 md:px-6 max-w-7xl mx-auto relative">
-        <div className="flex items-center gap-4 mb-10 justify-center md:justify-start">
-          <h2 className="font-serif text-3xl md:text-4xl text-[#EA4C75]">LO MÁS DESEADO</h2>
-          <div className="text-[#FCC261] w-8 h-8 hidden md:block">
-            <FlowerIcon />
-          </div>
+      {/* 4. Most wanted — 8 items, horizontal carousel */}
+      <section className="py-16 px-4 md:px-6 max-w-7xl mx-auto">
+        <div className="flex items-end justify-between mb-8">
+          <h2 className="font-sans font-bold text-2xl md:text-3xl uppercase tracking-wide text-foreground">Lo más deseado</h2>
+          <Link href="/search" className="font-sans text-sm font-bold text-primary hover:underline whitespace-nowrap">Ver todo</Link>
         </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
-          {PRODUCTS.map(product => (
-            <ProductCard key={product.id} product={product} />
+        <ProductCarousel>
+          {MOST_WANTED.map((product) => (
+            <div key={product.id} className="w-44 md:w-64 flex-none">
+              <ProductCard product={product} showPrice={false} />
+            </div>
           ))}
-        </div>
+        </ProductCarousel>
       </section>
     </div>
   );

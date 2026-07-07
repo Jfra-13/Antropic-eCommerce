@@ -1,0 +1,186 @@
+# Análisis UI/UX del listado de productos (PLP) — estilo Garage
+
+Voy a diseccionar esto como lo haría en una auditoría de e-commerce, capa por capa: sistema de grid, barra de controles, anatomía de la card, tipografía, color, espaciado y dirección de arte fotográfica. Con esto cualquier persona (diseñador o dev) debería poder reconstruir el patrón sin ambigüedad.
+
+## 1. Sistema de grid del listado (PLP grid)
+
+- **Columnas visibles:** 4 columnas en desktop (viewport ancho ~1440px+), sin bordes ni sombras entre tarjetas — la separación se logra **solo con whitespace**, no con `border` ni `box-shadow`. Esto es clave: el estilo se ve "limpio" precisamente porque no hay contenedores visuales, es un grid puro tipo `display: grid; grid-template-columns: repeat(4, 1fr);`.
+- **Gutter (separación entre columnas):** estimado en **20–24px**, y el gap vertical entre filas es similar o ligeramente mayor (~24–32px) porque debajo de cada imagen hay bloque de texto.
+- **Márgenes de contenedor:** el grid completo respeta un margen lateral generoso respecto al viewport (~24px en desktop), típico de layout tipo `max-width` centrado con padding lateral fijo.
+- **Sin recuadro de card:** no existe un "card container" con fondo propio; la imagen es el límite visual de la tarjeta. Esto es una decisión de diseño relevante: reduce el "peso" visual y hace que el foco sea 100% la prenda, no el contenedor.
+
+## 2. Barra de control superior (filtros + vista + orden)
+
+Esta franja, justo debajo del H1 "CLOTHING", tiene tres zonas funcionales distribuidas en un `flex` con `justify-content: space-between`:
+
+- **Izquierda:** dos botones tipo *outline* (`border: 1px solid`, fondo transparente, esquinas rectas sin border-radius o con radio mínimo ~2-4px): "Categories" y "All Filters". Ambos con padding horizontal cómodo (~16px) y texto en negro sobre fondo blanco — jerarquía baja, invitan a clic pero no compiten con el CTA principal de la página (que aquí no existe, porque es una categoría, no una landing).
+- **Centro-izquierda:** contador de resultados "1383 items" en texto plano, gris medio, sin peso — información de contexto, no accionable.
+- **Centro-derecha:** **toggle de densidad de grid** — dos íconos pequeños: uno de "barras apiladas" (vista actual, 2 columnas grandes, marcado como activo con color negro/subrayado) y otro de "grid 4 cuadros" (vista compacta, en gris = inactivo). Este control le da al usuario el poder de cambiar cuántos productos por fila quiere ver — patrón clásico de e-commerce de moda para adaptarse a comportamiento de "hojeo rápido" vs "detalle de imagen grande".
+- **Derecha:** "Sort By" en gris (label no interactivo) + separador vertical (pipe `|`) + "Relevance" en negro con chevron implícito de dropdown. Patrón estándar: label pasivo, valor activo en negro para indicar que es clickeable/seleccionable.
+
+## 3. Anatomía de la tarjeta de producto (la pieza central)
+
+Cada card se compone de **dos zonas apiladas verticalmente**, sin fondo ni borde propio:
+
+### 3.1 Zona de imagen
+- **Relación de aspecto:** vertical, retrato, aproximadamente **3:4 a 4:5** (más alta que ancha). Esto es intencional en moda: prioriza mostrar la prenda puesta de cuerpo completo o medio cuerpo, no un cutout de producto plano.
+- **Recorte/crop:** `object-fit: cover` — la imagen llena el contenedor sin distorsión, recortando los extremos si es necesario. Se nota porque en varias fotos la modelo está cortada por el encuadre (cabeza fuera de foco, cuerpo cortado a la altura del muslo).
+- **Fondo de foto no uniforme:** aquí hay algo importante — **no es un catálogo de fondo blanco puro**. Mezclan fotografía editorial (playa, fondo azul saturado, fondo gris de estudio) con fondo blanco/producto limpio. Esto es una decisión de dirección de arte, no un descuido: comunica lifestyle/aspiracional en vez de catálogo técnico, algo común en marcas dirigidas a Gen Z (Garage, Brandy Melville, Aritzia usan variantes de esto).
+- **Sin padding interno:** la imagen ocupa el 100% del ancho de columna, edge-to-edge, sin margen blanco alrededor.
+
+### 3.2 Badge de mérito (overlay sobre la imagen)
+- **Posición:** esquina superior izquierda de la imagen, con un margen interno pequeño (~8–12px desde el borde superior e izquierdo).
+- **Estilo:** rectángulo con esquinas rectas (no redondeadas), fondo gris muy claro/blanco translúcido, texto negro en mayúsculas, tamaño pequeño (~10-11px), con letter-spacing ligero. Texto: "BESTSELLER".
+- **Función UX:** es un *trust signal* — reduce fricción de decisión mostrando prueba social sin necesitar texto adicional ni scroll. Al estar sobre la imagen (no en el bloque de texto) no consume espacio vertical del layout, manteniendo todas las cards con la misma altura total.
+
+### 3.3 Bloque de texto (debajo de la imagen)
+Aquí NO hay badge de imagen — es texto plano en flujo normal, con esta jerarquía descendente:
+
+1. **Nombre del producto:** negro, peso regular (400) o medium (500), tamaño ~13-14px, sentence case (no mayúsculas), una o dos líneas máximo, sin truncado visible con ellipsis en estos ejemplos porque los nombres son cortos.
+2. **Precio:** negro, mismo tamaño o levemente mayor, peso similar al nombre — no hay jerarquía tipográfica fuerte entre nombre y precio (ambos compiten en el mismo nivel visual, lo cual es una decisión válida: no quieren que el precio "grite" más que el producto).
+3. **Etiqueta "NEW" (condicional):** aquí está el segundo sistema de badge, y es **deliberadamente distinto** al de "BESTSELLER". "NEW" se muestra como texto en el bloque inferior (no overlay), en el color de marca (magenta/rosa fuerte), mayúsculas, tamaño pequeño (~10px), con tracking amplio. Al usar el color de marca en vez de negro, se le da peso jerárquico distinto: es información promocional/temporal, no permanente como el nombre o precio.
+
+**Importante:** "BESTSELLER" y "NEW" nunca aparecen juntos en la misma card en esta captura — son mutuamente excluyentes en el sistema de merchandising, y cada uno tiene su propio lenguaje visual (overlay vs. texto inline) según si es una etiqueta "de imagen" (mérito histórico) o "de texto" (estado temporal).
+
+## 4. Sistema tipográfico
+
+- **Familia:** un sans-serif geométrico/grotesco limpio, sin serifas, con proporciones que recuerdan a Helvetica Neue / Akzidenz-Grotesk o una fuente custom similar (muy común en retail de moda contemporáneo).
+- **Jerarquía de tamaños (estimada):**
+  - H1 "CLOTHING": ~36-42px, bold/black weight (700-900).
+  - Nav superior / botones filtro: ~13-14px, regular.
+  - Nombre + precio de producto: ~13-14px, regular/medium.
+  - Badges (BESTSELLER / NEW): ~10-11px, con letter-spacing +0.5px a +1px para compensar el tamaño pequeño en mayúsculas.
+- **Sin cursivas, sin serif** en ningún punto del sistema — coherencia total hacia un tono moderno/minimal.
+
+## 5. Sistema de color
+
+| Uso | Color aproximado |
+|---|---|
+| Logo / marca / breadcrumb / etiqueta "NEW" | Magenta/rosa fuerte (~`#E6007A` o similar) |
+| Link promocional "Summer Sale" | Rojo (distinto del magenta de marca — codifica "urgencia/oferta" vs "identidad") |
+| Texto principal | Negro puro o gris muy oscuro (~`#111`) |
+| Texto secundario (contador, "Sort By") | Gris medio (~`#767676`) |
+| Fondos | Blanco puro |
+| Badge "BESTSELLER" | Gris clarísimo/blanco con texto negro |
+
+La regla de oro aquí: **el color de marca (magenta) se reserva para elementos de identidad y estados activos/promocionales**, nunca para texto funcional neutro (nombres, precios, navegación estándar).
+
+## 6. Consideraciones de interacción (no visibles en la captura, pero estándar en este patrón)
+
+Como diseñador con experiencia en este tipo de PLP, esperaría (y recomendaría si se replica):
+
+- **Hover en desktop:** cambio de imagen a una segunda foto del producto (ángulo distinto o detalle), transición con `opacity crossfade` de ~200-300ms.
+- **Quick add to cart:** botón que aparece sobreimpuesto al hacer hover, generalmente en la parte inferior de la imagen.
+- **Wishlist icon:** aunque no se ve en la card individual en esta captura, suele ubicarse en la esquina superior derecha de la imagen, con el mismo tratamiento minimalista que el badge (aparece en hover o siempre visible en mobile).
+
+## 7. Recomendación técnica de replicación
+
+Si lo vas a construir:
+- Grid: CSS Grid con `grid-template-columns: repeat(4, 1fr)` y `gap` fijo, sin `border`/`box-shadow` en las cards.
+- Imagen: `aspect-ratio: 3/4` fijo + `object-fit: cover`, para que el grid nunca "salte" al cargar imágenes de proporciones distintas.
+- Badge overlay: `position: absolute` dentro de un contenedor `position: relative` que envuelve la imagen.
+- Tipografía: define solo 2-3 tamaños de fuente para todo el sistema de card (evita crear más jerarquía de la necesaria — ese minimalismo es parte del estilo).
+
+¿Quieres que te arme esto directamente como componente de card funcional (HTML/CSS o React) para que lo veas renderizado y lo puedas ajustar?
+
+
+# Análisis UI/UX — Vista compacta (Grid View) del PLP
+
+Perfecto, esta es la segunda variante de densidad del mismo listado. Vamos a diseccionarla comparándola punto por punto contra la vista anterior (la de 4 columnas), porque el valor real de este análisis está en entender **por qué existen dos modos y qué decisión de UX resuelve cada uno**.
+
+## 1. El control de toggle — ahora con el estado invertido
+
+En la captura anterior, el ícono activo era el de "barras apiladas" (2 columnas grandes). Aquí el estado activo cambió:
+
+- **Ícono de "barras apiladas"** (izquierda): ahora en trazo fino, gris — estado **inactivo**.
+- **Ícono de "grid 2x2"** (derecha): ahora en trazo grueso, negro — estado **activo/seleccionado**.
+
+Este es un patrón de **toggle binario mutuamente excluyente** (no un multi-estado), típico de un `radio group` visual: solo uno de los dos íconos puede estar "presionado" a la vez, y el cambio de estado se comunica exclusivamente con **peso de trazo + color** (grosor del ícono + negro vs gris), sin necesidad de un fondo de botón o borde. Es una señal de estado minimalista pero suficiente.
+
+## 2. Cambio de densidad del grid: de 4 a 6 columnas
+
+Esto es la diferencia estructural principal:
+
+| Propiedad | Vista 1 (4 columnas) | Vista 2 (6 columnas, esta) |
+|---|---|---|
+| Columnas | 4 | 6 |
+| Ancho de cada tarjeta | Mayor (~25% del contenedor) | Menor (~16.6% del contenedor) |
+| Gutter entre columnas | ~20-24px (espacio blanco visible) | **~4-6px, casi imperceptible** |
+| Bloque de texto (nombre/precio) | Sí, visible debajo de cada imagen | **No existe — cero texto** |
+| Badges (BESTSELLER/NEW) | Visibles | **Ausentes** |
+| Densidad de información | Media (imagen + metadata) | Baja intencional (solo imagen) |
+
+El punto más importante técnicamente: **el gutter casi desaparece**. En la vista de 4 columnas el espacio en blanco entre tarjetas es una separación clara y deliberada tipo "card en su propio espacio". Aquí, en cambio, las imágenes prácticamente se tocan entre sí, generando un efecto de **"mosaico continuo"** o "pared de imágenes" — muy similar visualmente al grid de Instagram o Pinterest en modo denso. Esto se logra reduciendo el `gap` del CSS Grid a un valor mínimo (equivalente a unos 4-6px) en vez de los ~20-24px de la vista anterior.
+
+## 3. Anatomía de la tarjeta en este modo: solo imagen, cero metadata
+
+Esta es la diferencia conceptual más relevante para tu pregunta. En la vista 1, cada card tenía **dos zonas** (imagen + bloque de texto con nombre, precio y badge). Aquí, **la card se reduce a una sola zona: la imagen**, sin:
+
+- Nombre del producto
+- Precio
+- Badge de "BESTSELLER" o "NEW"
+
+**Justificación UX (por qué una marca hace esto deliberadamente):** este modo no está diseñado para "comparar y decidir con datos" (precio, nombre), sino para **exploración visual pura / descubrimiento por estética**. Es el modo que usa alguien que está "hojeando" el catálogo como si fuera un moodboard o un feed visual, priorizando velocidad de scroll y volumen de productos vistos por segundo, no la toma de decisión informada. La vista 1, en cambio, es el modo "quiero evaluar esta prenda específica" porque expone precio y nombre de inmediato.
+
+Esto es una decisión de arquitectura de información muy consciente: **el mismo dataset de productos se presenta con dos jerarquías de información completamente distintas según la intención de uso del usuario en ese momento del journey.**
+
+## 4. El comportamiento de hover — swap instantáneo de imagen (lo que pediste destacar)
+
+Confirmas que al pasar el cursor sobre una tarjeta, **la imagen cambia inmediatamente a una segunda foto del mismo producto** (ángulo, pose o encuadre distinto). Técnicamente esto tiene varios detalles finos que vale la pena precisar:
+
+### 4.1 Tipo de transición: corte instantáneo, no crossfade
+Aclaras que el cambio es **al instante**, no un fundido gradual (`opacity` transition de 200-300ms como mencioné antes como práctica común en otros retailers). Esto es una decisión de implementación específica de Garage:
+
+- **Ventaja:** más simple de implementar, cero costo de animación, sensación de "respuesta inmediata" del sistema.
+- **Desventaja UX:** puede sentirse más brusco/menos "premium" que un crossfade suave, pero prioriza percepción de velocidad sobre pulido visual — coherente con el público objetivo (Gen Z, alto volumen de scroll, expectativa de feedback inmediato tipo redes sociales).
+
+### 4.2 Arquitectura técnica típica para lograr esto
+Para replicarlo, hay dos approaches estándar en la industria:
+
+**Opción A — Swap de `src` en un solo `<img>`:**
+```css
+/* Pseudo-lógica */
+.product-image {
+  background-image: url('foto-1.jpg');
+}
+.product-card:hover .product-image {
+  background-image: url('foto-2.jpg');
+}
+```
+Riesgo: si la segunda imagen no está precargada (`preload`), puede haber un parpadeo/delay de carga en el primer hover.
+
+**Opción B — Dos `<img>` apiladas con `position: absolute` (más robusta, la que recomendaría con 20 años de experiencia en esto):**
+```css
+.product-card { position: relative; }
+.img-primary, .img-hover {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.img-hover { opacity: 0; }
+.product-card:hover .img-hover { opacity: 1; }
+.product-card:hover .img-primary { opacity: 0; }
+```
+Aquí ambas imágenes ya están cargadas en el DOM desde el render inicial (o lazy-loaded juntas), así que el swap es realmente instantáneo sin esperar red. Dado que confirmas que **no hay transición suave**, simplemente se elimina el `transition: opacity` y el cambio de `opacity: 0/1` ocurre en 0ms — corte seco.
+
+### 4.3 Implicación de performance
+Esto significa que **cada producto en el catálogo carga mínimo 2 imágenes** (la de estado normal + la de hover), lo cual duplica el peso de red del listado. Es una decisión consciente de la marca: sacrifican peso de página a cambio de mejor tasa de exploración/conversión, algo común en fast-fashion donde el catálogo es el producto en sí (mostrar variedad = vender más).
+
+## 5. Comparación de propósito: cuándo se usa cada vista
+
+| Vista | Nombre técnico sugerido | Intención del usuario |
+|---|---|---|
+| 4 columnas (anterior) | "Detail Grid" / vista informativa | Comparar precio, nombre, leer badges, decisión de compra más consciente |
+| 6 columnas (esta) | "Compact/Visual Grid" | Exploración rápida, descubrimiento estético, "scrolleo tipo feed" |
+
+Es el mismo patrón que usan Zara, H&M o ASOS en sus toggles de grid: **no es solo "más chico o más grande"**, es un cambio real de modelo mental — de "catálogo con ficha técnica" a "mood board navegable".
+
+## 6. Recomendación técnica de replicación
+
+Si vas a construir ambos modos:
+
+1. Mantén **un solo componente `ProductCard`** con un prop `variant` (`detailed` | `compact`) que controle si se renderiza el bloque de texto/badges o no — evita duplicar lógica de producto.
+2. El grid contenedor cambia solo `grid-template-columns` y `gap` según el estado del toggle (guardado en state local o URL query param, ej. `?view=compact`, para que sea compartible/bookmarkeable).
+3. Precarga ambas imágenes (normal + hover) en el mismo `srcset` request cuando el producto entra en viewport (`IntersectionObserver` + lazy load), para que el swap en hover sea realmente instantáneo sin flash.
+4. El swap de opacidad debe ser `transition: none` o `0ms` si quieres replicar exactamente el comportamiento "seco" que describes, en vez de un crossfade.

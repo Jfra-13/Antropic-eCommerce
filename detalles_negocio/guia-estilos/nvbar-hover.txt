@@ -1,0 +1,70 @@
+Voy a mirar la imagen con más detalle para poder describirte con precisión el mega-menú de "Clothing" antes de escribir el análisis.Ahora sí, aquí tienes el análisis técnico de ese mega-menú, como si estuvieras documentando un componente para un design system.
+
+## Contexto general del header
+
+Antes de entrar al hover, el header tiene una estructura de dos niveles:
+
+- **Barra de utilidad superior** (banner): fondo negro/gris muy oscuro (#1a1a1a aprox.), texto blanco, centrado, con un mensaje promocional ("New styles just added...") y un link subrayado ("Shop Sale") como único elemento interactivo diferenciado. A la izquierda, dos marcas hermanas (GARAGE / DYNAMITE) en mayúsculas, separadas por un divisor vertical tenue — esto indica que es un header compartido entre dos brands del mismo grupo (esto es típico de Groupe Dynamite). A la derecha, un selector de país/región con ícono de globo.
+- **Barra principal de navegación** (fondo blanco, altura aprox. 64-72px): logo a la izquierda en magenta/fucsia saturado (el color de marca), nav horizontal centrado-izquierda, e íconos de utilidad a la derecha (búsqueda, wishlist, cuenta con badge de loyalty points, carrito).
+
+El nav principal tiene 5 ítems: **Summer Sale** (en rojo, para destacar la urgencia promocional — es la única excepción cromática dentro del nav), **New**, **Clothing** (subrayado, indicando estado activo/hover), **Hot RN**, **Accessories**.
+
+## El hover de "Clothing": mega-menú de 3 columnas + panel visual
+
+Esto es un **mega dropdown** (mega-menú), no un dropdown simple de lista vertical. La diferencia técnica importa: un dropdown simple es una lista `<ul>` vertical de 1 columna; un mega-menú es un panel de ancho completo (o casi) con **arquitectura de información multi-columna** más contenido visual/promocional embebido.
+
+### Estructura de columnas (izquierda a derecha):
+
+**1. CATEGORIES** (columna de navegación primaria)
+- Header de columna en mayúsculas, peso semibold/bold, tamaño pequeño (~12-13px), tracking amplio (letter-spacing positivo), color negro o gris muy oscuro — funciona como un "label" categórico, no como link.
+- Debajo, lista vertical de 13 links: All Clothing, Tops, Hoodies & Sweatshirts, Sweaters & Cardigans, Sweatpants, Bottoms, Shorts & Skirts, Denim, Dresses & Rompers, Jackets, Lounge, Swimwear.
+- Cada ítem en peso regular, tamaño ~14px, line-height generoso (~28-32px por línea) para dar "aire" y facilitar el tap/click target — esto es clave en UX: con 13 ítems verticales necesitas suficiente espaciado para que el hover state de cada línea no se sienta apretado.
+- "All Clothing" va primero como link de "ver todo", patrón estándar en e-commerce.
+
+**2. COLOR CRUSH** (columna de merchandising por color/colección)
+- Mismo tratamiento tipográfico de header que la columna 1 (consistencia).
+- Lista de "nombres de color" con naming creativo de marca: Blue Rebound, Limonada, Naughty Navy, Raspberry Cheeks, Scarlet Flame, Juicy Peach, Coconut Whip.
+- **Detalle importante de UX**: "Blue Rebound" tiene un badge "New" — un rectángulo pequeño con borde fino (outline, no relleno), texto en mayúsculas diminuto, funcionando como indicador de novedad. Esto es un patrón de **badge/tag component** reutilizable que probablemente se usa en todo el sitio (en PDPs, en listados de producto, etc.).
+- Hay un pequeño separador visual (un guión corto "-") entre "Naughty Navy" y "Raspberry Cheeks", posiblemente un artefacto de diseño o un divisor sutil entre subgrupos de colores — vale la pena replicarlo tal cual si quieres fidelidad pixel-perfect, aunque funcionalmente no aporta jerarquía clara.
+
+**3. SHOP BY FABRIC** (columna de merchandising por tecnología/material)
+- Tercer criterio de navegación: UltraFleece, Active, Sleek, SnatchRib, StretchTerry, SoftTerry.
+- Estos son nombres de línea de producto (probablemente trademarks internos de tejidos), reforzando que la marca vende "tecnología de tela" como diferenciador — esto es una decisión de **arquitectura de información orientada a producto**, no solo a categoría de prenda. Le da al mega-menú 3 ejes de navegación distintos: por tipo de prenda, por color/colección, y por material — cubriendo diferentes "modelos mentales" de cómo un usuario podría estar buscando.
+
+### Panel visual (columna 4, la más ancha)
+
+A la derecha de las tres columnas de texto hay **dos tarjetas de imagen** lado a lado, de igual ancho, con proporción vertical (portrait, aprox. 4:5 o 3:4):
+
+- Imagen izquierda: modelo en ropa activewear/deportiva (crop top + jogger), fondo de cancha de tenis. Caption debajo: "SHOP TOPS".
+- Imagen derecha: modelo en bikini, fondo de playa. Caption debajo: "SHOP SWIM".
+- Ambas imágenes son **fotografía lifestyle editorial**, no product shots planos — esto comunica "aspiracional" en vez de catálogo puro.
+- El caption va en mayúsculas, tamaño pequeño, peso medium/semibold, alineado a la izquierda debajo de cada imagen, actuando como CTA implícito (todo el bloque imagen+texto es clickeable).
+- No hay overlay de texto sobre la imagen (a diferencia de banners hero típicos) — el texto vive limpio debajo, en el área blanca del menú. Esto es una decisión de legibilidad: evita competir con el contraste variable de la foto.
+
+### Comportamiento de interacción (lo que no se ve pero se infiere)
+
+- **Trigger**: hover (mouseenter) sobre "Clothing" en desktop — el subrayado que ves en "Clothing" en la captura es el estado `:hover` o `.active` del link, probablemente un `border-bottom: 1-2px solid` o `text-decoration-underline` con `text-underline-offset` para separar la línea del texto.
+- **Apertura del panel**: el mega-menú probablement aparece con un `position: absolute` (o `fixed`) anclado al header, `width: 100%` o `max-width` centrado, con un `z-index` alto sobre el resto del contenido, y casi seguro con un pequeño delay de apertura/cierre (~100-200ms) para evitar "flicker" cuando el mouse pasa de camino a otro lugar — patrón estándar con `mouseenter`/`mouseleave` + `setTimeout` o una librería como Headless UI / Radix.
+- **Fondo**: el panel entero tiene fondo blanco sólido, con un **drop shadow** sutil en el borde inferior para separarlo visualmente del contenido de la página que queda debajo (aunque en la captura no se aprecia sombra fuerte, es común un `box-shadow: 0 8px 24px rgba(0,0,0,0.08)` o similar).
+- **Cierre**: al mover el mouse fuera del área del nav + menú, o al hacer click en cualquier link.
+- **Estado hover por ítem**: cada link de las 3 columnas de texto probablemente tiene un estado hover propio — comúnmente un cambio de color (de negro a gris, o de negro a magenta usando el color de marca) o un subrayado que aparece, NO un cambio de background típicamente en este tipo de menú minimalista.
+
+### Sistema tipográfico y de espaciado (para replicar fielmente)
+
+- **Fuente**: sans-serif geométrica o neo-grotesca (algo tipo Helvetica Neue, Inter, o una custom similar — muy limpia, sin serifas, buen contraste de grosor entre el bold de headers y el regular de los links).
+- **Jerarquía por tamaño y peso**, no por color: los headers de columna (CATEGORIES, COLOR CRUSH, SHOP BY FABRIC) se diferencian de los links por ser bold + mayúsculas + tracking amplio, mientras que los links son regular + sentence/title case normal.
+- **Grid**: 4 columnas de ancho variable — las 3 de texto son más angostas y de ancho similar entre sí, la columna visual es notablemente más ancha (probablemente ocupa 40-45% del ancho total del menú vs. ~18-20% cada columna de texto).
+- **Padding interno del panel**: generoso, probablemente 40-60px de padding horizontal y vertical respecto a los bordes del panel, dando sensación "premium" y evitando saturación visual pese a tener ~26 links de texto en total.
+
+### Resumen para implementación (checklist técnico)
+
+1. Contenedor `nav` con 5 top-level items, uno de ellos (Clothing) con submenu.
+2. Mega-menú como panel `absolute`, full-width o centrado, `display: none` por defecto, mostrado vía hover con manejo de delay.
+3. Grid interno de 4 columnas: 3 de navegación textual + 1 de contenido visual (2 tarjetas imagen+caption).
+4. Cada columna textual: header en caps/bold/tracking-wide + lista vertical de links con line-height amplio.
+5. Componente de badge reutilizable ("New") con outline sutil, para señalizar novedades dentro de listas de links.
+6. Tarjetas visuales: imagen portrait + caption caps debajo, todo el bloque como link único.
+7. Tipografía sans-serif consistente en dos pesos (bold para headers, regular para body/links), sin cambios de color como mecanismo principal de jerarquía.
+8. Transición sutil de opacidad/translateY al abrir el panel (fade-in + slight slide-down), duración ~150-250ms, es el patrón más común aunque no se puede confirmar 100% desde una imagen estática.
+
+¿Quieres que te arme esto directamente como código (HTML/CSS o React) para que lo pruebes en vivo, o prefieres primero ajustar algún detalle de la descripción?

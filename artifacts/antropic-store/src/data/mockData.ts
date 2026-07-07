@@ -1,29 +1,52 @@
+import corcet_blanco from "../assets/corcet_blanco.png";
+import modelo_01 from "../assets/modelo_01.webp";
+import modelo_02 from "../assets/modelo_02.webp";
+
 export interface ProductColor {
   name: string;
   hex: string;
 }
+
+// Occasion of use — business requirement (Fiesta, Oficina, etc.). Drives the
+// navbar mega-menu and the ?occasion= filter on the PLP.
+export type Occasion = "Casual" | "Fiesta" | "Oficina" | "Playa" | "Deporte";
+
+// Per-size stock. A size with stock 0 is shown disabled on the PDP (not hidden)
+// so "avísame cuando haya stock" can be offered.
+export interface Variant {
+  size: string;
+  stock: number;
+}
+
+// Mutually exclusive card badges (guía de estilos §badges):
+// - "nuevo": temporal, brand color, inline.
+// - "mas-vendido": merit, neutral overlay on the image.
+export type ProductBadge = "nuevo" | "mas-vendido";
 
 export interface Product {
   id: string;
   name: string;
   price: string;
   category: string;
-  image: string;
-  sizes: string[];
+  // First entry is the primary shot; [1] is the on-model/hover shot used for
+  // the card image swap. ponytail: real photography pending — placeholder
+  // assets reused so the swap mechanism is wired to its final shape.
+  images: string[];
   colors: ProductColor[];
-  stock: number;
-  rating: number;
-  likes: number;
+  variants: Variant[];
+  occasion: Occasion[];
   fit: string;
   details: string;
+  badge?: ProductBadge;
 }
-import corcet_blanco from "../assets/corcet_blanco.png";
-const COMMON_IMAGE = corcet_blanco;
 
 const DEFAULT_DETAILS =
   "Confeccionada con materiales suaves y de alta calidad, esta pieza combina comodidad y estilo para tu día a día. Diseño versátil pensado para acompañarte en cualquier ocasión y realzar tu look con la esencia ANTROPIC.";
 
 export const ALL_SIZES = ["XS", "S", "M", "L", "XL", "Único"];
+
+// Occasions offered as filters / mega-menu entries.
+export const ALL_OCCASIONS: Occasion[] = ["Casual", "Fiesta", "Oficina", "Playa", "Deporte"];
 
 const C = {
   rosa: { name: "Rosa", hex: "#F29CBD" },
@@ -39,39 +62,86 @@ export const ALL_COLORS: ProductColor[] = [
   C.rosa, C.coral, C.dorado, C.fucsia, C.blanco, C.negro, C.denim,
 ];
 
-const base = (p: Omit<Product, "image" | "details"> & { details?: string }): Product => ({
-  image: COMMON_IMAGE,
-  details: p.details ?? DEFAULT_DETAILS,
-  ...p,
-});
+// Placeholder hover shot — alternates so the swap is visible in the demo.
+const HOVER_SHOTS = [modelo_01, modelo_02];
+
+type BaseInput = {
+  id: string;
+  name: string;
+  price: string;
+  category: string;
+  sizes: string[];
+  colors: ProductColor[];
+  stock: number;
+  fit: string;
+  occasion?: Occasion[];
+  badge?: ProductBadge;
+  soldOutSizes?: string[];
+  details?: string;
+};
+
+const base = (p: BaseInput): Product => {
+  const per = p.sizes.length > 0 ? Math.max(1, Math.round(p.stock / p.sizes.length)) : 0;
+  const variants: Variant[] = p.sizes.map((size) => ({
+    size,
+    stock: p.soldOutSizes?.includes(size) ? 0 : per,
+  }));
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    category: p.category,
+    images: [corcet_blanco, HOVER_SHOTS[Number(p.id) % HOVER_SHOTS.length]],
+    colors: p.colors,
+    variants,
+    occasion: p.occasion ?? ["Casual"],
+    fit: p.fit,
+    details: p.details ?? DEFAULT_DETAILS,
+    badge: p.badge,
+  };
+};
 
 export const PRODUCTS: Product[] = [
-  base({ id: "1", name: "Top Margarita Rosa", price: "S/ 29.99", category: "Tops", sizes: ["XS", "S", "M", "L"], colors: [C.rosa, C.blanco, C.fucsia], stock: 12, rating: 4.5, likes: 128, fit: "Fit" }),
-  base({ id: "2", name: "Shorts Denim Clásico", price: "S/ 39.99", category: "Shorts", sizes: ["S", "M", "L", "XL"], colors: [C.denim, C.negro], stock: 8, rating: 4.2, likes: 89, fit: "Regular" }),
-  base({ id: "3", name: "Vestido Floral Verano", price: "S/ 49.99", category: "Swim", sizes: ["XS", "S", "M"], colors: [C.rosa, C.coral], stock: 5, rating: 4.8, likes: 210, fit: "Regular" }),
-  base({ id: "4", name: "Top Deportivo Coral", price: "S/ 24.99", category: "Active", sizes: ["S", "M", "L"], colors: [C.coral, C.negro, C.fucsia], stock: 20, rating: 4.3, likes: 76, fit: "Fit" }),
-  base({ id: "5", name: "Camiseta Básica Sol", price: "S/ 19.99", category: "Tops", sizes: ["XS", "S", "M", "L", "XL"], colors: [C.blanco, C.dorado, C.negro], stock: 30, rating: 4.1, likes: 54, fit: "Regular" }),
-  base({ id: "6", name: "Chaqueta Denim Ligera", price: "S/ 59.99", category: "Denim", sizes: ["S", "M", "L"], colors: [C.denim], stock: 6, rating: 4.6, likes: 143, fit: "Oversize" }),
-  base({ id: "7", name: "Top Floral 50% Off", price: "S/ 14.99", category: "Sale", sizes: ["XS", "S", "M"], colors: [C.rosa, C.coral], stock: 4, rating: 4.0, likes: 65, fit: "Fit" }),
-  base({ id: "8", name: "Shorts Coral Oferta", price: "S/ 19.99", category: "Sale", sizes: ["S", "M", "L"], colors: [C.coral, C.denim], stock: 7, rating: 3.9, likes: 41, fit: "Regular" }),
-  base({ id: "9", name: "Camiseta Nueva Temporada", price: "S/ 25.99", category: "Novedades", sizes: ["S", "M", "L", "XL"], colors: [C.blanco, C.rosa], stock: 15, rating: 4.7, likes: 98, fit: "Oversize" }),
-  base({ id: "10", name: "Falda Plisada Verano", price: "S/ 34.99", category: "Novedades", sizes: ["XS", "S", "M", "L"], colors: [C.dorado, C.rosa], stock: 9, rating: 4.4, likes: 112, fit: "Regular" }),
-  base({ id: "11", name: "Blusa Satinada Perla", price: "S/ 44.99", category: "Tops", sizes: ["S", "M", "L"], colors: [C.blanco, C.rosa], stock: 11, rating: 4.5, likes: 87, fit: "Slim" }),
-  base({ id: "12", name: "Jeans Mom Fit", price: "S/ 69.99", category: "Denim", sizes: ["S", "M", "L", "XL"], colors: [C.denim, C.negro], stock: 10, rating: 4.6, likes: 156, fit: "Oversize" }),
-  base({ id: "13", name: "Bikini Tropical", price: "S/ 39.99", category: "Swim", sizes: ["XS", "S", "M", "L"], colors: [C.coral, C.fucsia], stock: 6, rating: 4.7, likes: 189, fit: "Fit" }),
-  base({ id: "14", name: "Legging Power Active", price: "S/ 34.99", category: "Active", sizes: ["XS", "S", "M", "L"], colors: [C.negro, C.fucsia], stock: 18, rating: 4.5, likes: 134, fit: "Fit" }),
-  base({ id: "15", name: "Bolso Tejido Playa", price: "S/ 29.99", category: "Accesorios", sizes: ["Único"], colors: [C.dorado, C.coral], stock: 14, rating: 4.2, likes: 47, fit: "Regular" }),
-  base({ id: "16", name: "Collar Flor Dorado", price: "S/ 15.99", category: "Accesorios", sizes: ["Único"], colors: [C.dorado], stock: 25, rating: 4.3, likes: 33, fit: "Regular" }),
-  base({ id: "17", name: "Top Crop Oversize", price: "S/ 27.99", category: "Tops", sizes: ["S", "M", "L"], colors: [C.negro, C.blanco, C.coral], stock: 13, rating: 4.1, likes: 61, fit: "Oversize" }),
-  base({ id: "18", name: "Short Cargo Rosa", price: "S/ 32.99", category: "Shorts", sizes: ["XS", "S", "M", "L"], colors: [C.rosa, C.negro], stock: 9, rating: 4.0, likes: 52, fit: "Regular" }),
-  base({ id: "19", name: "Vestido Verano Coral", price: "S/ 54.99", category: "Novedades", sizes: ["S", "M", "L"], colors: [C.coral, C.dorado], stock: 7, rating: 4.8, likes: 175, fit: "Regular" }),
-  base({ id: "20", name: "Sudadera Suave Nube", price: "S/ 49.99", category: "Sale", sizes: ["S", "M", "L", "XL"], colors: [C.rosa, C.blanco], stock: 5, rating: 4.4, likes: 93, fit: "Oversize" }),
+  base({ id: "1", name: "Top Margarita Rosa", price: "S/ 29.99", category: "Tops", sizes: ["XS", "S", "M", "L"], colors: [C.rosa, C.blanco, C.fucsia], stock: 12, fit: "Fit", badge: "nuevo" }),
+  base({ id: "2", name: "Shorts Denim Clásico", price: "S/ 39.99", category: "Shorts", sizes: ["S", "M", "L", "XL"], colors: [C.denim, C.negro], stock: 8, fit: "Regular", badge: "mas-vendido" }),
+  base({ id: "3", name: "Vestido Floral Verano", price: "S/ 49.99", category: "Swim", sizes: ["XS", "S", "M"], colors: [C.rosa, C.coral], stock: 5, fit: "Regular", occasion: ["Fiesta", "Playa"], soldOutSizes: ["XS"] }),
+  base({ id: "4", name: "Top Deportivo Coral", price: "S/ 24.99", category: "Active", sizes: ["S", "M", "L"], colors: [C.coral, C.negro, C.fucsia], stock: 20, fit: "Fit", occasion: ["Deporte"] }),
+  base({ id: "5", name: "Camiseta Básica Sol", price: "S/ 19.99", category: "Tops", sizes: ["XS", "S", "M", "L", "XL"], colors: [C.blanco, C.dorado, C.negro], stock: 30, fit: "Regular", badge: "mas-vendido" }),
+  base({ id: "6", name: "Chaqueta Denim Ligera", price: "S/ 59.99", category: "Denim", sizes: ["S", "M", "L"], colors: [C.denim], stock: 6, fit: "Oversize", occasion: ["Casual", "Oficina"] }),
+  base({ id: "7", name: "Top Floral 50% Off", price: "S/ 14.99", category: "Sale", sizes: ["XS", "S", "M"], colors: [C.rosa, C.coral], stock: 4, fit: "Fit" }),
+  base({ id: "8", name: "Shorts Coral Oferta", price: "S/ 19.99", category: "Sale", sizes: ["S", "M", "L"], colors: [C.coral, C.denim], stock: 7, fit: "Regular" }),
+  base({ id: "9", name: "Camiseta Nueva Temporada", price: "S/ 25.99", category: "Novedades", sizes: ["S", "M", "L", "XL"], colors: [C.blanco, C.rosa], stock: 15, fit: "Oversize", badge: "nuevo" }),
+  base({ id: "10", name: "Falda Plisada Verano", price: "S/ 34.99", category: "Novedades", sizes: ["XS", "S", "M", "L"], colors: [C.dorado, C.rosa], stock: 9, fit: "Regular", occasion: ["Oficina", "Fiesta"], badge: "nuevo" }),
+  base({ id: "11", name: "Blusa Satinada Perla", price: "S/ 44.99", category: "Tops", sizes: ["S", "M", "L"], colors: [C.blanco, C.rosa], stock: 11, fit: "Slim", occasion: ["Oficina", "Fiesta"] }),
+  base({ id: "12", name: "Jeans Mom Fit", price: "S/ 69.99", category: "Denim", sizes: ["S", "M", "L", "XL"], colors: [C.denim, C.negro], stock: 10, fit: "Oversize", badge: "mas-vendido" }),
+  base({ id: "13", name: "Bikini Tropical", price: "S/ 39.99", category: "Swim", sizes: ["XS", "S", "M", "L"], colors: [C.coral, C.fucsia], stock: 6, fit: "Fit", occasion: ["Playa"] }),
+  base({ id: "14", name: "Legging Power Active", price: "S/ 34.99", category: "Active", sizes: ["XS", "S", "M", "L"], colors: [C.negro, C.fucsia], stock: 18, fit: "Fit", occasion: ["Deporte"] }),
+  base({ id: "15", name: "Bolso Tejido Playa", price: "S/ 29.99", category: "Accesorios", sizes: ["Único"], colors: [C.dorado, C.coral], stock: 14, fit: "Regular", occasion: ["Playa", "Casual"] }),
+  base({ id: "16", name: "Collar Flor Dorado", price: "S/ 15.99", category: "Accesorios", sizes: ["Único"], colors: [C.dorado], stock: 25, fit: "Regular", occasion: ["Fiesta", "Casual"] }),
+  base({ id: "17", name: "Top Crop Oversize", price: "S/ 27.99", category: "Tops", sizes: ["S", "M", "L"], colors: [C.negro, C.blanco, C.coral], stock: 13, fit: "Oversize" }),
+  base({ id: "18", name: "Short Cargo Rosa", price: "S/ 32.99", category: "Shorts", sizes: ["XS", "S", "M", "L"], colors: [C.rosa, C.negro], stock: 9, fit: "Regular", soldOutSizes: ["L"] }),
+  base({ id: "19", name: "Vestido Verano Coral", price: "S/ 54.99", category: "Novedades", sizes: ["S", "M", "L"], colors: [C.coral, C.dorado], stock: 7, fit: "Regular", occasion: ["Fiesta", "Oficina"], badge: "nuevo" }),
+  base({ id: "20", name: "Sudadera Suave Nube", price: "S/ 49.99", category: "Sale", sizes: ["S", "M", "L", "XL"], colors: [C.rosa, C.blanco], stock: 5, fit: "Oversize" }),
 ];
 
 export const CATEGORIES = ["Tops", "Shorts", "Denim", "Active", "Accesorios", "Swim", "Sale", "Novedades"];
 
-export function categoryImage(_category: string): string {
-  return COMMON_IMAGE;
+// --- Derived accessors (variants are the source of truth for stock/sizes) ---
+
+export function productSizes(p: Product): string[] {
+  return p.variants.map((v) => v.size);
+}
+
+export function productStock(p: Product): number {
+  return p.variants.reduce((n, v) => n + v.stock, 0);
+}
+
+export function isSizeAvailable(p: Product, size: string): boolean {
+  return (p.variants.find((v) => v.size === size)?.stock ?? 0) > 0;
+}
+
+export function primaryImage(p: Product): string {
+  return p.images[0];
 }
 
 export function priceToNumber(price: string): number {

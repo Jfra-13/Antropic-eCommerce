@@ -1,0 +1,74 @@
+Déjame ver bien ambas imágenes antes de describirlas.Aquí tienes la descripción técnica de ambos componentes, enfocada solo en el modo **SEARCH** (dejando de lado el Smart Search, que solo mencionaré como el tab hermano que existe pero no describiré su contenido).
+
+---
+
+## 1. Versión Desktop (al hacer click en el ícono de lupa)
+
+**Comportamiento de activación:**
+Al hacer click en el ícono de búsqueda (lupa) ubicado en el header derecho, se despliega un **panel overlay tipo dropdown/modal** que se posiciona debajo del header, ocupando el ancho completo del viewport pero manteniendo el header visible arriba (no es un modal centrado, es más bien un "search takeover" que empuja el contenido).
+
+**Estructura del panel:**
+
+1. **Sistema de tabs superior (centrado):**
+   - Dos pestañas: "✨ SMART SEARCH" y "SEARCH", separadas por un divisor vertical delgado.
+   - La pestaña activa ("SEARCH" en este caso) se distingue con un **subrayado (underline) de 2px negro** que corre todo el ancho del texto, mientras que la inactiva se ve en un gris más apagado sin subrayado.
+   - Botón de cierre (X) en la esquina superior derecha del panel, alineado con los tabs.
+
+2. **Input de búsqueda:**
+   - Barra de búsqueda centrada con **ancho fijo** (no full-width, deja márgenes considerables a los lados —aprox. 35-40% del viewport en cada lado).
+   - Ícono de lupa a la izquierda del placeholder.
+   - Placeholder text: "Search by product or collection" en gris claro.
+   - Borde inferior simple (underline style), sin border completo ni sombra —diseño minimalista tipo "línea".
+
+3. **Sección "TOP CLICKED":**
+   - Label en mayúsculas, bold, tamaño pequeño (12-13px aprox.), alineado a la izquierda, actuando como header de sección.
+   - **Grid de 4 columnas horizontales** con tarjetas de producto/colección.
+   - Las primeras dos tarjetas muestran **contenido curado por país/bandera** (Canadá y USA), con un ícono de bandera pequeño arriba de la imagen del producto —esto sugiere personalización geográfica o campañas regionales destacadas.
+   - Las últimas dos tarjetas son productos individuales reales con foto de modelo, nombre del producto ("Sleek Scoop Cami Top") y precio ("$26.95") debajo de la imagen.
+   - Todas las tarjetas comparten el mismo aspect ratio (parece 3:4 o similar, formato retrato), con fondo gris claro/beige detrás de las imágenes de colección y fondo blanco/foto real en las de producto.
+   - Espaciado (gutter) uniforme entre columnas, sin bordes visibles en las tarjetas —solo la separación por whitespace define cada bloque.
+
+**Comportamiento responsive dentro del layout:** El grid parece diseñado para 4 items visibles simultáneamente sin scroll horizontal en desktop, priorizando mostrar más contenido de una vez dado el ancho disponible.
+
+---
+
+## 2. Versión Mobile (mismo trigger: tap en lupa)
+
+**Comportamiento de activación:**
+En mobile, el patrón cambia de "dropdown panel" a **pantalla completa (full-screen takeover)**. Es una diferencia arquitectónica importante: en desktop es un overlay parcial, en mobile es una vista que reemplaza completamente el viewport, comportándose casi como una nueva "página" dentro de la SPA.
+
+**Estructura del panel:**
+
+1. **Header persistente arriba:**
+   - Se mantiene una barra superior con banner promocional ("New Styles Added - Shop Sale") y el selector de país/idioma ("🌐 US ⌄") a la derecha —esto NO desaparece al abrir el search, dando continuidad visual.
+   - Debajo, el header principal con ícono hamburguesa (menú), lupa, logo centrado, y iconos de cuenta/carrito a la derecha.
+
+2. **Tabs de búsqueda:**
+   - Misma lógica que desktop: "✨ SMART SEARCH" / "SEARCH", con underline en el tab activo.
+   - Aquí los tabs ocupan casi todo el ancho disponible (menos padding lateral), a diferencia del desktop donde están centrados con más espacio en blanco alrededor.
+   - Botón X de cierre en la esquina superior derecha del panel de búsqueda (independiente del header de arriba).
+
+3. **Input de búsqueda:**
+   - **Full-width** (a diferencia del desktop que tenía márgenes generosos), ocupando prácticamente todo el ancho menos el padding lateral estándar.
+   - Mismo estilo underline, ícono de lupa a la izquierda, mismo placeholder.
+
+4. **Sección "TOP CLICKED":**
+   - Mismo label bold en mayúsculas.
+   - **Grid de 2 columnas** (no 4 como en desktop) — esto es la adaptación clave por espacio: en mobile solo entran 2 tarjetas por fila en vez de 4.
+   - Mismo patrón de contenido: las tarjetas de bandera (Canadá/USA) aparecen primero, ocupando la fila completa visible.
+   - Se puede inferir (por el corte de la imagen mostrando dos tarjetas más abajo, tipo "Canada" con fondo azul deportivo) que el grid **continúa con scroll vertical**, mostrando más productos al hacer scroll dentro del panel, ya que en mobile no hay espacio horizontal para 4 columnas simultáneas.
+   - Mismo formato de tarjeta: bandera arriba de imagen para contenido regional, imagen de producto para items individuales.
+
+---
+
+## Diferencias clave entre ambas versiones (resumen técnico)
+
+| Aspecto | Desktop | Mobile |
+|---|---|---|
+| Tipo de overlay | Dropdown panel (parcial, header visible) | Full-screen takeover |
+| Ancho del input | Centrado, ancho reducido (~25-30%) | Full-width con padding lateral |
+| Columnas en "Top Clicked" | 4 columnas | 2 columnas |
+| Scroll | Contenido cabe sin scroll (probablemente) | Requiere scroll vertical para ver más items |
+| Header de fondo | Header completo visible arriba del panel | Banner + header se mantienen, panel se superpone debajo |
+
+¿Quieres que arme esto en un documento (Word o Markdown) para que lo uses como especificación técnica al replicar el sitio, o te sirve tal cual en el chat?
