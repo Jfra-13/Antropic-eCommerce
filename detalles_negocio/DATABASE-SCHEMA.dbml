@@ -1,0 +1,543 @@
+// =====================================================================
+//  ANTROPIC — Ecommerce · Physical Database (dbdiagram.io DBML)
+// ---------------------------------------------------------------------
+//  Source of truth: Antropic-Requerimientos.md · PLANEACION-BACKEND.md
+//                   FLUJOS-ROLES-Y-MEJORAS.md (P1 improvements)
+//  Engine: PostgreSQL (Supabase managed) + Drizzle ORM
+//  Conventions:
+//    - PK = uuid (default gen_random_uuid) — never expose row counts,
+//      compatible with Supabase auth.users.
+//    - money = decimal(10,2).  timestamps = timestamptz.
+//    - Postgres does NOT auto-index FKs → every FK has an explicit index.
+//    - CHECK / partial-index details live in each table's Note.
+//    - Soft delete on catalog (active flag), never DELETE — orders point
+//      to historical products/variants.
+//  Paste directly into https://dbdiagram.io
+// =====================================================================
+
+
+// ------------------------- ENUMS -------------------------------------
+
+Enum user_role {
+  customer
+  employee
+  admin
+}
+
+Enum media_type {
+  photo
+  video
+}
+
+Enum coupon_type {
+  percentage
+  fixed
+  // P2 (plan): free_shipping, first_purchase — add via ALTER TYPE when built
+}
+
+Enum delivery_method {
+  delivery
+  pickup
+}
+
+Enum payment_status {
+  pendiente_pago     // order created, no proof yet
+  en_verificacion    // proof uploaded, awaiting manual/n8n approval
+  pagado             // approved -> stock decremented (in txn)
+  rechazado
+}
+
+Enum fulfillment_status {
+  pendiente
+  en_preparacion
+  enviado
+  entregado
+  recojo_pendiente
+  recogido
+  cancelado
+}
+
+Enum payment_proof_status {
+  pendiente
+  aprobado
+  rechazado
+}
+
+Enum return_status {
+  nueva
+  en_proceso
+  resuelta
+  cerrada
+}
+
+Enum review_status {
+  pendiente
+  aprobado
+  oculto
+}
+
+Enum complaint_type {
+  reclamo
+  queja
+}
+
+Enum complaint_status {
+  recibido
+  respondido
+}
+
+Enum doc_type {
+  dni
+  ce            // carné de extranjería
+  pasaporte
+  ruc
+}
+
+
+// ------------------------- AUTH (Supabase-managed) -------------------
+// Stub only: this table is created & owned by Supabase Auth.
+// Shown here so the profiles 1:1 relationship renders. Do NOT create it
+// in Drizzle — reference auth.users.id from profiles.
+
+Table auth.users {
+  id uuid [pk]
+  email varchar
+  Note: 'Managed by Supabase Auth. profiles.id mirrors this id 1:1.'
+}
+
+
+// ------------------------- IDENTITY ----------------------------------
+
+Table profiles {
+  id uuid [pk, ref: - auth.users.id] // 1:1 with Supabase auth.users
+  role user_role [not null, default: 'customer']
+  full_name varchar
+  email varchar [not null] // denormalized from auth for admin lists/search
+  phone varchar
+  size_preference varchar          // preferencia de talla (Módulo B/D)
+  is_blocked boolean [not null, default: false] // admin can block clients
+
+  // Single shipping address per customer (multi-address NOT in scope).
+  addr_line varchar
+  addr_district varchar            // zona de La Molina
+  addr_reference varchar
+  addr_phone varchar
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    role
+    email
+  }
+  Note: 'Authorization lives in Express by role. RLS deny-all as safety net.'
+}
+
+
+// ------------------------- CATALOG -----------------------------------
+
+Table categories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar [not null]
+  slug varchar [not null, unique]
+  description text
+  position int [not null, default: 0]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table occasions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar [not null]          // Fiesta, Oficina, ...
+  slug varchar [not null, unique]
+  position int [not null, default: 0]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table products {
+  id uuid [pk, default: `gen_random_uuid()`]
+  category_id uuid [not null, ref: > categories.id]
+  name varchar [not null]
+  slug varchar [not null, unique]  // SEO clean URL (P1.2)
+  description text
+  price decimal(10,2) [not null]   // base price; variants share it
+  fabric varchar                   // tela: informative attribute, not a filter
+  badge varchar                    // "Nuevo", "Últimas unidades", optional
+  active boolean [not null, default: true] // soft delete
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    category_id
+    active
+    slug
+  }
+  Note: 'CHECK (price >= 0). Never hard-delete: historical orders reference it.'
+}
+
+// Product <-> Occasion : many-to-many (a product can suit several occasions)
+Table product_occasions {
+  product_id uuid [not null, ref: > products.id]
+  occasion_id uuid [not null, ref: > occasions.id]
+
+  Indexes {
+    (product_id, occasion_id) [pk]
+    occasion_id
+  }
+}
+
+// Talla x Color combination — stock lives here, not on product
+Table product_variants {
+  id uuid [pk, default: `gen_random_uuid()`]
+  product_id uuid [not null, ref: > products.id]
+  size varchar [not null]          // S, M, L, U — text for flexibility
+  color varchar [not null]         // Coral, Rosa, Dorado (physical color name)
+  color_hex varchar                // swatch hex, UI only
+  sku varchar [not null, unique]   // ANT-VC-M
+  stock int [not null, default: 0]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    product_id
+    (product_id, size, color) [unique] // no duplicate combination
+  }
+  Note: 'CHECK (stock >= 0) — last DB trench against oversell.'
+}
+
+Table product_media {
+  id uuid [pk, default: `gen_random_uuid()`]
+  product_id uuid [not null, ref: > products.id]
+  type media_type [not null]       // photo | video (lookbook)
+  storage_path varchar [not null]  // Supabase Storage (public bucket)
+  alt_text varchar                 // accessibility + SEO (P1.2/P1.4)
+  position int [not null, default: 0]
+  is_primary boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    product_id
+  }
+}
+
+
+// ------------------------- CART (persisted, registered users) --------
+// Guest cart lives in localStorage; on login it merges into this.
+
+Table carts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, unique, ref: > profiles.id] // one active cart/user
+  reminder_sent_at timestamptz     // abandoned-cart reminder dedup (no spam)
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table cart_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  cart_id uuid [not null, ref: > carts.id]
+  variant_id uuid [not null, ref: > product_variants.id]
+  quantity int [not null, default: 1]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    cart_id
+    (cart_id, variant_id) [unique]  // merge sums quantities, no dup rows
+  }
+  Note: 'CHECK (quantity > 0).'
+}
+
+
+// ------------------------- COUPONS -----------------------------------
+
+Table coupons {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar [not null, unique]  // entered in cart (INSTA10)
+  type coupon_type [not null]
+  value decimal(10,2) [not null]   // % or fixed amount depending on type
+  starts_at timestamptz [not null]
+  ends_at timestamptz [not null]
+  max_uses int                     // null = unlimited
+  used_count int [not null, default: 0]
+  min_purchase decimal(10,2) [not null, default: 0]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    code
+    active
+  }
+  Note: 'Usage limit enforced atomically: UPDATE ... WHERE used_count < max_uses. One coupon per order.'
+}
+
+Table coupon_redemptions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  coupon_id uuid [not null, ref: > coupons.id]
+  user_id uuid [not null, ref: > profiles.id]
+  order_id uuid [not null, ref: > orders.id]
+  redeemed_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    coupon_id
+    user_id
+    (coupon_id, order_id) [unique]  // a coupon counts once per order
+  }
+}
+
+
+// ------------------------- LOGISTICS ---------------------------------
+
+Table pickup_points {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar [not null]          // Punto A
+  address varchar [not null]       // Av. La Molina 1234
+  reference varchar
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+// ------------------------- ORDERS (the core) -------------------------
+
+Table orders {
+  id uuid [pk, default: `gen_random_uuid()`]
+  order_number bigint [not null, unique, increment] // human sequence
+  reference_code varchar [not null, unique]         // "ANT-1042" Yape match key
+  user_id uuid [not null, ref: > profiles.id]
+
+  payment_status payment_status [not null, default: 'pendiente_pago']
+  fulfillment_status fulfillment_status [not null, default: 'pendiente']
+
+  delivery_method delivery_method [not null]
+  pickup_point_id uuid [ref: > pickup_points.id] // set when method = pickup
+
+  // Shipping address SNAPSHOT (delivery) — immutable copy at purchase time
+  ship_name varchar
+  ship_phone varchar
+  ship_address varchar
+  ship_district varchar
+  ship_reference varchar
+
+  // Money — ALL computed server-side, snapshot, never trust client
+  subtotal decimal(10,2) [not null]
+  shipping_cost decimal(10,2) [not null, default: 0]
+  discount_total decimal(10,2) [not null, default: 0]
+  total decimal(10,2) [not null]
+
+  coupon_id uuid [ref: > coupons.id]  // nullable
+  coupon_code varchar                 // snapshot of applied code
+
+  // Payment audit — it's money, traceability is mandatory
+  approved_by uuid [ref: > profiles.id] // employee/admin who approved
+  approved_at timestamptz
+
+  idempotency_key varchar [unique]    // client key: double-click != 2 orders
+  notes text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    user_id
+    (user_id, payment_status)
+    payment_status            // partial idx WHERE payment_status='en_verificacion' (verification queue is hot)
+    fulfillment_status
+    reference_code
+    created_at
+  }
+  Note: 'State machine: pago pendiente_pago->en_verificacion->pagado|rechazado; envío pendiente->en_preparacion->enviado->entregado / recojo_pendiente->recogido. Invalid transition = HTTP 409. Stock decremented on approval, inside SELECT..FOR UPDATE txn. Approval idempotent.'
+}
+
+Table order_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  order_id uuid [not null, ref: > orders.id]
+  variant_id uuid [ref: > product_variants.id] // FK kept, but everything below is snapshot
+
+  // SNAPSHOT — order never JOINs live product for historical display
+  product_name varchar [not null]
+  variant_size varchar [not null]
+  variant_color varchar [not null]
+  sku varchar [not null]
+  unit_price decimal(10,2) [not null]
+  quantity int [not null]
+  line_total decimal(10,2) [not null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    order_id
+    variant_id
+  }
+  Note: 'CHECK (quantity > 0). Price/name/variant frozen at purchase time.'
+}
+
+// Yape/Plin proof of payment — private bucket, signed URLs only
+Table payment_proofs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  order_id uuid [not null, ref: > orders.id]
+  storage_path varchar [not null]  // PRIVATE bucket (sensitive)
+  amount_declared decimal(10,2)
+  status payment_proof_status [not null, default: 'pendiente']
+  reviewed_by uuid [ref: > profiles.id]
+  reviewed_at timestamptz
+  uploaded_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    order_id
+    status
+  }
+  Note: 'An order may have several proofs (re-upload after rejection). Only owner + employee/admin can view via signed URL.'
+}
+
+
+// ------------------------- ENGAGEMENT --------------------------------
+
+Table wishlists {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > profiles.id]
+  product_id uuid [not null, ref: > products.id]
+  created_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    user_id
+    (user_id, product_id) [unique]
+  }
+}
+
+// "Avísame cuando haya stock" — guest (email) or registered
+Table stock_alerts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  variant_id uuid [not null, ref: > product_variants.id]
+  user_id uuid [ref: > profiles.id]     // nullable: guests allowed
+  email varchar [not null]
+  notified boolean [not null, default: false]
+  notified_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    variant_id
+    (variant_id, email) [unique]  // one subscription per email per variant
+  }
+  Note: 'On restock: notify subscribers once, mark notified — do not spam on every stock update.'
+}
+
+Table return_tickets {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ticket_number varchar [not null, unique] // DV-07
+  order_id uuid [not null, ref: > orders.id]
+  user_id uuid [not null, ref: > profiles.id]
+  reason text [not null]
+  current_size varchar
+  desired_size varchar
+  photo_path varchar               // Storage
+  status return_status [not null, default: 'nueva']
+  assigned_to uuid [ref: > profiles.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    order_id
+    user_id
+    status
+  }
+  Note: 'Form -> ticket -> notifies employee -> conversation continues on WhatsApp.'
+}
+
+
+// ------------------------- CONFIG (admin) ----------------------------
+
+// Single-row typed settings (id fixed = 1). Yape + delivery config.
+Table store_settings {
+  id smallint [pk, default: 1]     // enforce single row: CHECK (id = 1)
+  yape_number varchar
+  yape_qr_path varchar             // Storage
+  delivery_fee decimal(10,2) [not null, default: 0] // La Molina flat fee
+  updated_by uuid [ref: > profiles.id]
+  updated_at timestamptz [not null, default: `now()`]
+  Note: 'Only-open business config: exact La Molina delivery fee set here.'
+}
+
+Table banners {
+  id uuid [pk, default: `gen_random_uuid()`]
+  image_path varchar [not null]    // Storage
+  title varchar
+  link_url varchar
+  position int [not null, default: 0]
+  active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+
+// =====================================================================
+//  P1 IMPROVEMENTS (acordadas pre-lanzamiento — FLUJOS-ROLES-Y-MEJORAS)
+// =====================================================================
+
+// P1.1 — Libro de Reclamaciones virtual (OBLIGATORIO Indecopi, Perú).
+// Public form, NO login required. Legal response window: 15 business days.
+Table complaints {
+  id uuid [pk, default: `gen_random_uuid()`]
+  claim_number varchar [not null, unique] // correlativo legal
+  type complaint_type [not null]          // reclamo | queja
+  consumer_name varchar [not null]
+  consumer_doc_type doc_type [not null]
+  consumer_doc_number varchar [not null]
+  consumer_email varchar [not null]
+  consumer_phone varchar
+  consumer_address varchar
+  product_service_detail text [not null]  // detalle del bien/servicio
+  amount decimal(10,2)                    // monto reclamado, opcional
+  description text [not null]
+  status complaint_status [not null, default: 'recibido']
+  responded_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    status
+    created_at
+  }
+  Note: 'Public endpoint (rate-limited). Auto email copy to consumer + business on submit.'
+}
+
+// P1.3 — Reseñas con foto, solo compradores verificados
+Table product_reviews {
+  id uuid [pk, default: `gen_random_uuid()`]
+  product_id uuid [not null, ref: > products.id]
+  user_id uuid [not null, ref: > profiles.id]
+  order_id uuid [not null, ref: > orders.id]  // proof of purchase
+  rating int [not null]                        // 1..5
+  comment text
+  photo_path varchar                           // Storage, optional
+  status review_status [not null, default: 'pendiente']
+  created_at timestamptz [not null, default: `now()`]
+
+  Indexes {
+    product_id
+    user_id
+    (user_id, product_id, order_id) [unique]   // one review per product per order
+  }
+  Note: 'CHECK (rating BETWEEN 1 AND 5). Only buyers whose order is entregado/recogido. Moderated in backoffice.'
+}
+
+// (P1.2 SEO/analytics & P1.4 image optimization add NO tables — they are
+//  meta tags, sitemap, JSON-LD, GA4 events, WebP/AVIF derivatives. Handled
+//  in app/CDN layer, not the schema. slug + product_media.alt_text above
+//  already support them.)
+
+
+// =====================================================================
+//  P2 — OPTIONAL, add when the business asks (kept out of v1 by design)
+// ---------------------------------------------------------------------
+//  audit_log       : bitácora de cambios sensibles (stock, cupón, precio,
+//                    cliente bloqueado). Order.approved_by/at already covers
+//                    the money trail; this generalizes it.
+//  stock_reservations : reserva temporal 15-30 min al iniciar checkout,
+//                    solo si los agotados frecuentes duelen.
+//  loyalty_points / referrals (P3), electronic invoicing SUNAT (P3),
+//  national shipping zones (P3).
+//  Deliberately deferred — value without infra complexity. See §5/§6 of
+//  FLUJOS-ROLES-Y-MEJORAS.md.
+// =====================================================================
