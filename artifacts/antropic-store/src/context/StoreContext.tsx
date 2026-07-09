@@ -1,5 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import type { User } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
+import type { Wishlist } from '@workspace/api-client-react';
+import {
+  useGetWishlist,
+  useAddWishlistItem,
+  useRemoveWishlistItem,
+  getGetWishlistQueryKey,
+} from '@workspace/api-client-react';
 import { supabase } from '../lib/supabase';
 
 interface CartItem {
@@ -39,50 +54,33 @@ function toAuthUser(u: User): AuthUser {
   };
 }
 
+const GUEST_FAVORITES_KEY = 'antropic_favorites';
+
+function readGuestFavorites(): string[] {
+  const saved = localStorage.getItem(GUEST_FAVORITES_KEY);
+  return saved ? JSON.parse(saved) : [];
+}
+
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    const saved = localStorage.getItem('antropic_favorites');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const queryClient = useQueryClient();
 
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // ── Cart ────────────────────────────────────────────────────────────────
+  // Still localStorage + product-keyed. The variant-aware cart wired to the API
+  // arrives with checkout (Fase 4); the API cart is keyed by variantId, which the
+  // front doesn't resolve yet. Left untouched on purpose.
   const [cart, setCart] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('antropic_cart');
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  useEffect(() => {
-    localStorage.setItem('antropic_favorites', JSON.stringify(favorites));
-  }, [favorites]);
-
   useEffect(() => {
     localStorage.setItem('antropic_cart', JSON.stringify(cart));
   }, [cart]);
-
-  // Supabase persists the session in localStorage and keeps it fresh. We read the
-  // initial session, then subscribe to changes (login/logout/token refresh across tabs).
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session ? toAuthUser(data.session.user) : null);
-      setAuthLoading(false);
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session ? toAuthUser(session.user) : null);
-    });
-
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  const toggleFavorite = (id: string) => {
-    setFavorites(prev => 
-      prev.includes(id) ? prev.filter(fId => fId !== id) : [...prev, id]
-    );
-  };
 
   const addToCart = (id: string) => {
     setCart(prev => {
@@ -105,6 +103,91 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     setCart(prev => prev.map(item => item.productId === id ? { ...item, qty } : item));
   };
+
+  // ── Favorites / wishlist ──────────────────────────────────────────────────
+  // Logged out: guest favorites (product ids) persist in localStorage. Logged in:
+  // the server wishlist is the source of truth — toggles hit the API and the guest
+  // list is merged in on login.
+  const [guestFavorites, setGuestFavorites] = useState<string[]>(readGuestFavorites);
+
+  const wishlistQuery = useGetWishlist({
+    query: { enabled: !!user, queryKey: getGetWishlistQueryKey() },
+  });
+  const addWishlist = useAddWishlistItem();
+  const removeWishlist = useRemoveWishlistItem();
+
+  const serverFavorites = useMemo(
+    () => (wishlistQuery.data?.items ?? []).map(p => p.id),
+    [wishlistQuery.data],
+  );
+
+  const favorites = user ? serverFavorites : guestFavorites;
+
+  // Persist guest favorites only while logged out — once logged in the server owns them.
+  useEffect(() => {
+    if (user) return;
+    localStorage.setItem(GUEST_FAVORITES_KEY, JSON.stringify(guestFavorites));
+  }, [guestFavorites, user]);
+
+  // Mutations return the fresh wishlist; write it straight into the query cache so the
+  // UI updates without an extra round-trip.
+  const writeWishlist = (w: Wishlist) => {
+    queryClient.setQueryData(getGetWishlistQueryKey(), w);
+  };
+
+  const toggleFavorite = (id: string) => {
+    if (!user) {
+      setGuestFavorites(prev =>
+        prev.includes(id) ? prev.filter(fId => fId !== id) : [...prev, id],
+      );
+      return;
+    }
+    if (serverFavorites.includes(id)) {
+      removeWishlist.mutate({ productId: id }, { onSuccess: writeWishlist });
+    } else {
+      addWishlist.mutate({ data: { productId: id } }, { onSuccess: writeWishlist });
+    }
+  };
+
+  // Supabase persists the session in localStorage and keeps it fresh. We read the
+  // initial session, then subscribe to changes (login/logout/token refresh across tabs).
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session ? toAuthUser(data.session.user) : null);
+      setAuthLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session ? toAuthUser(session.user) : null);
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Merge guest favorites into the server wishlist once per login. Best-effort: add is
+  // idempotent server-side, so re-runs are harmless; a failed add just skips that item.
+  const mergedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) {
+      mergedForUser.current = null;
+      return;
+    }
+    if (mergedForUser.current === user.id) return;
+    mergedForUser.current = user.id;
+
+    const guest = readGuestFavorites();
+    if (guest.length === 0) return;
+
+    Promise.allSettled(
+      guest.map(productId => addWishlist.mutateAsync({ data: { productId } })),
+    ).finally(() => {
+      localStorage.removeItem(GUEST_FAVORITES_KEY);
+      setGuestFavorites([]);
+      queryClient.invalidateQueries({ queryKey: getGetWishlistQueryKey() });
+    });
+    // addWishlist/queryClient are stable; merge is keyed on the user id only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // onAuthStateChange drives setUser — these actions only kick off the request and
   // surface any error string to the UI.

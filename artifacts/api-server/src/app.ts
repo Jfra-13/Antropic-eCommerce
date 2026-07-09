@@ -1,4 +1,9 @@
-import express, { type Express } from "express";
+import express, {
+  type Express,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -30,5 +35,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// Unknown route → structured 404 in the same {code,message} shape the routes use.
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ code: "NOT_FOUND", message: "Route not found" });
+});
+
+// Central error handler. Express 5 auto-forwards rejected async route handlers here,
+// so every thrown/rejected error lands in one place. Log the detail server-side and
+// return an opaque 500 — never leak stack traces or internals to the client.
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  req.log.error({ err }, "unhandled request error");
+  if (res.headersSent) return;
+  res.status(500).json({ code: "INTERNAL", message: "Internal server error" });
+});
 
 export default app;
