@@ -1,12 +1,13 @@
 import { useStore } from "../context/StoreContext";
-import { PRODUCTS } from "../data/mockData";
+import { useProducts } from "../lib/catalog";
 import { ProductCard } from "../components/ProductCard";
 import { Link } from "wouter";
 import { FlowerIcon } from "../components/ui/icons";
 
 export default function Favorites() {
   const { favorites } = useStore();
-  const favoriteProducts = PRODUCTS.filter(p => favorites.includes(p.id));
+  const { products } = useProducts();
+  const favoriteProducts = products.filter((p) => favorites.includes(p.id));
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background py-12 px-4 md:px-6">

@@ -1,14 +1,7 @@
 import { useMemo } from "react";
 import { useSearch, useLocation } from "wouter";
-import {
-  PRODUCTS,
-  CATEGORIES,
-  ALL_OCCASIONS,
-  priceToNumber,
-  productSizes,
-  productStock,
-  type Occasion,
-} from "../data/mockData";
+import { priceToNumber, productSizes, productStock } from "../lib/product";
+import { useProducts, useCategories, useOccasions } from "../lib/catalog";
 import { ProductCard } from "../components/ProductCard";
 import { CategoryPills } from "../components/CategoryPills";
 import { Breadcrumb, type Crumb } from "../components/Breadcrumb";
@@ -29,20 +22,27 @@ const SORT_LABELS: Record<SortKey, string> = {
   "precio-desc": "Precio: mayor a menor",
 };
 
-const CATEGORY_PILLS = [
-  { label: "Todos", value: null as string | null },
-  ...CATEGORIES.map((c) => ({ label: c, value: c })),
-];
-
 export default function Search() {
   const searchString = useSearch();
   const [, setLocation] = useLocation();
   const params = useMemo(() => new URLSearchParams(searchString), [searchString]);
 
+  const { products } = useProducts();
+  const { categories } = useCategories();
+  const { occasions } = useOccasions();
+
+  const categoryNames = categories.map((c) => c.name);
+  const occasionNames = occasions.map((o) => o.name);
+
+  const categoryPills = [
+    { label: "Todos", value: null as string | null },
+    ...categoryNames.map((c) => ({ label: c, value: c })),
+  ];
+
   // URL is the single source of truth — shareable, back-button correct.
   const q = params.get("q") ?? "";
-  const category = CATEGORIES.find((c) => c.toLowerCase() === (params.get("category") ?? "").toLowerCase()) ?? null;
-  const occasion = ALL_OCCASIONS.find((o) => o === params.get("occasion")) ?? null;
+  const category = categoryNames.find((c) => c.toLowerCase() === (params.get("category") ?? "").toLowerCase()) ?? null;
+  const occasion = occasionNames.find((o) => o === params.get("occasion")) ?? null;
   const selectedSizes = params.get("sizes")?.split(",").filter(Boolean) ?? [];
   const selectedColors = params.get("colors")?.split(",").filter(Boolean) ?? [];
   const sortBy = (params.get("sort") as SortKey) ?? "destacados";
@@ -72,13 +72,13 @@ export default function Search() {
 
   const inScope = useMemo(
     () =>
-      PRODUCTS.filter((p) => {
+      products.filter((p) => {
         const matchesSearch = p.name.toLowerCase().includes(q.toLowerCase());
         const matchesCategory = category ? p.category === category : true;
-        const matchesOccasion = occasion ? p.occasion.includes(occasion as Occasion) : true;
+        const matchesOccasion = occasion ? p.occasion.includes(occasion) : true;
         return matchesSearch && matchesCategory && matchesOccasion;
       }),
-    [q, category, occasion]
+    [products, q, category, occasion]
   );
 
   const availableSizes = useMemo(() => {
@@ -141,7 +141,7 @@ export default function Search() {
 
           <div className="mt-4">
             <CategoryPills
-              items={CATEGORY_PILLS}
+              items={categoryPills}
               active={category}
               onSelect={(v) => setParam("category", v)}
             />

@@ -1,20 +1,19 @@
 import { Link } from "wouter";
-import { PRODUCTS, CATEGORIES } from "../data/mockData";
+import { useProducts, useCategories } from "../lib/catalog";
 import { ProductCard } from "../components/ProductCard";
 import { ProductCarousel } from "../components/ProductCarousel";
 import { CategoryPills } from "../components/CategoryPills";
 import modelo_01 from "../assets/modelo_01.webp";
 import modelo_02 from "../assets/modelo_02.webp";
 
-// ponytail: "most wanted" has no real ranking signal yet (no API). Best-sellers
-// first, then fill to 8. Swap for a real criterion when the API lands.
-const MOST_WANTED = [...PRODUCTS]
-  .sort((a, b) => (a.badge === "mas-vendido" ? -1 : 0) - (b.badge === "mas-vendido" ? -1 : 0))
-  .slice(0, 8);
-
-const CATEGORY_PILLS = CATEGORIES.map((c) => ({ label: c, value: c }));
-
 export default function Home() {
+  // The API orders featured products first, so the top 8 are the "most wanted".
+  const { products } = useProducts();
+  const { categories } = useCategories();
+
+  const mostWanted = products.slice(0, 8);
+  const categoryPills = categories.map((c) => ({ label: c.name, value: c.name }));
+
   return (
     <div className="min-h-screen bg-background">
       {/* 1. Hero — one strong color block, 3-level type hierarchy */}
@@ -33,7 +32,7 @@ export default function Home() {
 
       {/* 2. Category quick-filter pills (no repeated imagery) */}
       <section className="py-8 px-4 max-w-6xl mx-auto">
-        <CategoryPills items={CATEGORY_PILLS} hrefFor={(v) => `/search?category=${v}`} />
+        <CategoryPills items={categoryPills} hrefFor={(v) => `/search?category=${v}`} />
       </section>
 
       {/* 3. Editorial feature — neutral bg, inverted split, color in accents only */}
@@ -62,7 +61,7 @@ export default function Home() {
           <Link href="/search" className="font-sans text-sm font-bold text-primary hover:underline whitespace-nowrap">Ver todo</Link>
         </div>
         <ProductCarousel>
-          {MOST_WANTED.map((product) => (
+          {mostWanted.map((product) => (
             <div key={product.id} className="w-44 md:w-64 flex-none">
               <ProductCard product={product} showPrice={false} />
             </div>

@@ -1,12 +1,10 @@
 import { pgTable, uuid, text, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { categories } from "./categories";
-import { occasions } from "./occasions";
 import { timestamps, money } from "./helpers";
 
 // Base product. Soft delete via `active` (orders reference historical products).
-// ponytail: single occasionId FK. If a product needs multiple occasions (front mock
-// models occasion[]), add a product_occasions join table when Phase 2 needs it.
+// Occasions are N:N via product_occasions (a garment can suit several occasions).
 export const products = pgTable(
   "products",
   {
@@ -14,20 +12,17 @@ export const products = pgTable(
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     description: text("description"),
+    fit: text("fit"),
     price: money("price").notNull(),
     categoryId: uuid("category_id")
       .notNull()
       .references(() => categories.id),
-    occasionId: uuid("occasion_id").references(() => occasions.id),
     badge: text("badge"),
     featured: boolean("featured").notNull().default(false),
     active: boolean("active").notNull().default(true),
     ...timestamps,
   },
-  (t) => [
-    index("products_category_idx").on(t.categoryId),
-    index("products_occasion_idx").on(t.occasionId),
-  ],
+  (t) => [index("products_category_idx").on(t.categoryId)],
 );
 
 export const insertProductSchema = createInsertSchema(products);

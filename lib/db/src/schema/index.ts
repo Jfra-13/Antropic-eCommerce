@@ -7,6 +7,7 @@ export * from "./occasions";
 export * from "./products";
 export * from "./product-variants";
 export * from "./product-media";
+export * from "./product-occasions";
 
 // Identity
 export * from "./profiles";

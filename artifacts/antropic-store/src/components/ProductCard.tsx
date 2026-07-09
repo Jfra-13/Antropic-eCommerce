@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Product, productStock } from "../data/mockData";
+import { Product, productStock } from "../lib/product";
 import { useStore } from "../context/StoreContext";
 
 type ProductCardProps = {
@@ -20,7 +20,7 @@ export function ProductCard({ product, compact = false, showPrice = true }: Prod
     <div className="group relative flex flex-col" data-testid={`card-product-${product.id}`}>
       {/* Stretched link covers image + text (z-10); action controls sit above it (z-20). */}
       <Link
-        href={`/product/${product.id}`}
+        href={`/product/${product.slug}`}
         className="absolute inset-0 z-10"
         aria-label={product.name}
         data-testid={`link-product-${product.id}`}
@@ -79,7 +79,7 @@ export function ProductCard({ product, compact = false, showPrice = true }: Prod
                 hover (desktop), always on mobile. */}
             {!isOut && (
               <Link
-                href={`/product/${product.id}`}
+                href={`/product/${product.slug}`}
                 className="absolute inset-x-3 bottom-3 z-20 bg-background/70 backdrop-blur-md text-foreground text-sm font-sans font-bold text-center py-2.5 transition-all md:translate-y-2 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 hover:bg-primary hover:text-primary-foreground"
                 data-testid={`button-add-cart-${product.id}`}
               >

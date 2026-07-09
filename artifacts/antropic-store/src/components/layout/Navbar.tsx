@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useStore } from "../../context/StoreContext";
-import { CATEGORIES, ALL_OCCASIONS } from "../../data/mockData";
+import { useOccasions } from "../../lib/catalog";
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -20,6 +20,7 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { cart, favorites } = useStore();
+  const { occasions } = useOccasions();
 
   const cartItemsCount = cart.reduce((acc, item) => acc + item.qty, 0);
 
@@ -98,9 +99,9 @@ export function Navbar() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-sans font-bold uppercase tracking-wider text-muted-foreground mb-1">Ocasión de uso</span>
-                      {ALL_OCCASIONS.map((o) => (
-                        <NavigationMenuLink asChild key={o}>
-                          <Link href={`/search?occasion=${o}`} className="text-sm font-sans text-foreground hover:text-primary transition-colors cursor-pointer">{o}</Link>
+                      {occasions.map((o) => (
+                        <NavigationMenuLink asChild key={o.slug}>
+                          <Link href={`/search?occasion=${o.name}`} className="text-sm font-sans text-foreground hover:text-primary transition-colors cursor-pointer">{o.name}</Link>
                         </NavigationMenuLink>
                       ))}
                     </div>
@@ -164,8 +165,8 @@ export function Navbar() {
           <Link href="/search" onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">Ropa</Link>
           <Link href="/search?category=Accesorios" onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">Accesorios</Link>
           <div className="flex flex-wrap gap-2 pt-1">
-            {ALL_OCCASIONS.map((o) => (
-              <Link key={o} href={`/search?occasion=${o}`} onClick={() => setIsOpen(false)} className="text-sm font-bold border border-border px-3 py-1.5 text-foreground cursor-pointer">{o}</Link>
+            {occasions.map((o) => (
+              <Link key={o.slug} href={`/search?occasion=${o.name}`} onClick={() => setIsOpen(false)} className="text-sm font-bold border border-border px-3 py-1.5 text-foreground cursor-pointer">{o.name}</Link>
             ))}
           </div>
           <Link href="/profile" onClick={() => setIsOpen(false)} className="text-foreground border-t border-border pt-4 mt-2 flex items-center gap-2 cursor-pointer">

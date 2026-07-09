@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { MOCK_USER } from '../data/mockData';
+
+// ponytail: stand-in user until Supabase auth wires into the store (Phase 4+).
+const MOCK_USER = { name: 'María García', email: 'maria@example.com' };
 
 interface CartItem {
   productId: string;

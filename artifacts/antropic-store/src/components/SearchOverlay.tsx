@@ -1,18 +1,7 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useLocation } from "wouter";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { PRODUCTS, CATEGORIES } from "../data/mockData";
-
-// ponytail: no click/sales analytics yet — stand-ins until the API lands.
-// Top clicked categories → first 2 categories, imaged by one of their products.
-const TOP_CATEGORIES = CATEGORIES.slice(0, 2).map((name) => ({
-  name,
-  image: PRODUCTS.find((p) => p.category === name)?.images[0],
-}));
-// Best sellers → 2 products flagged mas-vendido first.
-const TOP_PRODUCTS = [...PRODUCTS]
-  .sort((a, b) => (b.badge === "mas-vendido" ? 1 : 0) - (a.badge === "mas-vendido" ? 1 : 0))
-  .slice(0, 2);
+import { useProducts, useCategories } from "../lib/catalog";
 
 type Tab = "smart" | "search";
 
@@ -21,6 +10,28 @@ export function SearchOverlay({ open, onOpenChange }: { open: boolean; onOpenCha
   const [tab, setTab] = useState<Tab>("search");
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { products } = useProducts();
+  const { categories } = useCategories();
+
+  // ponytail: no click/sales analytics yet — stand-ins until the API lands.
+  // Top clicked → first 2 categories, imaged by one of their products.
+  const topCategories = useMemo(
+    () =>
+      categories.slice(0, 2).map((c) => ({
+        name: c.name,
+        image: products.find((p) => p.category === c.name)?.images[0],
+      })),
+    [categories, products],
+  );
+  // Best sellers → 2 products flagged mas-vendido first.
+  const topProducts = useMemo(
+    () =>
+      [...products]
+        .sort((a, b) => (b.badge === "mas-vendido" ? 1 : 0) - (a.badge === "mas-vendido" ? 1 : 0))
+        .slice(0, 2),
+    [products],
+  );
 
   const close = () => onOpenChange(false);
 
@@ -31,9 +42,9 @@ export function SearchOverlay({ open, onOpenChange }: { open: boolean; onOpenCha
     setLocation(term ? `/search?q=${encodeURIComponent(term)}` : "/search");
   };
 
-  const openProduct = (id: string) => {
+  const openProduct = (slug: string) => {
     close();
-    setLocation(`/product/${id}`);
+    setLocation(`/product/${slug}`);
   };
 
   const openCategory = (name: string) => {
@@ -105,7 +116,7 @@ export function SearchOverlay({ open, onOpenChange }: { open: boolean; onOpenCha
                   <span className="block text-xs font-sans font-bold uppercase tracking-wider text-foreground mb-4">Top clicked</span>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                     {/* First two: most-clicked categories */}
-                    {TOP_CATEGORIES.map((c) => (
+                    {topCategories.map((c) => (
                       <button
                         key={c.name}
                         type="button"
@@ -120,11 +131,11 @@ export function SearchOverlay({ open, onOpenChange }: { open: boolean; onOpenCha
                       </button>
                     ))}
                     {/* Then two: best-selling products */}
-                    {TOP_PRODUCTS.map((p) => (
+                    {topProducts.map((p) => (
                       <button
                         key={p.id}
                         type="button"
-                        onClick={() => openProduct(p.id)}
+                        onClick={() => openProduct(p.slug)}
                         className="group flex flex-col items-center text-center"
                         data-testid={`top-product-${p.id}`}
                       >

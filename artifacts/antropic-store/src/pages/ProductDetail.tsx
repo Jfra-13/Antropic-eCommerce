@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
-import { PRODUCTS, isSizeAvailable, productStock, ALL_SIZES } from "../data/mockData";
+import { isSizeAvailable, productStock, ALL_SIZES } from "../lib/product";
+import { useProduct, useProducts } from "../lib/catalog";
 import { useStore } from "../context/StoreContext";
 import { ProductCard } from "../components/ProductCard";
 import { ProductCarousel } from "../components/ProductCarousel";
@@ -9,8 +10,9 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NotFound from "./not-found";
 
 export default function ProductDetail() {
-  const [, params] = useRoute("/product/:id");
-  const product = PRODUCTS.find((p) => p.id === params?.id);
+  const [, params] = useRoute("/product/:slug");
+  const { product, isLoading } = useProduct(params?.slug ?? "");
+  const { products } = useProducts();
 
   const { addToCart, toggleFavorite, favorites } = useStore();
   const [selectedColor, setSelectedColor] = useState(0);
@@ -33,6 +35,13 @@ export default function ProductDetail() {
     return () => window.removeEventListener("keydown", onKey);
   }, [imageCount]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <span className="font-sans text-sm text-muted-foreground">Cargando producto…</span>
+      </div>
+    );
+  }
   if (!product) return <NotFound />;
 
   const goPrev = () => setActiveImage((i) => (i - 1 + imageCount) % imageCount);
@@ -41,9 +50,9 @@ export default function ProductDetail() {
   const isFavorite = favorites.includes(product.id);
   const outOfStock = productStock(product) <= 0;
   const selectedOut = selectedSize !== null && !isSizeAvailable(product, selectedSize);
-  const similar = PRODUCTS.filter(
-    (p) => p.category === product.category && p.id !== product.id
-  ).slice(0, 8);
+  const similar = products
+    .filter((p) => p.category === product.category && p.id !== product.id)
+    .slice(0, 8);
 
   const handleAdd = () => {
     if (!selectedSize || selectedOut) return;

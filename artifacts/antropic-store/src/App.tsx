@@ -34,7 +34,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/search" component={Search} />
-          <Route path="/product/:id" component={ProductDetail} />
+          <Route path="/product/:slug" component={ProductDetail} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/cart" component={Cart} />
           <Route path="/login" component={Login} />

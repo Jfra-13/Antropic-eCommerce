@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStore } from "../context/StoreContext";
-import { PRODUCTS, priceToNumber, formatPrice } from "../data/mockData";
+import { priceToNumber, formatPrice } from "../lib/product";
+import { useProducts } from "../lib/catalog";
 import { Link } from "wouter";
 import {
   Select,
@@ -17,13 +18,14 @@ type ShippingMode = "envio" | "recojo";
 
 export default function Cart() {
   const { cart, updateQty, removeFromCart } = useStore();
+  const { products } = useProducts();
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState(false);
   const [shippingMode, setShippingMode] = useState<ShippingMode>("envio");
 
   const cartItems = cart
-    .map((item) => ({ ...item, product: PRODUCTS.find((p) => p.id === item.productId) }))
+    .map((item) => ({ ...item, product: products.find((p) => p.id === item.productId) }))
     .filter((item) => item.product !== undefined);
 
   const subtotal = cartItems.reduce(
