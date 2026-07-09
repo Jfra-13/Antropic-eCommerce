@@ -11,7 +11,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 export default defineConfig({
-  schema: path.join(__dirname, "./src/schema/index.ts"),
+  // Forward-slash relative path: path.join yields Windows backslashes that
+  // drizzle-kit's globby treats as escapes -> "No schema files found".
+  schema: "./src/schema/index.ts",
   dialect: "postgresql",
   dbCredentials: {
     url: process.env.DATABASE_URL,
