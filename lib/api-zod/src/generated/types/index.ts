@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './abandonedCarts';
 export * from './adminConfig';
 export * from './adminProduct';
 export * from './adminProductList';
+export * from './adminProductMedia';
+export * from './adminProductMediaKind';
 export * from './adminProductVariant';
 export * from './adminReturn';
 export * from './adminReturnList';
@@ -19,6 +22,8 @@ export * from './adminUserRole';
 export * from './advanceFulfillmentInput';
 export * from './advanceFulfillmentInputTo';
 export * from './attachPaymentProofInput';
+export * from './attachProductMediaInput';
+export * from './attachProductMediaInputKind';
 export * from './banner';
 export * from './cart';
 export * from './cartItem';
@@ -43,7 +48,11 @@ export * from './createPickupPointInput';
 export * from './createProductInput';
 export * from './createReturnInput';
 export * from './createVariantInput';
+export * from './dashboardAlerts';
+export * from './dashboardKpi';
+export * from './dashboardSummary';
 export * from './error';
+export * from './getSalesReportParams';
 export * from './healthStatus';
 export * from './listAdminProductsParams';
 export * from './listCouponsParams';
@@ -88,10 +97,13 @@ export * from './publicConfig';
 export * from './quoteItem';
 export * from './returnTicket';
 export * from './returnTicketStatus';
+export * from './salesByDay';
+export * from './salesReport';
 export * from './shipmentItem';
 export * from './shipmentItemDeliveryMethod';
 export * from './shipmentItemFulfillmentStatus';
 export * from './shipmentList';
+export * from './topProduct';
 export * from './updateConfigInput';
 export * from './updateCouponInput';
 export * from './updateCouponInputType';

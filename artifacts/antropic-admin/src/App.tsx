@@ -3,11 +3,13 @@ import { supabase } from "@/lib/supabase";
 import { useSession } from "@/lib/session";
 import Login from "@/pages/Login";
 import Layout from "@/components/Layout";
+import Dashboard from "@/pages/Dashboard";
 import PaymentVerification from "@/pages/PaymentVerification";
 import Shipments from "@/pages/Shipments";
 import Inventory from "@/pages/Inventory";
 import Coupons from "@/pages/Coupons";
 import Returns from "@/pages/Returns";
+import Reports from "@/pages/Reports";
 import Users from "@/pages/Users";
 import Config from "@/pages/Config";
 
@@ -47,11 +49,13 @@ export default function App() {
   return (
     <Layout email={session.user.email ?? ""} role={role} onSignOut={signOut}>
       <Switch>
-        <Route path="/" component={PaymentVerification} />
+        <Route path="/" component={Dashboard} />
+        <Route path="/payments" component={PaymentVerification} />
         <Route path="/shipments" component={Shipments} />
         <Route path="/inventory" component={Inventory} />
         <Route path="/coupons" component={Coupons} />
         <Route path="/returns" component={Returns} />
+        <Route path="/reports" component={Reports} />
         <Route path="/users" component={Users} />
         <Route path="/config" component={Config} />
         <Route>

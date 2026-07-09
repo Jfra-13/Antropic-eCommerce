@@ -7,6 +7,7 @@ import type {
   AdvanceFulfillmentInput,
 } from "@workspace/api-zod";
 import { toCents, fromCents } from "../../lib/money";
+import * as notifications from "../notifications/service";
 import { getShippingCostCents } from "../shipping/service";
 import { validateCoupon } from "../coupons/service";
 import { tryConsumeCoupon } from "../coupons/queries";
@@ -219,6 +220,8 @@ export async function advanceFulfillment(
   const result = await advanceFulfillmentTx(orderId, to);
   switch (result.kind) {
     case "ok":
+      // Best-effort: notify the customer of the new fulfilment state.
+      void notifications.notifyOrderStatusChanged(result.order);
       return { ok: true, status: 200, order: await buildOrderDto(result.order) };
     case "not_found":
       return err(404, "NOT_FOUND", "Order not found");

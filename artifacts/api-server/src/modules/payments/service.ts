@@ -8,6 +8,7 @@ import { buildOrderDto } from "../orders/service";
 import { referenceCode } from "../orders/mappers";
 import { canTransitionPayment } from "../../lib/order-state";
 import { createProofUploadUrl, createProofDownloadUrl } from "../../lib/storage";
+import * as notifications from "../notifications/service";
 import {
   attachProofAndVerify,
   listVerificationQueue,
@@ -53,6 +54,8 @@ export async function attachProof(
   }
 
   const updated = await attachProofAndVerify(orderId, path, amountReported);
+  // Best-effort: alert the backoffice that a constancia is awaiting verification.
+  void notifications.notifyAdminNewProof(updated);
   return { ok: true, order: await buildOrderDto(updated) };
 }
 
@@ -89,6 +92,8 @@ export async function approvePayment(orderId: string, adminId: string): Promise<
   const result = await approvePaymentTx(orderId, adminId);
   switch (result.kind) {
     case "ok":
+      // Best-effort: tell the customer their payment was confirmed.
+      void notifications.notifyPaymentApproved(result.order);
       return { ok: true, order: await buildOrderDto(result.order) };
     case "not_found":
       return { ok: false, status: 404, code: "NOT_FOUND", message: "Order not found" };

@@ -5,6 +5,7 @@ import type {
   AdminReturnList as AdminReturnListDto,
   CreateReturnInput,
 } from "@workspace/api-zod";
+import * as notifications from "../notifications/service";
 import {
   orderBelongsToUser,
   insertReturnTicket,
@@ -69,6 +70,8 @@ export async function createReturn(
     desiredSize: input.desiredSize ?? null,
     photoPath: input.photoPath ?? null,
   });
+  // Best-effort: alert the backoffice of the new return request.
+  void notifications.notifyAdminNewReturn(ticket);
   return { ok: true, ticket: toReturnTicketDto(ticket) };
 }
 

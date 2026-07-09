@@ -13,6 +13,7 @@ import {
   type ProductMedia,
   type InsertProduct,
   type InsertProductVariant,
+  type InsertProductMedia,
 } from "@workspace/db";
 import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
 import type { Tx } from "../../lib/tx";
@@ -191,10 +192,11 @@ export type AdminProductRelations = {
   categoriesById: Map<string, Category>;
   variantsByProduct: Map<string, ProductVariant[]>;
   occasionsByProduct: Map<string, Occasion[]>;
+  mediaByProduct: Map<string, ProductMedia[]>;
 };
 
 // Like loadRelations but WITHOUT the active filters — admins see inactive variants and all
-// assigned occasions, and there is no need to load media here (managed in a later slice).
+// assigned occasions and media.
 export async function loadAdminRelations(rows: Product[]): Promise<AdminProductRelations> {
   const ids = rows.map((r) => r.id);
   if (ids.length === 0) {
@@ -202,6 +204,7 @@ export async function loadAdminRelations(rows: Product[]): Promise<AdminProductR
       categoriesById: new Map(),
       variantsByProduct: new Map(),
       occasionsByProduct: new Map(),
+      mediaByProduct: new Map(),
     };
   }
 
@@ -213,6 +216,12 @@ export async function loadAdminRelations(rows: Product[]): Promise<AdminProductR
     .from(productVariants)
     .where(inArray(productVariants.productId, ids))
     .orderBy(asc(productVariants.size), asc(productVariants.color));
+
+  const media = await db
+    .select()
+    .from(productMedia)
+    .where(inArray(productMedia.productId, ids))
+    .orderBy(asc(productMedia.sortOrder));
 
   const occ = await db
     .select({ pid: productOccasions.productId, occasion: occasions })
@@ -232,6 +241,7 @@ export async function loadAdminRelations(rows: Product[]): Promise<AdminProductR
     categoriesById: new Map(cats.map((c) => [c.id, c])),
     variantsByProduct: groupBy(variants, (v) => v.productId),
     occasionsByProduct,
+    mediaByProduct: groupBy(media, (m) => m.productId),
   };
 }
 
@@ -292,6 +302,16 @@ export async function updateProductTx(
     }
     return product;
   });
+}
+
+// Current stock of a variant (to detect an out-of-stock -> in-stock transition).
+export async function getVariantStock(id: string): Promise<number | undefined> {
+  const rows = await db
+    .select({ stock: productVariants.stock })
+    .from(productVariants)
+    .where(eq(productVariants.id, id))
+    .limit(1);
+  return rows[0]?.stock;
 }
 
 export async function productExists(id: string): Promise<boolean> {
@@ -370,4 +390,27 @@ export async function updateVariantRow(
     .where(eq(productVariants.id, id))
     .returning({ productId: productVariants.productId });
   return updated[0]?.productId;
+}
+
+// --- Product media (photos + lookbook videos) ---
+
+// Append a media item; sortOrder = max(existing) + 1 so it lands last in the gallery.
+export async function insertProductMedia(
+  values: Omit<InsertProductMedia, "sortOrder">,
+): Promise<void> {
+  const maxRow = await db
+    .select({ max: sql<number | null>`max(${productMedia.sortOrder})` })
+    .from(productMedia)
+    .where(eq(productMedia.productId, values.productId));
+  const nextSort = (maxRow[0]?.max ?? -1) + 1;
+  await db.insert(productMedia).values({ ...values, sortOrder: nextSort });
+}
+
+// Delete a media item; returns the owning productId (to rebuild the DTO) or undefined.
+export async function deleteProductMediaRow(id: string): Promise<string | undefined> {
+  const deleted = await db
+    .delete(productMedia)
+    .where(eq(productMedia.id, id))
+    .returning({ productId: productMedia.productId });
+  return deleted[0]?.productId;
 }

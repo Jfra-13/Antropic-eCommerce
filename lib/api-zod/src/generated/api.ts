@@ -816,6 +816,12 @@ export const ListAdminProductsResponse = zod.object({
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
   "active": zod.boolean()
+})),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string().describe('Storage object path in the public bucket'),
+  "sortOrder": zod.number()
 }))
 })),
   "total": zod.number(),
@@ -881,6 +887,12 @@ export const CreateProductResponse = zod.object({
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
   "active": zod.boolean()
+})),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string().describe('Storage object path in the public bucket'),
+  "sortOrder": zod.number()
 }))
 })
 
@@ -934,6 +946,12 @@ export const UpdateProductResponse = zod.object({
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
   "active": zod.boolean()
+})),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string().describe('Storage object path in the public bucket'),
+  "sortOrder": zod.number()
 }))
 })
 
@@ -988,8 +1006,76 @@ export const CreateVariantResponse = zod.object({
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
   "active": zod.boolean()
+})),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string().describe('Storage object path in the public bucket'),
+  "sortOrder": zod.number()
 }))
 })
+
+
+/**
+ * @summary Attach an uploaded photo/video to a product (appended last)
+ */
+export const AttachProductMediaParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+export const attachProductMediaBodyKindDefault = `image`;
+
+export const AttachProductMediaBody = zod.object({
+  "path": zod.string().min(1).describe('Storage path returned by the media upload-url endpoint'),
+  "kind": zod.enum(['image', 'video']).default(attachProductMediaBodyKindDefault)
+})
+
+export const AttachProductMediaResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "active": zod.boolean(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string(),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "stockTotal": zod.number(),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "priceOverride": zod.string().nullable(),
+  "active": zod.boolean()
+})),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string().describe('Storage object path in the public bucket'),
+  "sortOrder": zod.number()
+}))
+})
+
+
+/**
+ * @summary Remove a product media item
+ */
+export const DeleteProductMediaParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteProductMediaResponse = zod.void()
 
 
 /**
@@ -1063,7 +1149,76 @@ export const UpdateVariantResponse = zod.object({
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
   "active": zod.boolean()
+})),
+  "media": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string().describe('Storage object path in the public bucket'),
+  "sortOrder": zod.number()
 }))
+})
+
+
+/**
+ * @summary Backoffice landing KPIs, alerts and top products (employee + admin)
+ */
+export const GetDashboardResponse = zod.object({
+  "kpis": zod.object({
+  "salesToday": zod.string().describe('Revenue from orders approved today (money)'),
+  "salesTodayDeltaPct": zod.number().nullable().describe('Percent change vs yesterday; null when yesterday had no sales'),
+  "ordersToday": zod.number(),
+  "ordersTodayDelta": zod.number().describe('Change in order count vs yesterday'),
+  "avgTicket": zod.string().describe('Average paid-order value in the last 30 days (money)')
+}),
+  "alerts": zod.object({
+  "pendingPayments": zod.number(),
+  "abandonedCarts": zod.number().describe('Carts with items untouched for > 24h and never converted'),
+  "lowStock": zod.number().describe('Active variants with stock below the low-stock threshold'),
+  "newReturns": zod.number()
+}),
+  "topProducts": zod.array(zod.object({
+  "productName": zod.string(),
+  "quantity": zod.number(),
+  "revenue": zod.string().describe('Total revenue for this product in the period (money)')
+})).describe('Best sellers over the last 7 days')
+})
+
+
+/**
+ * @summary Sales, funnel and abandoned-cart report for a date range (admin only)
+ */
+export const getSalesReportQueryFromRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getSalesReportQueryToRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetSalesReportQueryParams = zod.object({
+  "from": zod.coerce.string().regex(getSalesReportQueryFromRegExp).optional().describe('ISO date YYYY-MM-DD (inclusive). Defaults to 30 days ago.'),
+  "to": zod.coerce.string().regex(getSalesReportQueryToRegExp).optional().describe('ISO date YYYY-MM-DD (inclusive). Defaults to today.')
+})
+
+export const GetSalesReportResponse = zod.object({
+  "from": zod.string().describe('ISO date YYYY-MM-DD'),
+  "to": zod.string().describe('ISO date YYYY-MM-DD'),
+  "orders": zod.number(),
+  "revenue": zod.string(),
+  "avgTicket": zod.string(),
+  "unitsSold": zod.number(),
+  "cartConversionRate": zod.number().nullable().describe('Funnel proxy = paid orders \/ distinct carts that held items in the period. Web traffic\/visits are not tracked yet, so this is not a visit-based conversion rate.'),
+  "salesByDay": zod.array(zod.object({
+  "date": zod.string().describe('ISO date YYYY-MM-DD'),
+  "revenue": zod.string(),
+  "orders": zod.number()
+})),
+  "topProducts": zod.array(zod.object({
+  "productName": zod.string(),
+  "quantity": zod.number(),
+  "revenue": zod.string().describe('Total revenue for this product in the period (money)')
+})),
+  "abandonedCarts": zod.object({
+  "count": zod.number(),
+  "value": zod.string().describe('Total cart value at risk (money)'),
+  "recoverable": zod.number().describe('Abandoned carts whose owner has an email on file')
+})
 })
 
 

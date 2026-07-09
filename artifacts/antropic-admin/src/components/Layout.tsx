@@ -1,21 +1,21 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { CreditCard, Truck, Package, Ticket, Undo2, Users as UsersIcon, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, CreditCard, Truck, Package, Ticket, Undo2, BarChart3, Users as UsersIcon, Settings, LogOut } from "lucide-react";
 import type { StaffRole } from "@/lib/session";
 
-// Backoffice module map (requerimientos §6.0). Only Payment Verification is wired in this
-// slice; the rest are placeholders until their vertical slice lands. `adminOnly` mirrors the
-// role matrix — those entries are hidden from employees.
+// Backoffice module map (requerimientos §6.0). `adminOnly` mirrors the role matrix — those
+// entries are hidden from employees. Entries without an href are not built yet.
 type NavItem = { label: string; href?: string; adminOnly?: boolean; icon?: typeof CreditCard };
 
 const NAV: NavItem[] = [
-  { label: "Verificación de pagos", href: "/", icon: CreditCard },
+  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Verificación de pagos", href: "/payments", icon: CreditCard },
   { label: "Pedidos" },
   { label: "Envíos / Logística", href: "/shipments", icon: Truck },
   { label: "Catálogo & Inventario", href: "/inventory", icon: Package },
   { label: "Cupones", href: "/coupons", adminOnly: true, icon: Ticket },
   { label: "Devoluciones", href: "/returns", icon: Undo2 },
-  { label: "Reportes", adminOnly: true },
+  { label: "Reportes", href: "/reports", adminOnly: true, icon: BarChart3 },
   { label: "Usuarios", href: "/users", adminOnly: true, icon: UsersIcon },
   { label: "Configuración", href: "/config", adminOnly: true, icon: Settings },
 ];

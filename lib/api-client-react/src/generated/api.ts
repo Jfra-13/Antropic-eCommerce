@@ -29,6 +29,7 @@ import type {
   AdminUserList,
   AdvanceFulfillmentInput,
   AttachPaymentProofInput,
+  AttachProductMediaInput,
   Cart,
   CartItemInput,
   CartMergeInput,
@@ -47,7 +48,9 @@ import type {
   CreateProductInput,
   CreateReturnInput,
   CreateVariantInput,
+  DashboardSummary,
   Error,
+  GetSalesReportParams,
   HealthStatus,
   ListAdminProductsParams,
   ListCouponsParams,
@@ -70,6 +73,7 @@ import type {
   ProductList,
   PublicConfig,
   ReturnTicket,
+  SalesReport,
   ShipmentList,
   UpdateConfigInput,
   UpdateCouponInput,
@@ -2194,6 +2198,147 @@ export const useCreateVariant = <TError = ErrorType<Error>,
       return useMutation(getCreateVariantMutationOptions(options));
     }
 
+export const getAttachProductMediaUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/products/${id}/media`
+}
+
+/**
+ * @summary Attach an uploaded photo/video to a product (appended last)
+ */
+export const attachProductMedia = async (id: string,
+    attachProductMediaInput: AttachProductMediaInput, options?: RequestInit): Promise<AdminProduct> => {
+
+  return customFetch<AdminProduct>(getAttachProductMediaUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(attachProductMediaInput)
+  }
+);}
+
+
+
+
+export const getAttachProductMediaMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachProductMedia>>, TError,{id: string;data: BodyType<AttachProductMediaInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachProductMedia>>, TError,{id: string;data: BodyType<AttachProductMediaInput>}, TContext> => {
+
+const mutationKey = ['attachProductMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachProductMedia>>, {id: string;data: BodyType<AttachProductMediaInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  attachProductMedia(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachProductMediaMutationResult = NonNullable<Awaited<ReturnType<typeof attachProductMedia>>>
+    export type AttachProductMediaMutationBody = BodyType<AttachProductMediaInput>
+    export type AttachProductMediaMutationError = ErrorType<Error>
+
+    /**
+ * @summary Attach an uploaded photo/video to a product (appended last)
+ */
+export const useAttachProductMedia = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachProductMedia>>, TError,{id: string;data: BodyType<AttachProductMediaInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachProductMedia>>,
+        TError,
+        {id: string;data: BodyType<AttachProductMediaInput>},
+        TContext
+      > => {
+      return useMutation(getAttachProductMediaMutationOptions(options));
+    }
+
+export const getDeleteProductMediaUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/media/${id}`
+}
+
+/**
+ * @summary Remove a product media item
+ */
+export const deleteProductMedia = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteProductMediaUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteProductMediaMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProductMedia>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProductMedia>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteProductMedia'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProductMedia>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteProductMedia(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProductMediaMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProductMedia>>>
+
+    export type DeleteProductMediaMutationError = ErrorType<Error>
+
+    /**
+ * @summary Remove a product media item
+ */
+export const useDeleteProductMedia = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProductMedia>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProductMedia>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteProductMediaMutationOptions(options));
+    }
+
 export const getImportProductsUrl = () => {
 
 
@@ -2334,6 +2479,167 @@ export const useUpdateVariant = <TError = ErrorType<Error>,
       > => {
       return useMutation(getUpdateVariantMutationOptions(options));
     }
+
+export const getGetDashboardUrl = () => {
+
+
+
+
+  return `/api/admin/dashboard`
+}
+
+/**
+ * @summary Backoffice landing KPIs, alerts and top products (employee + admin)
+ */
+export const getDashboard = async ( options?: RequestInit): Promise<DashboardSummary> => {
+
+  return customFetch<DashboardSummary>(getGetDashboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDashboardQueryKey = () => {
+    return [
+    `/api/admin/dashboard`
+    ] as const;
+    }
+
+
+export const getGetDashboardQueryOptions = <TData = Awaited<ReturnType<typeof getDashboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDashboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDashboard>>> = ({ signal }) => getDashboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDashboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboard>>>
+export type GetDashboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Backoffice landing KPIs, alerts and top products (employee + admin)
+ */
+
+export function useGetDashboard<TData = Awaited<ReturnType<typeof getDashboard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSalesReportUrl = (params?: GetSalesReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/reports?${stringifiedParams}` : `/api/admin/reports`
+}
+
+/**
+ * @summary Sales, funnel and abandoned-cart report for a date range (admin only)
+ */
+export const getSalesReport = async (params?: GetSalesReportParams, options?: RequestInit): Promise<SalesReport> => {
+
+  return customFetch<SalesReport>(getGetSalesReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSalesReportQueryKey = (params?: GetSalesReportParams,) => {
+    return [
+    `/api/admin/reports`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSalesReportQueryOptions = <TData = Awaited<ReturnType<typeof getSalesReport>>, TError = ErrorType<unknown>>(params?: GetSalesReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSalesReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSalesReport>>> = ({ signal }) => getSalesReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSalesReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSalesReportQueryResult = NonNullable<Awaited<ReturnType<typeof getSalesReport>>>
+export type GetSalesReportQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Sales, funnel and abandoned-cart report for a date range (admin only)
+ */
+
+export function useGetSalesReport<TData = Awaited<ReturnType<typeof getSalesReport>>, TError = ErrorType<unknown>>(
+ params?: GetSalesReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSalesReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSalesReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListCouponsUrl = (params?: ListCouponsParams,) => {
   const normalizedParams = new URLSearchParams();

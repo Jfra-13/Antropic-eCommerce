@@ -26,6 +26,10 @@ import {
   UpdateVariantResponse,
   ImportProductsBody,
   ImportProductsResponse,
+  AttachProductMediaParams,
+  AttachProductMediaBody,
+  AttachProductMediaResponse,
+  DeleteProductMediaParams,
   ListCouponsQueryParams,
   ListCouponsResponse,
   CreateCouponBody,
@@ -57,6 +61,9 @@ import {
   UpdatePickupPointBody,
   UpdatePickupPointResponse,
   DeletePickupPointParams,
+  GetDashboardResponse,
+  GetSalesReportQueryParams,
+  GetSalesReportResponse,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../../lib/auth";
 import { createPublicMediaUploadUrl } from "../../lib/storage";
@@ -67,6 +74,7 @@ import * as coupons from "../coupons/service";
 import * as returns from "../returns/service";
 import * as users from "../users/service";
 import * as config from "../config/service";
+import * as reports from "../reports/service";
 
 const router: IRouter = Router();
 
@@ -211,6 +219,36 @@ router.post("/admin/products/import", async (req, res) => {
     return;
   }
   res.json(ImportProductsResponse.parse(result.result));
+});
+
+// Media: attach an uploaded photo/video (path from the public-media upload-url) to a product.
+router.post("/admin/products/:id/media", async (req, res) => {
+  const params = AttachProductMediaParams.safeParse(req.params);
+  const body = AttachProductMediaBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: "Invalid product id or body" });
+    return;
+  }
+  const result = await catalog.attachMedia(params.data.id, body.data);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.json(AttachProductMediaResponse.parse(result.product));
+});
+
+router.delete("/admin/media/:id", async (req, res) => {
+  const params = DeleteProductMediaParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAM", message: "Invalid media id" });
+    return;
+  }
+  const result = await catalog.removeMedia(params.data.id);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(204).send();
 });
 
 router.patch("/admin/variants/:id", async (req, res) => {
@@ -419,6 +457,25 @@ router.delete("/admin/pickup-points/:id", adminOnly, async (req, res) => {
     return;
   }
   res.status(204).send();
+});
+
+// --- Dashboard & Reportes (requerimientos §6.1, §6.8) ---
+
+// Dashboard: backoffice landing. Employee + admin (global gate) — staff need the alerts.
+router.get("/admin/dashboard", async (_req, res) => {
+  const summary = await reports.getDashboard();
+  res.json(GetDashboardResponse.parse(summary));
+});
+
+// Reportes: sales/funnel/abandoned-cart analytics. Admin only (matriz §6.0).
+router.get("/admin/reports", adminOnly, async (req, res) => {
+  const query = GetSalesReportQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
+    return;
+  }
+  const report = await reports.getSalesReport(query.data.from, query.data.to);
+  res.json(GetSalesReportResponse.parse(report));
 });
 
 export default router;

@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminProductMedia } from './adminProductMedia';
 import type { AdminProductVariant } from './adminProductVariant';
 import type { Occasion } from './occasion';
 
@@ -26,4 +27,5 @@ export interface AdminProduct {
   occasions: Occasion[];
   stockTotal: number;
   variants: AdminProductVariant[];
+  media: AdminProductMedia[];
 }

@@ -424,6 +424,39 @@ export interface AdminProductVariant {
   active: boolean;
 }
 
+export type AdminProductMediaKind = typeof AdminProductMediaKind[keyof typeof AdminProductMediaKind];
+
+
+export const AdminProductMediaKind = {
+  image: 'image',
+  video: 'video',
+} as const;
+
+export interface AdminProductMedia {
+  id: string;
+  kind: AdminProductMediaKind;
+  /** Storage object path in the public bucket */
+  path: string;
+  sortOrder: number;
+}
+
+export type AttachProductMediaInputKind = typeof AttachProductMediaInputKind[keyof typeof AttachProductMediaInputKind];
+
+
+export const AttachProductMediaInputKind = {
+  image: 'image',
+  video: 'video',
+} as const;
+
+export interface AttachProductMediaInput {
+  /**
+     * Storage path returned by the media upload-url endpoint
+     * @minLength 1
+     */
+  path: string;
+  kind?: AttachProductMediaInputKind;
+}
+
 export interface AdminProduct {
   id: string;
   slug: string;
@@ -442,6 +475,7 @@ export interface AdminProduct {
   occasions: Occasion[];
   stockTotal: number;
   variants: AdminProductVariant[];
+  media: AdminProductMedia[];
 }
 
 export interface AdminProductList {
@@ -834,6 +868,78 @@ export interface UpdateConfigInput {
   banners?: Banner[];
 }
 
+export interface TopProduct {
+  productName: string;
+  quantity: number;
+  /** Total revenue for this product in the period (money) */
+  revenue: string;
+}
+
+export interface DashboardKpi {
+  /** Revenue from orders approved today (money) */
+  salesToday: string;
+  /**
+     * Percent change vs yesterday; null when yesterday had no sales
+     * @nullable
+     */
+  salesTodayDeltaPct: number | null;
+  ordersToday: number;
+  /** Change in order count vs yesterday */
+  ordersTodayDelta: number;
+  /** Average paid-order value in the last 30 days (money) */
+  avgTicket: string;
+}
+
+export interface DashboardAlerts {
+  pendingPayments: number;
+  /** Carts with items untouched for > 24h and never converted */
+  abandonedCarts: number;
+  /** Active variants with stock below the low-stock threshold */
+  lowStock: number;
+  newReturns: number;
+}
+
+export interface DashboardSummary {
+  kpis: DashboardKpi;
+  alerts: DashboardAlerts;
+  /** Best sellers over the last 7 days */
+  topProducts: TopProduct[];
+}
+
+export interface SalesByDay {
+  /** ISO date YYYY-MM-DD */
+  date: string;
+  revenue: string;
+  orders: number;
+}
+
+export interface AbandonedCarts {
+  count: number;
+  /** Total cart value at risk (money) */
+  value: string;
+  /** Abandoned carts whose owner has an email on file */
+  recoverable: number;
+}
+
+export interface SalesReport {
+  /** ISO date YYYY-MM-DD */
+  from: string;
+  /** ISO date YYYY-MM-DD */
+  to: string;
+  orders: number;
+  revenue: string;
+  avgTicket: string;
+  unitsSold: number;
+  /**
+     * Funnel proxy = paid orders / distinct carts that held items in the period. Web traffic/visits are not tracked yet, so this is not a visit-based conversion rate.
+     * @nullable
+     */
+  cartConversionRate: number | null;
+  salesByDay: SalesByDay[];
+  topProducts: TopProduct[];
+  abandonedCarts: AbandonedCarts;
+}
+
 export interface ConfigMediaUploadInput {
   /** MIME type of the file to upload (informational) */
   contentType?: string;
@@ -943,6 +1049,19 @@ page?: number;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type GetSalesReportParams = {
+/**
+ * ISO date YYYY-MM-DD (inclusive). Defaults to 30 days ago.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+from?: string;
+/**
+ * ISO date YYYY-MM-DD (inclusive). Defaults to today.
+ * @pattern ^\d{4}-\d{2}-\d{2}$
+ */
+to?: string;
 };
 
 export type ListCouponsParams = {

@@ -82,5 +82,11 @@ export function toAdminProductDto(row: DbProduct, rel: AdminProductRelations): A
       priceOverride: v.priceOverride,
       active: v.active,
     })),
+    media: (rel.mediaByProduct.get(row.id) ?? []).map((m) => ({
+      id: m.id,
+      kind: m.kind,
+      path: m.storagePath,
+      sortOrder: m.sortOrder,
+    })),
   };
 }

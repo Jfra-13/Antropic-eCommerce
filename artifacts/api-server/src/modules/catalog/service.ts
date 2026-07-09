@@ -6,6 +6,7 @@ import type {
   UpdateProductInput,
   CreateVariantInput,
   UpdateVariantInput,
+  AttachProductMediaInput,
   ProductImportResult as ProductImportResultDto,
 } from "@workspace/api-zod";
 import {
@@ -22,11 +23,15 @@ import {
   productExists,
   insertVariant,
   updateVariantRow,
+  getVariantStock,
+  insertProductMedia,
+  deleteProductMediaRow,
   importProductGroup,
   type ProductFilters,
   type ImportProductGroup,
 } from "./queries";
 import { toCategoryDto, toOccasionDto, toProductDto, toAdminProductDto } from "./mappers";
+import * as notifications from "../notifications/service";
 
 export async function getCategories() {
   return (await selectCategories()).map(toCategoryDto);
@@ -183,6 +188,31 @@ export async function addVariant(
     }
     throw e;
   }
+}
+
+// --- Product media (photos + lookbook videos; requerimientos §6.5) ---
+
+export async function attachMedia(
+  productId: string,
+  input: AttachProductMediaInput,
+): Promise<AdminCatalogResult> {
+  if (!(await productExists(productId))) {
+    return { ok: false, status: 404, code: "NOT_FOUND", message: "Product not found" };
+  }
+  await insertProductMedia({
+    productId,
+    kind: input.kind ?? "image",
+    storagePath: input.path,
+  });
+  return { ok: true, status: 200, product: await buildAdminProduct(productId) };
+}
+
+export async function removeMedia(mediaId: string): Promise<AdminCatalogResult> {
+  const productId = await deleteProductMediaRow(mediaId);
+  if (!productId) {
+    return { ok: false, status: 404, code: "NOT_FOUND", message: "Media not found" };
+  }
+  return { ok: true, status: 200, product: await buildAdminProduct(productId) };
 }
 
 // --- CSV import (planeación §4.6; requerimientos §6.5) ---
@@ -345,11 +375,17 @@ export async function updateVariant(
   if (input.priceOverride !== undefined) patch["priceOverride"] = input.priceOverride;
   if (input.active !== undefined) patch["active"] = input.active;
 
+  // Detect an out-of-stock -> in-stock transition to fire "avísame" alerts after the update.
+  const restocked =
+    input.stock !== undefined && input.stock > 0 && (await getVariantStock(id)) === 0;
+
   try {
     const productId = await updateVariantRow(id, patch);
     if (!productId) {
       return { ok: false, status: 404, code: "NOT_FOUND", message: "Variant not found" };
     }
+    // Best-effort: notify subscribers waiting for this variant to come back in stock.
+    if (restocked) void notifications.notifyStockAvailable(id);
     return { ok: true, status: 200, product: await buildAdminProduct(productId) };
   } catch (e) {
     if (pgErrorCode(e) === "23505") {

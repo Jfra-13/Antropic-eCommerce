@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Plus, RefreshCw, Upload, Download } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, RefreshCw, Upload, Download, X, Film } from "lucide-react";
 import {
   useListAdminProducts,
   useListCategories,
@@ -9,12 +9,22 @@ import {
   useCreateVariant,
   useUpdateVariant,
   useImportProducts,
+  useCreateConfigMediaUploadUrl,
+  useAttachProductMedia,
+  useDeleteProductMedia,
   getListAdminProductsQueryKey,
   type AdminProduct,
   type AdminProductVariant,
+  type AdminProductMedia,
   type ProductImportResult,
 } from "@workspace/api-client-react";
+import { supabase } from "@/lib/supabase";
 import { soles, errorMessage } from "@/lib/format";
+
+const MEDIA_BUCKET = "public-media";
+function publicUrl(path: string): string {
+  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+}
 
 export default function Inventory() {
   const queryClient = useQueryClient();
@@ -149,11 +159,133 @@ function ProductRow({
       {expanded && (
         <tr>
           <td colSpan={6} className="bg-slate-50 px-6 py-4">
+            <MediaPanel product={product} onChanged={onChanged} />
             <VariantsPanel product={product} onChanged={onChanged} />
           </td>
         </tr>
       )}
     </>
+  );
+}
+
+function MediaPanel({ product, onChanged }: { product: AdminProduct; onChanged: () => void }) {
+  const attach = useAttachProductMedia({ mutation: { onSuccess: onChanged } });
+  const del = useDeleteProductMedia({ mutation: { onSuccess: onChanged } });
+
+  return (
+    <div className="mb-4 border-b border-slate-200 pb-4">
+      <p className="mb-2 text-xs font-semibold uppercase text-slate-400">Media (fotos + video lookbook)</p>
+      <div className="flex flex-wrap items-center gap-3">
+        {product.media.map((m) => (
+          <MediaThumb key={m.id} media={m} onRemove={() => del.mutate({ id: m.id })} disabled={del.isPending} />
+        ))}
+        <MediaUploadButton
+          label="Foto"
+          accept="image/*"
+          onUploaded={(path) => attach.mutate({ id: product.id, data: { path, kind: "image" } })}
+        />
+        <MediaUploadButton
+          label="Video"
+          accept="video/*"
+          onUploaded={(path) => attach.mutate({ id: product.id, data: { path, kind: "video" } })}
+        />
+      </div>
+      {(attach.isError || del.isError) && (
+        <p className="mt-1 text-xs text-red-600">{errorMessage(attach.error ?? del.error)}</p>
+      )}
+    </div>
+  );
+}
+
+function MediaThumb({
+  media,
+  onRemove,
+  disabled,
+}: {
+  media: AdminProductMedia;
+  onRemove: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="relative">
+      {media.kind === "video" ? (
+        <div className="flex h-20 w-20 items-center justify-center rounded border border-slate-200 bg-slate-900 text-white">
+          <Film size={20} />
+        </div>
+      ) : (
+        <img
+          src={publicUrl(media.path)}
+          alt="producto"
+          className="h-20 w-20 rounded border border-slate-200 object-cover"
+        />
+      )}
+      <button
+        onClick={onRemove}
+        disabled={disabled}
+        className="absolute -right-2 -top-2 rounded-full bg-white p-0.5 text-slate-500 shadow hover:text-red-600 disabled:opacity-50"
+        title="Quitar"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
+// Signs a public-media upload (reuses the config upload-url endpoint), pushes the file to
+// Storage, then hands the storage path back to attach it to the product.
+function MediaUploadButton({
+  label,
+  accept,
+  onUploaded,
+}: {
+  label: string;
+  accept: string;
+  onUploaded: (path: string) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const signUpload = useCreateConfigMediaUploadUrl();
+
+  async function handleFile(file: File) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const signed = await signUpload.mutateAsync({ data: { contentType: file.type } });
+      const { error } = await supabase.storage
+        .from(MEDIA_BUCKET)
+        .uploadToSignedUrl(signed.path, signed.token, file);
+      if (error) throw error;
+      onUploaded(signed.path);
+    } catch (e) {
+      setErr(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+          e.target.value = "";
+        }}
+      />
+      <button
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="inline-flex h-20 w-20 flex-col items-center justify-center gap-1 rounded border border-dashed border-slate-300 text-xs text-slate-500 hover:bg-white disabled:opacity-50"
+      >
+        <Upload size={14} /> {busy ? "…" : label}
+      </button>
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+    </div>
   );
 }
 
