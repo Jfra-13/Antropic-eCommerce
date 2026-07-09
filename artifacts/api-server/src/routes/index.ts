@@ -7,6 +7,9 @@ import wishlistRouter from "../modules/wishlist/router";
 import checkoutRouter from "../modules/checkout/router";
 import ordersRouter from "../modules/orders/router";
 import paymentsRouter from "../modules/payments/router";
+import returnsRouter from "../modules/returns/router";
+import configRouter from "../modules/config/router";
+import adminRouter from "../modules/admin/router";
 
 const router: IRouter = Router();
 
@@ -18,5 +21,8 @@ router.use(wishlistRouter);
 router.use(checkoutRouter);
 router.use(ordersRouter);
 router.use(paymentsRouter);
+router.use(returnsRouter);
+router.use(configRouter);
+router.use(adminRouter);
 
 export default router;

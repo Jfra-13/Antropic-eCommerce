@@ -22,6 +22,10 @@ tags:
     description: Order operations (create from cart, list/get own orders)
   - name: payments
     description: Payment proof upload (Yape/Plin constancia, owner-scoped)
+  - name: admin
+    description: Backoffice operations (employee/admin only)
+  - name: config
+    description: Public store config (delivery fee, Yape, pickup points, banners)
 paths:
   /healthz:
     get:
@@ -496,6 +500,828 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Order not in a state that accepts a proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/payments/queue:
+    get:
+      operationId: listPaymentVerificationQueue
+      tags: [admin]
+      summary: List orders awaiting payment verification (oldest first), with a signed proof URL
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated verification queue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentVerificationQueue"
+  /admin/orders/{id}/approve:
+    post:
+      operationId: approveOrderPayment
+      tags: [admin]
+      summary: Approve a payment — moves the order to pagado and decrements stock (idempotent)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order not awaiting verification, or insufficient stock to fulfil
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/orders/{id}/reject:
+    post:
+      operationId: rejectOrderPayment
+      tags: [admin]
+      summary: Reject a payment — moves the order to rechazado (idempotent, no stock change)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order not awaiting verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/shipments:
+    get:
+      operationId: listShipments
+      tags: [admin]
+      summary: List paid orders in fulfilment (logistics board), filterable by method and status
+      parameters:
+        - name: deliveryMethod
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [delivery, recojo]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado]
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Paginated shipments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShipmentList"
+  /admin/orders/{id}/fulfillment:
+    post:
+      operationId: advanceFulfillment
+      tags: [admin]
+      summary: Advance an order's fulfilment status (validated state transition)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdvanceFulfillmentInput"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order not in fulfilment, or invalid transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/products:
+    get:
+      operationId: listAdminProducts
+      tags: [admin]
+      summary: List all products for inventory management (includes inactive)
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated admin products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProductList"
+    post:
+      operationId: createProduct
+      tags: [admin]
+      summary: Create a product (optionally with occasions and variants)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductInput"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "409":
+          description: Slug or SKU already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/products/{id}:
+    patch:
+      operationId: updateProduct
+      tags: [admin]
+      summary: Update a product's fields (partial); soft-delete via active=false
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductInput"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/products/{id}/variants:
+    post:
+      operationId: createVariant
+      tags: [admin]
+      summary: Add a size/color variant to a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVariantInput"
+      responses:
+        "200":
+          description: Updated product (with the new variant)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: SKU or size/color combination already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/products/import:
+    post:
+      operationId: importProducts
+      tags: [admin]
+      summary: Bulk import products/variants from CSV (upsert by SKU); dryRun previews errors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductImportInput"
+      responses:
+        "200":
+          description: Import result (row-level errors, imported count)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImportResult"
+        "400":
+          description: CSV could not be parsed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/variants/{id}:
+    patch:
+      operationId: updateVariant
+      tags: [admin]
+      summary: Update a variant (stock, price override, active, size/color/sku)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVariantInput"
+      responses:
+        "200":
+          description: Updated product (owning the variant)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminProduct"
+        "404":
+          description: Variant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: SKU or size/color combination already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/coupons:
+    get:
+      operationId: listCoupons
+      tags: [admin]
+      summary: List coupons for management (admin only)
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated coupons
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponList"
+    post:
+      operationId: createCoupon
+      tags: [admin]
+      summary: Create a coupon (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCouponInput"
+      responses:
+        "201":
+          description: Created coupon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coupon"
+        "409":
+          description: Coupon code already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/coupons/{id}:
+    patch:
+      operationId: updateCoupon
+      tags: [admin]
+      summary: Update a coupon's fields (partial); activate/deactivate via active
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCouponInput"
+      responses:
+        "200":
+          description: Updated coupon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coupon"
+        "404":
+          description: Coupon not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Coupon code already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteCoupon
+      tags: [admin]
+      summary: Delete a coupon (admin only); blocked if already redeemed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Coupon not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Coupon already redeemed, cannot delete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /returns:
+    post:
+      operationId: createReturn
+      tags: [returns]
+      summary: Open a return ticket for one of the caller's orders (requerimientos §7.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReturnInput"
+      responses:
+        "201":
+          description: Created return ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReturnTicket"
+        "404":
+          description: Order not found or not owned by the caller
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/returns:
+    get:
+      operationId: listReturns
+      tags: [admin]
+      summary: List return tickets for the backoffice board (requerimientos §6.7)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [nueva, en_proceso, resuelta, cerrada]
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated return tickets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReturnList"
+  /admin/returns/{id}:
+    patch:
+      operationId: updateReturnStatus
+      tags: [admin]
+      summary: Update a return ticket's status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReturnStatusInput"
+      responses:
+        "200":
+          description: Updated return ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReturn"
+        "404":
+          description: Return ticket not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: List users for management (requerimientos §6.9, solo Admin)
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [customer, employee, admin]
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserList"
+    post:
+      operationId: createEmployee
+      tags: [admin]
+      summary: Create an employee (provisions a Supabase auth user, magic-link login)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeInput"
+      responses:
+        "201":
+          description: Created employee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [admin]
+      summary: Update a user — block a client, edit an employee, change role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Cannot modify your own role or blocked status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /config:
+    get:
+      operationId: getPublicConfig
+      tags: [config]
+      summary: Public store config for checkout/home (delivery fee, Yape, banners)
+      responses:
+        "200":
+          description: Public config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicConfig"
+  /pickup-points:
+    get:
+      operationId: listPickupPoints
+      tags: [config]
+      summary: Active pickup points in La Molina (for checkout recojo)
+      responses:
+        "200":
+          description: Active pickup points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickupPointList"
+  /admin/config:
+    get:
+      operationId: getAdminConfig
+      tags: [admin]
+      summary: Get store config for the admin panel (admin only)
+      responses:
+        "200":
+          description: Admin config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminConfig"
+    put:
+      operationId: updateAdminConfig
+      tags: [admin]
+      summary: Update store config — delivery fee, Yape number/QR, banners (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateConfigInput"
+      responses:
+        "200":
+          description: Updated admin config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminConfig"
+  /admin/config/media/upload-url:
+    post:
+      operationId: createConfigMediaUploadUrl
+      tags: [admin]
+      summary: Signed URL to upload a QR/banner image to public Storage (admin only)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigMediaUploadInput"
+      responses:
+        "200":
+          description: Signed upload URL plus the public read URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigMediaUploadUrl"
+  /admin/pickup-points:
+    get:
+      operationId: listAdminPickupPoints
+      tags: [admin]
+      summary: List all pickup points including inactive (admin only)
+      responses:
+        "200":
+          description: Pickup points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickupPointList"
+    post:
+      operationId: createPickupPoint
+      tags: [admin]
+      summary: Create a pickup point (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePickupPointInput"
+      responses:
+        "201":
+          description: Created pickup point
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickupPoint"
+  /admin/pickup-points/{id}:
+    patch:
+      operationId: updatePickupPoint
+      tags: [admin]
+      summary: Update a pickup point (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePickupPointInput"
+      responses:
+        "200":
+          description: Updated pickup point
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PickupPoint"
+        "404":
+          description: Pickup point not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deletePickupPoint
+      tags: [admin]
+      summary: Delete a pickup point (admin only); blocked if referenced by orders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Pickup point not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Referenced by orders, cannot delete (deactivate instead)
           content:
             application/json:
               schema:
@@ -990,3 +1816,821 @@ components:
           type: [string, "null"]
       required:
         - path
+    PaymentVerificationItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        referenceCode:
+          type: string
+        customerEmail:
+          type: string
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        # Order total (server-computed). Fixed-point money string.
+        total:
+          type: string
+        # Amount the customer typed when uploading the proof, if any. May differ from total.
+        amountReported:
+          type: [string, "null"]
+        # Signed, expiring URL to the constancia image in the private bucket (null if none).
+        proofUrl:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderNumber
+        - referenceCode
+        - customerEmail
+        - deliveryMethod
+        - total
+        - amountReported
+        - proofUrl
+        - createdAt
+    PaymentVerificationQueue:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentVerificationItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    ShipmentItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        referenceCode:
+          type: string
+        customerEmail:
+          type: string
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        fulfillmentStatus:
+          type: string
+          enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado]
+        shippingAddress:
+          type: [string, "null"]
+        total:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderNumber
+        - referenceCode
+        - customerEmail
+        - deliveryMethod
+        - fulfillmentStatus
+        - shippingAddress
+        - total
+        - createdAt
+    ShipmentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShipmentItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    AdvanceFulfillmentInput:
+      type: object
+      properties:
+        to:
+          type: string
+          enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado]
+      required:
+        - to
+    AdminProductVariant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        size:
+          type: string
+        color:
+          type: string
+        sku:
+          type: string
+        stock:
+          type: integer
+        priceOverride:
+          type: [string, "null"]
+        active:
+          type: boolean
+      required:
+        - id
+        - size
+        - color
+        - sku
+        - stock
+        - priceOverride
+        - active
+    AdminProduct:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: [string, "null"]
+        fit:
+          type: [string, "null"]
+        price:
+          type: string
+        badge:
+          type: [string, "null"]
+        featured:
+          type: boolean
+        active:
+          type: boolean
+        categoryId:
+          type: string
+          format: uuid
+        categoryName:
+          type: string
+        occasions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Occasion"
+        stockTotal:
+          type: integer
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminProductVariant"
+      required:
+        - id
+        - slug
+        - name
+        - description
+        - fit
+        - price
+        - badge
+        - featured
+        - active
+        - categoryId
+        - categoryName
+        - occasions
+        - stockTotal
+        - variants
+    AdminProductList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminProduct"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    CreateVariantInput:
+      type: object
+      properties:
+        size:
+          type: string
+          minLength: 1
+        color:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        stock:
+          type: integer
+          minimum: 0
+          default: 0
+        priceOverride:
+          type: [string, "null"]
+      required:
+        - size
+        - color
+        - sku
+    CreateProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        price:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        description:
+          type: [string, "null"]
+        fit:
+          type: [string, "null"]
+        badge:
+          type: [string, "null"]
+        featured:
+          type: boolean
+          default: false
+        occasionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateVariantInput"
+      required:
+        - name
+        - price
+        - categoryId
+    UpdateProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        price:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        description:
+          type: [string, "null"]
+        fit:
+          type: [string, "null"]
+        badge:
+          type: [string, "null"]
+        featured:
+          type: boolean
+        active:
+          type: boolean
+        occasionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    UpdateVariantInput:
+      type: object
+      properties:
+        size:
+          type: string
+          minLength: 1
+        color:
+          type: string
+          minLength: 1
+        sku:
+          type: string
+          minLength: 1
+        stock:
+          type: integer
+          minimum: 0
+        priceOverride:
+          type: [string, "null"]
+        active:
+          type: boolean
+    ProductImportInput:
+      type: object
+      properties:
+        csv:
+          type: string
+          description: "Raw CSV text. Columns: nombre, categoria, ocasion, precio, talla, color, sku, stock, descripcion"
+        dryRun:
+          type: boolean
+          default: false
+          description: When true, validate and report errors without writing anything
+      required:
+        - csv
+    ProductImportError:
+      type: object
+      properties:
+        row:
+          type: integer
+          description: 1-based row number in the source file (header is row 1)
+        message:
+          type: string
+      required:
+        - row
+        - message
+    ProductImportResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Data rows parsed (excludes header)
+        imported:
+          type: integer
+          description: Rows written (0 when dryRun)
+        valid:
+          type: integer
+          description: Rows that passed validation
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImportError"
+      required:
+        - total
+        - imported
+        - valid
+        - errors
+    Coupon:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        type:
+          type: string
+          enum: [percent, fixed]
+        value:
+          type: string
+        startsAt:
+          type: [string, "null"]
+          format: date-time
+        endsAt:
+          type: [string, "null"]
+          format: date-time
+        maxUses:
+          type: [integer, "null"]
+        usedCount:
+          type: integer
+        minPurchase:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - code
+        - type
+        - value
+        - startsAt
+        - endsAt
+        - maxUses
+        - usedCount
+        - minPurchase
+        - active
+        - createdAt
+    CouponList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Coupon"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    CreateCouponInput:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [percent, fixed]
+        value:
+          type: string
+        startsAt:
+          type: [string, "null"]
+          format: date-time
+        endsAt:
+          type: [string, "null"]
+          format: date-time
+        maxUses:
+          type: [integer, "null"]
+          minimum: 1
+        minPurchase:
+          type: string
+          default: "0"
+        active:
+          type: boolean
+          default: true
+      required:
+        - code
+        - type
+        - value
+    UpdateCouponInput:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [percent, fixed]
+        value:
+          type: string
+        startsAt:
+          type: [string, "null"]
+          format: date-time
+        endsAt:
+          type: [string, "null"]
+          format: date-time
+        maxUses:
+          type: [integer, "null"]
+          minimum: 1
+        minPurchase:
+          type: string
+        active:
+          type: boolean
+    ReturnTicket:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticketNumber:
+          type: integer
+        orderId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        reason:
+          type: [string, "null"]
+        currentSize:
+          type: [string, "null"]
+        desiredSize:
+          type: [string, "null"]
+        photoPath:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [nueva, en_proceso, resuelta, cerrada]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ticketNumber
+        - orderId
+        - userId
+        - reason
+        - currentSize
+        - desiredSize
+        - photoPath
+        - status
+        - createdAt
+    AdminReturn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticketNumber:
+          type: integer
+        orderId:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        customerName:
+          type: [string, "null"]
+        customerEmail:
+          type: string
+        customerPhone:
+          type: [string, "null"]
+        reason:
+          type: [string, "null"]
+        currentSize:
+          type: [string, "null"]
+        desiredSize:
+          type: [string, "null"]
+        photoPath:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [nueva, en_proceso, resuelta, cerrada]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - ticketNumber
+        - orderId
+        - orderNumber
+        - customerName
+        - customerEmail
+        - customerPhone
+        - reason
+        - currentSize
+        - desiredSize
+        - photoPath
+        - status
+        - createdAt
+    AdminReturnList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminReturn"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    CreateReturnInput:
+      type: object
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        reason:
+          type: [string, "null"]
+        currentSize:
+          type: [string, "null"]
+        desiredSize:
+          type: [string, "null"]
+        photoPath:
+          type: [string, "null"]
+      required:
+        - orderId
+    UpdateReturnStatusInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [nueva, en_proceso, resuelta, cerrada]
+      required:
+        - status
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+        role:
+          type: string
+          enum: [customer, employee, admin]
+        blocked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - fullName
+        - phone
+        - role
+        - blocked
+        - createdAt
+    AdminUserList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    CreateEmployeeInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        fullName:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+      required:
+        - email
+    UpdateUserInput:
+      type: object
+      properties:
+        fullName:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+        role:
+          type: string
+          enum: [customer, employee, admin]
+        blocked:
+          type: boolean
+    PickupPoint:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - address
+        - active
+        - createdAt
+    PickupPointList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PickupPoint"
+      required:
+        - items
+    CreatePickupPointInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        address:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+          default: true
+      required:
+        - name
+        - address
+    UpdatePickupPointInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        address:
+          type: string
+          minLength: 1
+        active:
+          type: boolean
+    Banner:
+      type: object
+      properties:
+        path:
+          type: string
+        active:
+          type: boolean
+      required:
+        - path
+        - active
+    PublicBanner:
+      type: object
+      properties:
+        imageUrl:
+          type: string
+      required:
+        - imageUrl
+    AdminConfig:
+      type: object
+      properties:
+        deliveryFee:
+          type: string
+          description: Flat La Molina delivery fee, decimal string (e.g. "12.00")
+        yapeNumber:
+          type: [string, "null"]
+        yapeQrPath:
+          type: [string, "null"]
+          description: Storage object path of the Yape QR image
+        banners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Banner"
+      required:
+        - deliveryFee
+        - yapeNumber
+        - yapeQrPath
+        - banners
+    PublicConfig:
+      type: object
+      properties:
+        deliveryFee:
+          type: string
+        yapeNumber:
+          type: [string, "null"]
+        yapeQrUrl:
+          type: [string, "null"]
+          description: Public URL of the Yape QR image
+        banners:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicBanner"
+      required:
+        - deliveryFee
+        - yapeNumber
+        - yapeQrUrl
+        - banners
+    UpdateConfigInput:
+      type: object
+      properties:
+        deliveryFee:
+          type: string
+        yapeNumber:
+          type: [string, "null"]
+        yapeQrPath:
+          type: [string, "null"]
+        banners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Banner"
+    ConfigMediaUploadInput:
+      type: object
+      properties:
+        contentType:
+          type: string
+          description: MIME type of the file to upload (informational)
+    ConfigMediaUploadUrl:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          description: PUT the file to this URL (direct to public Storage)
+        path:
+          type: string
+          description: Storage object path; send back in yapeQrPath or a banner
+        token:
+          type: string
+        publicUrl:
+          type: string
+          description: Public read URL for the uploaded object
+      required:
+        - uploadUrl
+        - path
+        - token
+        - publicUrl

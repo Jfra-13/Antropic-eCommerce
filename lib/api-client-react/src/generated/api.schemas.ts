@@ -328,6 +328,527 @@ export interface AttachPaymentProofInput {
   amountReported?: string | null;
 }
 
+export type PaymentVerificationItemDeliveryMethod = typeof PaymentVerificationItemDeliveryMethod[keyof typeof PaymentVerificationItemDeliveryMethod];
+
+
+export const PaymentVerificationItemDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export interface PaymentVerificationItem {
+  id: string;
+  orderNumber: number;
+  referenceCode: string;
+  customerEmail: string;
+  deliveryMethod: PaymentVerificationItemDeliveryMethod;
+  total: string;
+  /** @nullable */
+  amountReported: string | null;
+  /** @nullable */
+  proofUrl: string | null;
+  createdAt: string;
+}
+
+export interface PaymentVerificationQueue {
+  items: PaymentVerificationItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type ShipmentItemDeliveryMethod = typeof ShipmentItemDeliveryMethod[keyof typeof ShipmentItemDeliveryMethod];
+
+
+export const ShipmentItemDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export type ShipmentItemFulfillmentStatus = typeof ShipmentItemFulfillmentStatus[keyof typeof ShipmentItemFulfillmentStatus];
+
+
+export const ShipmentItemFulfillmentStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export interface ShipmentItem {
+  id: string;
+  orderNumber: number;
+  referenceCode: string;
+  customerEmail: string;
+  deliveryMethod: ShipmentItemDeliveryMethod;
+  fulfillmentStatus: ShipmentItemFulfillmentStatus;
+  /** @nullable */
+  shippingAddress: string | null;
+  total: string;
+  createdAt: string;
+}
+
+export interface ShipmentList {
+  items: ShipmentItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type AdvanceFulfillmentInputTo = typeof AdvanceFulfillmentInputTo[keyof typeof AdvanceFulfillmentInputTo];
+
+
+export const AdvanceFulfillmentInputTo = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export interface AdvanceFulfillmentInput {
+  to: AdvanceFulfillmentInputTo;
+}
+
+export interface AdminProductVariant {
+  id: string;
+  size: string;
+  color: string;
+  sku: string;
+  stock: number;
+  /** @nullable */
+  priceOverride: string | null;
+  active: boolean;
+}
+
+export interface AdminProduct {
+  id: string;
+  slug: string;
+  name: string;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  fit: string | null;
+  price: string;
+  /** @nullable */
+  badge: string | null;
+  featured: boolean;
+  active: boolean;
+  categoryId: string;
+  categoryName: string;
+  occasions: Occasion[];
+  stockTotal: number;
+  variants: AdminProductVariant[];
+}
+
+export interface AdminProductList {
+  items: AdminProduct[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CreateVariantInput {
+  /** @minLength 1 */
+  size: string;
+  /** @minLength 1 */
+  color: string;
+  /** @minLength 1 */
+  sku: string;
+  /** @minimum 0 */
+  stock?: number;
+  /** @nullable */
+  priceOverride?: string | null;
+}
+
+export interface CreateProductInput {
+  /** @minLength 1 */
+  name: string;
+  price: string;
+  categoryId: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  fit?: string | null;
+  /** @nullable */
+  badge?: string | null;
+  featured?: boolean;
+  occasionIds?: string[];
+  variants?: CreateVariantInput[];
+}
+
+export interface UpdateProductInput {
+  /** @minLength 1 */
+  name?: string;
+  price?: string;
+  categoryId?: string;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  fit?: string | null;
+  /** @nullable */
+  badge?: string | null;
+  featured?: boolean;
+  active?: boolean;
+  occasionIds?: string[];
+}
+
+export interface UpdateVariantInput {
+  /** @minLength 1 */
+  size?: string;
+  /** @minLength 1 */
+  color?: string;
+  /** @minLength 1 */
+  sku?: string;
+  /** @minimum 0 */
+  stock?: number;
+  /** @nullable */
+  priceOverride?: string | null;
+  active?: boolean;
+}
+
+export interface ProductImportInput {
+  /** Raw CSV text. Columns: nombre, categoria, ocasion, precio, talla, color, sku, stock, descripcion */
+  csv: string;
+  /** When true, validate and report errors without writing anything */
+  dryRun?: boolean;
+}
+
+export interface ProductImportError {
+  /** 1-based row number in the source file (header is row 1) */
+  row: number;
+  message: string;
+}
+
+export interface ProductImportResult {
+  /** Data rows parsed (excludes header) */
+  total: number;
+  /** Rows written (0 when dryRun) */
+  imported: number;
+  /** Rows that passed validation */
+  valid: number;
+  errors: ProductImportError[];
+}
+
+export type CouponType = typeof CouponType[keyof typeof CouponType];
+
+
+export const CouponType = {
+  percent: 'percent',
+  fixed: 'fixed',
+} as const;
+
+export interface Coupon {
+  id: string;
+  code: string;
+  type: CouponType;
+  value: string;
+  /** @nullable */
+  startsAt: string | null;
+  /** @nullable */
+  endsAt: string | null;
+  /** @nullable */
+  maxUses: number | null;
+  usedCount: number;
+  minPurchase: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CouponList {
+  items: Coupon[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type CreateCouponInputType = typeof CreateCouponInputType[keyof typeof CreateCouponInputType];
+
+
+export const CreateCouponInputType = {
+  percent: 'percent',
+  fixed: 'fixed',
+} as const;
+
+export interface CreateCouponInput {
+  /** @minLength 1 */
+  code: string;
+  type: CreateCouponInputType;
+  value: string;
+  /** @nullable */
+  startsAt?: string | null;
+  /** @nullable */
+  endsAt?: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  maxUses?: number | null;
+  minPurchase?: string;
+  active?: boolean;
+}
+
+export type UpdateCouponInputType = typeof UpdateCouponInputType[keyof typeof UpdateCouponInputType];
+
+
+export const UpdateCouponInputType = {
+  percent: 'percent',
+  fixed: 'fixed',
+} as const;
+
+export interface UpdateCouponInput {
+  /** @minLength 1 */
+  code?: string;
+  type?: UpdateCouponInputType;
+  value?: string;
+  /** @nullable */
+  startsAt?: string | null;
+  /** @nullable */
+  endsAt?: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  maxUses?: number | null;
+  minPurchase?: string;
+  active?: boolean;
+}
+
+export type ReturnTicketStatus = typeof ReturnTicketStatus[keyof typeof ReturnTicketStatus];
+
+
+export const ReturnTicketStatus = {
+  nueva: 'nueva',
+  en_proceso: 'en_proceso',
+  resuelta: 'resuelta',
+  cerrada: 'cerrada',
+} as const;
+
+export interface ReturnTicket {
+  id: string;
+  ticketNumber: number;
+  orderId: string;
+  userId: string;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  currentSize: string | null;
+  /** @nullable */
+  desiredSize: string | null;
+  /** @nullable */
+  photoPath: string | null;
+  status: ReturnTicketStatus;
+  createdAt: string;
+}
+
+export type AdminReturnStatus = typeof AdminReturnStatus[keyof typeof AdminReturnStatus];
+
+
+export const AdminReturnStatus = {
+  nueva: 'nueva',
+  en_proceso: 'en_proceso',
+  resuelta: 'resuelta',
+  cerrada: 'cerrada',
+} as const;
+
+export interface AdminReturn {
+  id: string;
+  ticketNumber: number;
+  orderId: string;
+  orderNumber: number;
+  /** @nullable */
+  customerName: string | null;
+  customerEmail: string;
+  /** @nullable */
+  customerPhone: string | null;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  currentSize: string | null;
+  /** @nullable */
+  desiredSize: string | null;
+  /** @nullable */
+  photoPath: string | null;
+  status: AdminReturnStatus;
+  createdAt: string;
+}
+
+export interface AdminReturnList {
+  items: AdminReturn[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CreateReturnInput {
+  orderId: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  currentSize?: string | null;
+  /** @nullable */
+  desiredSize?: string | null;
+  /** @nullable */
+  photoPath?: string | null;
+}
+
+export type UpdateReturnStatusInputStatus = typeof UpdateReturnStatusInputStatus[keyof typeof UpdateReturnStatusInputStatus];
+
+
+export const UpdateReturnStatusInputStatus = {
+  nueva: 'nueva',
+  en_proceso: 'en_proceso',
+  resuelta: 'resuelta',
+  cerrada: 'cerrada',
+} as const;
+
+export interface UpdateReturnStatusInput {
+  status: UpdateReturnStatusInputStatus;
+}
+
+export type AdminUserRole = typeof AdminUserRole[keyof typeof AdminUserRole];
+
+
+export const AdminUserRole = {
+  customer: 'customer',
+  employee: 'employee',
+  admin: 'admin',
+} as const;
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  /** @nullable */
+  fullName: string | null;
+  /** @nullable */
+  phone: string | null;
+  role: AdminUserRole;
+  blocked: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserList {
+  items: AdminUser[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CreateEmployeeInput {
+  email: string;
+  /** @nullable */
+  fullName?: string | null;
+  /** @nullable */
+  phone?: string | null;
+}
+
+export type UpdateUserInputRole = typeof UpdateUserInputRole[keyof typeof UpdateUserInputRole];
+
+
+export const UpdateUserInputRole = {
+  customer: 'customer',
+  employee: 'employee',
+  admin: 'admin',
+} as const;
+
+export interface UpdateUserInput {
+  /** @nullable */
+  fullName?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  role?: UpdateUserInputRole;
+  blocked?: boolean;
+}
+
+export interface PickupPoint {
+  id: string;
+  name: string;
+  address: string;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface PickupPointList {
+  items: PickupPoint[];
+}
+
+export interface CreatePickupPointInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  address: string;
+  active?: boolean;
+}
+
+export interface UpdatePickupPointInput {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  address?: string;
+  active?: boolean;
+}
+
+export interface Banner {
+  path: string;
+  active: boolean;
+}
+
+export interface PublicBanner {
+  imageUrl: string;
+}
+
+export interface AdminConfig {
+  /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
+  deliveryFee: string;
+  /** @nullable */
+  yapeNumber: string | null;
+  /**
+     * Storage object path of the Yape QR image
+     * @nullable
+     */
+  yapeQrPath: string | null;
+  banners: Banner[];
+}
+
+export interface PublicConfig {
+  deliveryFee: string;
+  /** @nullable */
+  yapeNumber: string | null;
+  /**
+     * Public URL of the Yape QR image
+     * @nullable
+     */
+  yapeQrUrl: string | null;
+  banners: PublicBanner[];
+}
+
+export interface UpdateConfigInput {
+  deliveryFee?: string;
+  /** @nullable */
+  yapeNumber?: string | null;
+  /** @nullable */
+  yapeQrPath?: string | null;
+  banners?: Banner[];
+}
+
+export interface ConfigMediaUploadInput {
+  /** MIME type of the file to upload (informational) */
+  contentType?: string;
+}
+
+export interface ConfigMediaUploadUrl {
+  /** PUT the file to this URL (direct to public Storage) */
+  uploadUrl: string;
+  /** Storage object path; send back in yapeQrPath or a banner */
+  path: string;
+  token: string;
+  /** Public read URL for the uploaded object */
+  publicUrl: string;
+}
+
 export type ListProductsParams = {
 /**
  * @minimum 1
@@ -364,4 +885,122 @@ page?: number;
  */
 limit?: number;
 };
+
+export type ListPaymentVerificationQueueParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListShipmentsParams = {
+deliveryMethod?: ListShipmentsDeliveryMethod;
+status?: ListShipmentsStatus;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListShipmentsDeliveryMethod = typeof ListShipmentsDeliveryMethod[keyof typeof ListShipmentsDeliveryMethod];
+
+
+export const ListShipmentsDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export type ListShipmentsStatus = typeof ListShipmentsStatus[keyof typeof ListShipmentsStatus];
+
+
+export const ListShipmentsStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export type ListAdminProductsParams = {
+q?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListCouponsParams = {
+q?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListReturnsParams = {
+status?: ListReturnsStatus;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListReturnsStatus = typeof ListReturnsStatus[keyof typeof ListReturnsStatus];
+
+
+export const ListReturnsStatus = {
+  nueva: 'nueva',
+  en_proceso: 'en_proceso',
+  resuelta: 'resuelta',
+  cerrada: 'cerrada',
+} as const;
+
+export type ListUsersParams = {
+role?: ListUsersRole;
+q?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListUsersRole = typeof ListUsersRole[keyof typeof ListUsersRole];
+
+
+export const ListUsersRole = {
+  customer: 'customer',
+  employee: 'employee',
+  admin: 'admin',
+} as const;
 

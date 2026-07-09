@@ -595,3 +595,913 @@ export const AttachPaymentProofResponse = zod.object({
 })
 
 
+/**
+ * @summary List orders awaiting payment verification (oldest first), with a signed proof URL
+ */
+export const listPaymentVerificationQueueQueryPageDefault = 1;
+
+export const listPaymentVerificationQueueQueryLimitDefault = 20;
+export const listPaymentVerificationQueueQueryLimitMax = 100;
+
+
+
+export const ListPaymentVerificationQueueQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listPaymentVerificationQueueQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listPaymentVerificationQueueQueryLimitMax).default(listPaymentVerificationQueueQueryLimitDefault)
+})
+
+export const ListPaymentVerificationQueueResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "customerEmail": zod.string(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "total": zod.string(),
+  "amountReported": zod.string().nullable(),
+  "proofUrl": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Approve a payment — moves the order to pagado and decrements stock (idempotent)
+ */
+export const ApproveOrderPaymentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ApproveOrderPaymentResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
+ * @summary Reject a payment — moves the order to rechazado (idempotent, no stock change)
+ */
+export const RejectOrderPaymentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const RejectOrderPaymentResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
+ * @summary List paid orders in fulfilment (logistics board), filterable by method and status
+ */
+export const listShipmentsQueryPageDefault = 1;
+
+export const listShipmentsQueryLimitDefault = 50;
+export const listShipmentsQueryLimitMax = 100;
+
+
+
+export const ListShipmentsQueryParams = zod.object({
+  "deliveryMethod": zod.enum(['delivery', 'recojo']).optional(),
+  "status": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado']).optional(),
+  "page": zod.coerce.number().min(1).default(listShipmentsQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listShipmentsQueryLimitMax).default(listShipmentsQueryLimitDefault)
+})
+
+export const ListShipmentsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "customerEmail": zod.string(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "fulfillmentStatus": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado']),
+  "shippingAddress": zod.string().nullable(),
+  "total": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Advance an order's fulfilment status (validated state transition)
+ */
+export const AdvanceFulfillmentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const AdvanceFulfillmentBody = zod.object({
+  "to": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado'])
+})
+
+export const AdvanceFulfillmentResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
+ * @summary List all products for inventory management (includes inactive)
+ */
+export const listAdminProductsQueryPageDefault = 1;
+
+export const listAdminProductsQueryLimitDefault = 20;
+export const listAdminProductsQueryLimitMax = 100;
+
+
+
+export const ListAdminProductsQueryParams = zod.object({
+  "q": zod.coerce.string().optional(),
+  "page": zod.coerce.number().min(1).default(listAdminProductsQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listAdminProductsQueryLimitMax).default(listAdminProductsQueryLimitDefault)
+})
+
+export const ListAdminProductsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "active": zod.boolean(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string(),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "stockTotal": zod.number(),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "priceOverride": zod.string().nullable(),
+  "active": zod.boolean()
+}))
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create a product (optionally with occasions and variants)
+ */
+
+export const createProductBodyFeaturedDefault = false;
+
+
+export const createProductBodyVariantsItemStockDefault = 0;
+export const createProductBodyVariantsItemStockMin = 0;
+
+
+
+export const CreateProductBody = zod.object({
+  "name": zod.string().min(1),
+  "price": zod.string(),
+  "categoryId": zod.string().uuid(),
+  "description": zod.string().nullish(),
+  "fit": zod.string().nullish(),
+  "badge": zod.string().nullish(),
+  "featured": zod.boolean().default(createProductBodyFeaturedDefault),
+  "occasionIds": zod.array(zod.string().uuid()).optional(),
+  "variants": zod.array(zod.object({
+  "size": zod.string().min(1),
+  "color": zod.string().min(1),
+  "sku": zod.string().min(1),
+  "stock": zod.number().min(createProductBodyVariantsItemStockMin).default(createProductBodyVariantsItemStockDefault),
+  "priceOverride": zod.string().nullish()
+})).optional()
+})
+
+export const CreateProductResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "active": zod.boolean(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string(),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "stockTotal": zod.number(),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "priceOverride": zod.string().nullable(),
+  "active": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Update a product's fields (partial); soft-delete via active=false
+ */
+export const UpdateProductParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateProductBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "price": zod.string().optional(),
+  "categoryId": zod.string().uuid().optional(),
+  "description": zod.string().nullish(),
+  "fit": zod.string().nullish(),
+  "badge": zod.string().nullish(),
+  "featured": zod.boolean().optional(),
+  "active": zod.boolean().optional(),
+  "occasionIds": zod.array(zod.string().uuid()).optional()
+})
+
+export const UpdateProductResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "active": zod.boolean(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string(),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "stockTotal": zod.number(),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "priceOverride": zod.string().nullable(),
+  "active": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Add a size/color variant to a product
+ */
+export const CreateVariantParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const createVariantBodyStockDefault = 0;
+export const createVariantBodyStockMin = 0;
+
+
+
+export const CreateVariantBody = zod.object({
+  "size": zod.string().min(1),
+  "color": zod.string().min(1),
+  "sku": zod.string().min(1),
+  "stock": zod.number().min(createVariantBodyStockMin).default(createVariantBodyStockDefault),
+  "priceOverride": zod.string().nullish()
+})
+
+export const CreateVariantResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "active": zod.boolean(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string(),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "stockTotal": zod.number(),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "priceOverride": zod.string().nullable(),
+  "active": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Bulk import products/variants from CSV (upsert by SKU); dryRun previews errors
+ */
+export const importProductsBodyDryRunDefault = false;
+
+export const ImportProductsBody = zod.object({
+  "csv": zod.string().describe('Raw CSV text. Columns: nombre, categoria, ocasion, precio, talla, color, sku, stock, descripcion'),
+  "dryRun": zod.boolean().default(importProductsBodyDryRunDefault).describe('When true, validate and report errors without writing anything')
+})
+
+export const ImportProductsResponse = zod.object({
+  "total": zod.number().describe('Data rows parsed (excludes header)'),
+  "imported": zod.number().describe('Rows written (0 when dryRun)'),
+  "valid": zod.number().describe('Rows that passed validation'),
+  "errors": zod.array(zod.object({
+  "row": zod.number().describe('1-based row number in the source file (header is row 1)'),
+  "message": zod.string()
+}))
+})
+
+
+/**
+ * @summary Update a variant (stock, price override, active, size/color/sku)
+ */
+export const UpdateVariantParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const updateVariantBodyStockMin = 0;
+
+
+
+export const UpdateVariantBody = zod.object({
+  "size": zod.string().min(1).optional(),
+  "color": zod.string().min(1).optional(),
+  "sku": zod.string().min(1).optional(),
+  "stock": zod.number().min(updateVariantBodyStockMin).optional(),
+  "priceOverride": zod.string().nullish(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateVariantResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "active": zod.boolean(),
+  "categoryId": zod.string().uuid(),
+  "categoryName": zod.string(),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "stockTotal": zod.number(),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "priceOverride": zod.string().nullable(),
+  "active": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary List coupons for management (admin only)
+ */
+export const listCouponsQueryPageDefault = 1;
+
+export const listCouponsQueryLimitDefault = 20;
+export const listCouponsQueryLimitMax = 100;
+
+
+
+export const ListCouponsQueryParams = zod.object({
+  "q": zod.coerce.string().optional(),
+  "page": zod.coerce.number().min(1).default(listCouponsQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listCouponsQueryLimitMax).default(listCouponsQueryLimitDefault)
+})
+
+export const ListCouponsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "code": zod.string(),
+  "type": zod.enum(['percent', 'fixed']),
+  "value": zod.string(),
+  "startsAt": zod.coerce.date().nullable(),
+  "endsAt": zod.coerce.date().nullable(),
+  "maxUses": zod.number().nullable(),
+  "usedCount": zod.number(),
+  "minPurchase": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create a coupon (admin only)
+ */
+
+
+export const createCouponBodyMinPurchaseDefault = `0`;
+export const createCouponBodyActiveDefault = true;
+
+export const CreateCouponBody = zod.object({
+  "code": zod.string().min(1),
+  "type": zod.enum(['percent', 'fixed']),
+  "value": zod.string(),
+  "startsAt": zod.coerce.date().nullish(),
+  "endsAt": zod.coerce.date().nullish(),
+  "maxUses": zod.number().min(1).nullish(),
+  "minPurchase": zod.string().default(createCouponBodyMinPurchaseDefault),
+  "active": zod.boolean().default(createCouponBodyActiveDefault)
+})
+
+export const CreateCouponResponse = zod.object({
+  "id": zod.string().uuid(),
+  "code": zod.string(),
+  "type": zod.enum(['percent', 'fixed']),
+  "value": zod.string(),
+  "startsAt": zod.coerce.date().nullable(),
+  "endsAt": zod.coerce.date().nullable(),
+  "maxUses": zod.number().nullable(),
+  "usedCount": zod.number(),
+  "minPurchase": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a coupon's fields (partial); activate/deactivate via active
+ */
+export const UpdateCouponParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+
+export const UpdateCouponBody = zod.object({
+  "code": zod.string().min(1).optional(),
+  "type": zod.enum(['percent', 'fixed']).optional(),
+  "value": zod.string().optional(),
+  "startsAt": zod.coerce.date().nullish(),
+  "endsAt": zod.coerce.date().nullish(),
+  "maxUses": zod.number().min(1).nullish(),
+  "minPurchase": zod.string().optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdateCouponResponse = zod.object({
+  "id": zod.string().uuid(),
+  "code": zod.string(),
+  "type": zod.enum(['percent', 'fixed']),
+  "value": zod.string(),
+  "startsAt": zod.coerce.date().nullable(),
+  "endsAt": zod.coerce.date().nullable(),
+  "maxUses": zod.number().nullable(),
+  "usedCount": zod.number(),
+  "minPurchase": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a coupon (admin only); blocked if already redeemed
+ */
+export const DeleteCouponParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteCouponResponse = zod.void()
+
+
+/**
+ * @summary Open a return ticket for one of the caller's orders (requerimientos §7.6)
+ */
+export const CreateReturnBody = zod.object({
+  "orderId": zod.string().uuid(),
+  "reason": zod.string().nullish(),
+  "currentSize": zod.string().nullish(),
+  "desiredSize": zod.string().nullish(),
+  "photoPath": zod.string().nullish()
+})
+
+export const CreateReturnResponse = zod.object({
+  "id": zod.string().uuid(),
+  "ticketNumber": zod.number(),
+  "orderId": zod.string().uuid(),
+  "userId": zod.string().uuid(),
+  "reason": zod.string().nullable(),
+  "currentSize": zod.string().nullable(),
+  "desiredSize": zod.string().nullable(),
+  "photoPath": zod.string().nullable(),
+  "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List return tickets for the backoffice board (requerimientos §6.7)
+ */
+export const listReturnsQueryPageDefault = 1;
+
+export const listReturnsQueryLimitDefault = 20;
+export const listReturnsQueryLimitMax = 100;
+
+
+
+export const ListReturnsQueryParams = zod.object({
+  "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada']).optional(),
+  "page": zod.coerce.number().min(1).default(listReturnsQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listReturnsQueryLimitMax).default(listReturnsQueryLimitDefault)
+})
+
+export const ListReturnsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "ticketNumber": zod.number(),
+  "orderId": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "customerName": zod.string().nullable(),
+  "customerEmail": zod.string(),
+  "customerPhone": zod.string().nullable(),
+  "reason": zod.string().nullable(),
+  "currentSize": zod.string().nullable(),
+  "desiredSize": zod.string().nullable(),
+  "photoPath": zod.string().nullable(),
+  "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada']),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Update a return ticket's status
+ */
+export const UpdateReturnStatusParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UpdateReturnStatusBody = zod.object({
+  "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada'])
+})
+
+export const UpdateReturnStatusResponse = zod.object({
+  "id": zod.string().uuid(),
+  "ticketNumber": zod.number(),
+  "orderId": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "customerName": zod.string().nullable(),
+  "customerEmail": zod.string(),
+  "customerPhone": zod.string().nullable(),
+  "reason": zod.string().nullable(),
+  "currentSize": zod.string().nullable(),
+  "desiredSize": zod.string().nullable(),
+  "photoPath": zod.string().nullable(),
+  "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List users for management (requerimientos §6.9, solo Admin)
+ */
+export const listUsersQueryPageDefault = 1;
+
+export const listUsersQueryLimitDefault = 20;
+export const listUsersQueryLimitMax = 100;
+
+
+
+export const ListUsersQueryParams = zod.object({
+  "role": zod.enum(['customer', 'employee', 'admin']).optional(),
+  "q": zod.coerce.string().optional(),
+  "page": zod.coerce.number().min(1).default(listUsersQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listUsersQueryLimitMax).default(listUsersQueryLimitDefault)
+})
+
+export const ListUsersResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "fullName": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "role": zod.enum(['customer', 'employee', 'admin']),
+  "blocked": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create an employee (provisions a Supabase auth user, magic-link login)
+ */
+export const CreateEmployeeBody = zod.object({
+  "email": zod.string().email(),
+  "fullName": zod.string().nullish(),
+  "phone": zod.string().nullish()
+})
+
+export const CreateEmployeeResponse = zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "fullName": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "role": zod.enum(['customer', 'employee', 'admin']),
+  "blocked": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a user — block a client, edit an employee, change role
+ */
+export const UpdateUserParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UpdateUserBody = zod.object({
+  "fullName": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "role": zod.enum(['customer', 'employee', 'admin']).optional(),
+  "blocked": zod.boolean().optional()
+})
+
+export const UpdateUserResponse = zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "fullName": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "role": zod.enum(['customer', 'employee', 'admin']),
+  "blocked": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Public store config for checkout/home (delivery fee, Yape, banners)
+ */
+export const GetPublicConfigResponse = zod.object({
+  "deliveryFee": zod.string(),
+  "yapeNumber": zod.string().nullable(),
+  "yapeQrUrl": zod.string().nullable().describe('Public URL of the Yape QR image'),
+  "banners": zod.array(zod.object({
+  "imageUrl": zod.string()
+}))
+})
+
+
+/**
+ * @summary Active pickup points in La Molina (for checkout recojo)
+ */
+export const ListPickupPointsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Get store config for the admin panel (admin only)
+ */
+export const GetAdminConfigResponse = zod.object({
+  "deliveryFee": zod.string().describe('Flat La Molina delivery fee, decimal string (e.g. \"12.00\")'),
+  "yapeNumber": zod.string().nullable(),
+  "yapeQrPath": zod.string().nullable().describe('Storage object path of the Yape QR image'),
+  "banners": zod.array(zod.object({
+  "path": zod.string(),
+  "active": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Update store config — delivery fee, Yape number/QR, banners (admin only)
+ */
+export const UpdateAdminConfigBody = zod.object({
+  "deliveryFee": zod.string().optional(),
+  "yapeNumber": zod.string().nullish(),
+  "yapeQrPath": zod.string().nullish(),
+  "banners": zod.array(zod.object({
+  "path": zod.string(),
+  "active": zod.boolean()
+})).optional()
+})
+
+export const UpdateAdminConfigResponse = zod.object({
+  "deliveryFee": zod.string().describe('Flat La Molina delivery fee, decimal string (e.g. \"12.00\")'),
+  "yapeNumber": zod.string().nullable(),
+  "yapeQrPath": zod.string().nullable().describe('Storage object path of the Yape QR image'),
+  "banners": zod.array(zod.object({
+  "path": zod.string(),
+  "active": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Signed URL to upload a QR/banner image to public Storage (admin only)
+ */
+export const CreateConfigMediaUploadUrlBody = zod.object({
+  "contentType": zod.string().optional().describe('MIME type of the file to upload (informational)')
+})
+
+export const CreateConfigMediaUploadUrlResponse = zod.object({
+  "uploadUrl": zod.string().describe('PUT the file to this URL (direct to public Storage)'),
+  "path": zod.string().describe('Storage object path; send back in yapeQrPath or a banner'),
+  "token": zod.string(),
+  "publicUrl": zod.string().describe('Public read URL for the uploaded object')
+})
+
+
+/**
+ * @summary List all pickup points including inactive (admin only)
+ */
+export const ListAdminPickupPointsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a pickup point (admin only)
+ */
+
+
+export const createPickupPointBodyActiveDefault = true;
+
+export const CreatePickupPointBody = zod.object({
+  "name": zod.string().min(1),
+  "address": zod.string().min(1),
+  "active": zod.boolean().default(createPickupPointBodyActiveDefault)
+})
+
+export const CreatePickupPointResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a pickup point (admin only)
+ */
+export const UpdatePickupPointParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+
+export const UpdatePickupPointBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "address": zod.string().min(1).optional(),
+  "active": zod.boolean().optional()
+})
+
+export const UpdatePickupPointResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "address": zod.string(),
+  "active": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a pickup point (admin only); blocked if referenced by orders
+ */
+export const DeletePickupPointParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeletePickupPointResponse = zod.void()
+
+

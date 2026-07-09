@@ -31,7 +31,9 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+// 2mb ceiling: the CSV inventory import (admin-gated) is the largest payload; the default
+// 100kb is too small for a real product upload. Everything else is tiny.
+app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);

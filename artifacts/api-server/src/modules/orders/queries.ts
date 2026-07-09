@@ -9,14 +9,18 @@ import {
   couponRedemptions,
   paymentProofs,
   pickupPoints,
+  profiles,
   type Order,
   type OrderItem,
   type InsertOrder,
   type InsertOrderItem,
   type PaymentProof,
 } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { Tx } from "../../lib/tx";
+import { canTransitionFulfillment } from "../../lib/order-state";
+
+type FulfillmentStatus = NonNullable<Order["fulfillmentStatus"]>;
 
 export type CheckoutLine = {
   variantId: string;
@@ -152,6 +156,74 @@ export async function listOrdersForUser(
     .from(orders)
     .where(eq(orders.userId, userId));
   return { items, total: counted[0]?.count ?? 0 };
+}
+
+export type ShipmentRow = { order: Order; customerEmail: string };
+
+// Paid orders in fulfilment (the logistics board), optionally filtered by method/status.
+// Oldest first — logistics works the oldest order first.
+export async function listShipments(
+  filters: { deliveryMethod?: Order["deliveryMethod"]; status?: FulfillmentStatus },
+  page: number,
+  limit: number,
+): Promise<{ rows: ShipmentRow[]; total: number }> {
+  const conds = [eq(orders.paymentStatus, "pagado"), isNotNull(orders.fulfillmentStatus)];
+  if (filters.deliveryMethod) conds.push(eq(orders.deliveryMethod, filters.deliveryMethod));
+  if (filters.status) conds.push(eq(orders.fulfillmentStatus, filters.status));
+  const where = and(...conds);
+  const offset = (page - 1) * limit;
+
+  const rows = await db
+    .select({ order: orders, customerEmail: profiles.email })
+    .from(orders)
+    .innerJoin(profiles, eq(orders.userId, profiles.id))
+    .where(where)
+    .orderBy(asc(orders.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(orders)
+    .where(where);
+
+  return { rows, total: counted[0]?.count ?? 0 };
+}
+
+export type AdvanceResult =
+  | { kind: "ok"; order: Order }
+  | { kind: "not_found" }
+  | { kind: "not_in_fulfillment" }
+  | { kind: "invalid_transition"; from: FulfillmentStatus };
+
+// Advance an order along its fulfilment state machine. Locked FOR UPDATE so two staff can't
+// double-advance the same order; the transition map rejects illegal hops (HTTP 409).
+export async function advanceFulfillmentTx(
+  orderId: string,
+  to: FulfillmentStatus,
+): Promise<AdvanceResult> {
+  return db.transaction(async (tx): Promise<AdvanceResult> => {
+    const locked = await tx
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .for("update")
+      .limit(1);
+    const order = locked[0];
+    if (!order) return { kind: "not_found" };
+    if (order.paymentStatus !== "pagado" || order.fulfillmentStatus === null) {
+      return { kind: "not_in_fulfillment" };
+    }
+    if (!canTransitionFulfillment(order.fulfillmentStatus, to)) {
+      return { kind: "invalid_transition", from: order.fulfillmentStatus };
+    }
+    const updated = await tx
+      .update(orders)
+      .set({ fulfillmentStatus: to })
+      .where(eq(orders.id, orderId))
+      .returning();
+    return { kind: "ok", order: updated[0]! };
+  });
 }
 
 // Latest proof status for the order, for the DTO's paymentProofStatus field (null = none yet).

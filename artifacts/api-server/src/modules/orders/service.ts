@@ -3,6 +3,8 @@ import type {
   Order as OrderDto,
   OrderList as OrderListDto,
   CreateOrderInput,
+  ShipmentList as ShipmentListDto,
+  AdvanceFulfillmentInput,
 } from "@workspace/api-zod";
 import { toCents, fromCents } from "../../lib/money";
 import { getShippingCostCents } from "../shipping/service";
@@ -20,8 +22,10 @@ import {
   getOrderItems,
   listOrdersForUser,
   latestProofStatus,
+  listShipments,
+  advanceFulfillmentTx,
 } from "./queries";
-import { toOrderDto, toOrderListItemDto } from "./mappers";
+import { toOrderDto, toOrderListItemDto, referenceCode } from "./mappers";
 
 export type OrderResult =
   | { ok: true; status: number; order: OrderDto }
@@ -183,4 +187,48 @@ export async function listOrders(
 ): Promise<OrderListDto> {
   const { items, total } = await listOrdersForUser(userId, page, limit);
   return { items: items.map(toOrderListItemDto), total, page, limit };
+}
+
+// --- Backoffice: shipments / logistics (planeación §5.1; requerimientos §6.4) ---
+
+export async function getShipments(
+  filters: { deliveryMethod?: Order["deliveryMethod"]; status?: NonNullable<Order["fulfillmentStatus"]> },
+  page: number,
+  limit: number,
+): Promise<ShipmentListDto> {
+  const { rows, total } = await listShipments(filters, page, limit);
+  const items = rows.map((r) => ({
+    id: r.order.id,
+    orderNumber: r.order.orderNumber,
+    referenceCode: referenceCode(r.order.orderNumber),
+    customerEmail: r.customerEmail,
+    deliveryMethod: r.order.deliveryMethod,
+    // fulfillmentStatus is guaranteed non-null by the query (isNotNull filter).
+    fulfillmentStatus: r.order.fulfillmentStatus!,
+    shippingAddress: r.order.shippingAddress,
+    total: r.order.total,
+    createdAt: r.order.createdAt,
+  }));
+  return { items, total, page, limit };
+}
+
+export async function advanceFulfillment(
+  orderId: string,
+  to: AdvanceFulfillmentInput["to"],
+): Promise<OrderResult> {
+  const result = await advanceFulfillmentTx(orderId, to);
+  switch (result.kind) {
+    case "ok":
+      return { ok: true, status: 200, order: await buildOrderDto(result.order) };
+    case "not_found":
+      return err(404, "NOT_FOUND", "Order not found");
+    case "not_in_fulfillment":
+      return err(409, "NOT_IN_FULFILLMENT", "Order is not a paid order in fulfilment");
+    case "invalid_transition":
+      return err(
+        409,
+        "INVALID_TRANSITION",
+        `Cannot move fulfilment from '${result.from}' to '${to}'`,
+      );
+  }
 }

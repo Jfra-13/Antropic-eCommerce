@@ -20,6 +20,14 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminConfig,
+  AdminProduct,
+  AdminProductList,
+  AdminReturn,
+  AdminReturnList,
+  AdminUser,
+  AdminUserList,
+  AdvanceFulfillmentInput,
   AttachPaymentProofInput,
   Cart,
   CartItemInput,
@@ -28,17 +36,48 @@ import type {
   Category,
   CheckoutQuote,
   CheckoutQuoteInput,
+  ConfigMediaUploadInput,
+  ConfigMediaUploadUrl,
+  Coupon,
+  CouponList,
+  CreateCouponInput,
+  CreateEmployeeInput,
   CreateOrderInput,
+  CreatePickupPointInput,
+  CreateProductInput,
+  CreateReturnInput,
+  CreateVariantInput,
   Error,
   HealthStatus,
+  ListAdminProductsParams,
+  ListCouponsParams,
   ListOrdersParams,
+  ListPaymentVerificationQueueParams,
   ListProductsParams,
+  ListReturnsParams,
+  ListShipmentsParams,
+  ListUsersParams,
   Occasion,
   Order,
   OrderList,
   PaymentProofUploadUrl,
+  PaymentVerificationQueue,
+  PickupPoint,
+  PickupPointList,
   Product,
+  ProductImportInput,
+  ProductImportResult,
   ProductList,
+  PublicConfig,
+  ReturnTicket,
+  ShipmentList,
+  UpdateConfigInput,
+  UpdateCouponInput,
+  UpdatePickupPointInput,
+  UpdateProductInput,
+  UpdateReturnStatusInput,
+  UpdateUserInput,
+  UpdateVariantInput,
   Wishlist,
   WishlistInput
 } from './api.schemas';
@@ -1478,5 +1517,2225 @@ export const useAttachPaymentProof = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getAttachPaymentProofMutationOptions(options));
+    }
+
+export const getListPaymentVerificationQueueUrl = (params?: ListPaymentVerificationQueueParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/payments/queue?${stringifiedParams}` : `/api/admin/payments/queue`
+}
+
+/**
+ * @summary List orders awaiting payment verification (oldest first), with a signed proof URL
+ */
+export const listPaymentVerificationQueue = async (params?: ListPaymentVerificationQueueParams, options?: RequestInit): Promise<PaymentVerificationQueue> => {
+
+  return customFetch<PaymentVerificationQueue>(getListPaymentVerificationQueueUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPaymentVerificationQueueQueryKey = (params?: ListPaymentVerificationQueueParams,) => {
+    return [
+    `/api/admin/payments/queue`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPaymentVerificationQueueQueryOptions = <TData = Awaited<ReturnType<typeof listPaymentVerificationQueue>>, TError = ErrorType<unknown>>(params?: ListPaymentVerificationQueueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPaymentVerificationQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPaymentVerificationQueueQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPaymentVerificationQueue>>> = ({ signal }) => listPaymentVerificationQueue(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPaymentVerificationQueue>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPaymentVerificationQueueQueryResult = NonNullable<Awaited<ReturnType<typeof listPaymentVerificationQueue>>>
+export type ListPaymentVerificationQueueQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List orders awaiting payment verification (oldest first), with a signed proof URL
+ */
+
+export function useListPaymentVerificationQueue<TData = Awaited<ReturnType<typeof listPaymentVerificationQueue>>, TError = ErrorType<unknown>>(
+ params?: ListPaymentVerificationQueueParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPaymentVerificationQueue>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPaymentVerificationQueueQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getApproveOrderPaymentUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/orders/${id}/approve`
+}
+
+/**
+ * @summary Approve a payment — moves the order to pagado and decrements stock (idempotent)
+ */
+export const approveOrderPayment = async (id: string, options?: RequestInit): Promise<Order> => {
+
+  return customFetch<Order>(getApproveOrderPaymentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getApproveOrderPaymentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveOrderPayment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveOrderPayment>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveOrderPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveOrderPayment>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveOrderPayment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveOrderPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof approveOrderPayment>>>
+
+    export type ApproveOrderPaymentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Approve a payment — moves the order to pagado and decrements stock (idempotent)
+ */
+export const useApproveOrderPayment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveOrderPayment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveOrderPayment>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveOrderPaymentMutationOptions(options));
+    }
+
+export const getRejectOrderPaymentUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/orders/${id}/reject`
+}
+
+/**
+ * @summary Reject a payment — moves the order to rechazado (idempotent, no stock change)
+ */
+export const rejectOrderPayment = async (id: string, options?: RequestInit): Promise<Order> => {
+
+  return customFetch<Order>(getRejectOrderPaymentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRejectOrderPaymentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectOrderPayment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectOrderPayment>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['rejectOrderPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectOrderPayment>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  rejectOrderPayment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectOrderPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof rejectOrderPayment>>>
+
+    export type RejectOrderPaymentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Reject a payment — moves the order to rechazado (idempotent, no stock change)
+ */
+export const useRejectOrderPayment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectOrderPayment>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectOrderPayment>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRejectOrderPaymentMutationOptions(options));
+    }
+
+export const getListShipmentsUrl = (params?: ListShipmentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/shipments?${stringifiedParams}` : `/api/admin/shipments`
+}
+
+/**
+ * @summary List paid orders in fulfilment (logistics board), filterable by method and status
+ */
+export const listShipments = async (params?: ListShipmentsParams, options?: RequestInit): Promise<ShipmentList> => {
+
+  return customFetch<ShipmentList>(getListShipmentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListShipmentsQueryKey = (params?: ListShipmentsParams,) => {
+    return [
+    `/api/admin/shipments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListShipmentsQueryOptions = <TData = Awaited<ReturnType<typeof listShipments>>, TError = ErrorType<unknown>>(params?: ListShipmentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listShipments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListShipmentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listShipments>>> = ({ signal }) => listShipments(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listShipments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListShipmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listShipments>>>
+export type ListShipmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List paid orders in fulfilment (logistics board), filterable by method and status
+ */
+
+export function useListShipments<TData = Awaited<ReturnType<typeof listShipments>>, TError = ErrorType<unknown>>(
+ params?: ListShipmentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listShipments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListShipmentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAdvanceFulfillmentUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/orders/${id}/fulfillment`
+}
+
+/**
+ * @summary Advance an order's fulfilment status (validated state transition)
+ */
+export const advanceFulfillment = async (id: string,
+    advanceFulfillmentInput: AdvanceFulfillmentInput, options?: RequestInit): Promise<Order> => {
+
+  return customFetch<Order>(getAdvanceFulfillmentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(advanceFulfillmentInput)
+  }
+);}
+
+
+
+
+export const getAdvanceFulfillmentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceFulfillment>>, TError,{id: string;data: BodyType<AdvanceFulfillmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceFulfillment>>, TError,{id: string;data: BodyType<AdvanceFulfillmentInput>}, TContext> => {
+
+const mutationKey = ['advanceFulfillment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceFulfillment>>, {id: string;data: BodyType<AdvanceFulfillmentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  advanceFulfillment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceFulfillmentMutationResult = NonNullable<Awaited<ReturnType<typeof advanceFulfillment>>>
+    export type AdvanceFulfillmentMutationBody = BodyType<AdvanceFulfillmentInput>
+    export type AdvanceFulfillmentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Advance an order's fulfilment status (validated state transition)
+ */
+export const useAdvanceFulfillment = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceFulfillment>>, TError,{id: string;data: BodyType<AdvanceFulfillmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof advanceFulfillment>>,
+        TError,
+        {id: string;data: BodyType<AdvanceFulfillmentInput>},
+        TContext
+      > => {
+      return useMutation(getAdvanceFulfillmentMutationOptions(options));
+    }
+
+export const getListAdminProductsUrl = (params?: ListAdminProductsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/products?${stringifiedParams}` : `/api/admin/products`
+}
+
+/**
+ * @summary List all products for inventory management (includes inactive)
+ */
+export const listAdminProducts = async (params?: ListAdminProductsParams, options?: RequestInit): Promise<AdminProductList> => {
+
+  return customFetch<AdminProductList>(getListAdminProductsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminProductsQueryKey = (params?: ListAdminProductsParams,) => {
+    return [
+    `/api/admin/products`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAdminProductsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminProducts>>, TError = ErrorType<unknown>>(params?: ListAdminProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminProductsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminProducts>>> = ({ signal }) => listAdminProducts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminProducts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminProductsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminProducts>>>
+export type ListAdminProductsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all products for inventory management (includes inactive)
+ */
+
+export function useListAdminProducts<TData = Awaited<ReturnType<typeof listAdminProducts>>, TError = ErrorType<unknown>>(
+ params?: ListAdminProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminProductsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateProductUrl = () => {
+
+
+
+
+  return `/api/admin/products`
+}
+
+/**
+ * @summary Create a product (optionally with occasions and variants)
+ */
+export const createProduct = async (createProductInput: CreateProductInput, options?: RequestInit): Promise<AdminProduct> => {
+
+  return customFetch<AdminProduct>(getCreateProductUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createProductInput)
+  }
+);}
+
+
+
+
+export const getCreateProductMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProduct>>, TError,{data: BodyType<CreateProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProduct>>, TError,{data: BodyType<CreateProductInput>}, TContext> => {
+
+const mutationKey = ['createProduct'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProduct>>, {data: BodyType<CreateProductInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProduct(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProductMutationResult = NonNullable<Awaited<ReturnType<typeof createProduct>>>
+    export type CreateProductMutationBody = BodyType<CreateProductInput>
+    export type CreateProductMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a product (optionally with occasions and variants)
+ */
+export const useCreateProduct = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProduct>>, TError,{data: BodyType<CreateProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProduct>>,
+        TError,
+        {data: BodyType<CreateProductInput>},
+        TContext
+      > => {
+      return useMutation(getCreateProductMutationOptions(options));
+    }
+
+export const getUpdateProductUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/products/${id}`
+}
+
+/**
+ * @summary Update a product's fields (partial); soft-delete via active=false
+ */
+export const updateProduct = async (id: string,
+    updateProductInput: UpdateProductInput, options?: RequestInit): Promise<AdminProduct> => {
+
+  return customFetch<AdminProduct>(getUpdateProductUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateProductInput)
+  }
+);}
+
+
+
+
+export const getUpdateProductMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProduct>>, TError,{id: string;data: BodyType<UpdateProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProduct>>, TError,{id: string;data: BodyType<UpdateProductInput>}, TContext> => {
+
+const mutationKey = ['updateProduct'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProduct>>, {id: string;data: BodyType<UpdateProductInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProduct(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProductMutationResult = NonNullable<Awaited<ReturnType<typeof updateProduct>>>
+    export type UpdateProductMutationBody = BodyType<UpdateProductInput>
+    export type UpdateProductMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a product's fields (partial); soft-delete via active=false
+ */
+export const useUpdateProduct = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProduct>>, TError,{id: string;data: BodyType<UpdateProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProduct>>,
+        TError,
+        {id: string;data: BodyType<UpdateProductInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateProductMutationOptions(options));
+    }
+
+export const getCreateVariantUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/products/${id}/variants`
+}
+
+/**
+ * @summary Add a size/color variant to a product
+ */
+export const createVariant = async (id: string,
+    createVariantInput: CreateVariantInput, options?: RequestInit): Promise<AdminProduct> => {
+
+  return customFetch<AdminProduct>(getCreateVariantUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createVariantInput)
+  }
+);}
+
+
+
+
+export const getCreateVariantMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVariant>>, TError,{id: string;data: BodyType<CreateVariantInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createVariant>>, TError,{id: string;data: BodyType<CreateVariantInput>}, TContext> => {
+
+const mutationKey = ['createVariant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createVariant>>, {id: string;data: BodyType<CreateVariantInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createVariant(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateVariantMutationResult = NonNullable<Awaited<ReturnType<typeof createVariant>>>
+    export type CreateVariantMutationBody = BodyType<CreateVariantInput>
+    export type CreateVariantMutationError = ErrorType<Error>
+
+    /**
+ * @summary Add a size/color variant to a product
+ */
+export const useCreateVariant = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createVariant>>, TError,{id: string;data: BodyType<CreateVariantInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createVariant>>,
+        TError,
+        {id: string;data: BodyType<CreateVariantInput>},
+        TContext
+      > => {
+      return useMutation(getCreateVariantMutationOptions(options));
+    }
+
+export const getImportProductsUrl = () => {
+
+
+
+
+  return `/api/admin/products/import`
+}
+
+/**
+ * @summary Bulk import products/variants from CSV (upsert by SKU); dryRun previews errors
+ */
+export const importProducts = async (productImportInput: ProductImportInput, options?: RequestInit): Promise<ProductImportResult> => {
+
+  return customFetch<ProductImportResult>(getImportProductsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(productImportInput)
+  }
+);}
+
+
+
+
+export const getImportProductsMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importProducts>>, TError,{data: BodyType<ProductImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importProducts>>, TError,{data: BodyType<ProductImportInput>}, TContext> => {
+
+const mutationKey = ['importProducts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importProducts>>, {data: BodyType<ProductImportInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importProducts(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportProductsMutationResult = NonNullable<Awaited<ReturnType<typeof importProducts>>>
+    export type ImportProductsMutationBody = BodyType<ProductImportInput>
+    export type ImportProductsMutationError = ErrorType<Error>
+
+    /**
+ * @summary Bulk import products/variants from CSV (upsert by SKU); dryRun previews errors
+ */
+export const useImportProducts = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importProducts>>, TError,{data: BodyType<ProductImportInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importProducts>>,
+        TError,
+        {data: BodyType<ProductImportInput>},
+        TContext
+      > => {
+      return useMutation(getImportProductsMutationOptions(options));
+    }
+
+export const getUpdateVariantUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/variants/${id}`
+}
+
+/**
+ * @summary Update a variant (stock, price override, active, size/color/sku)
+ */
+export const updateVariant = async (id: string,
+    updateVariantInput: UpdateVariantInput, options?: RequestInit): Promise<AdminProduct> => {
+
+  return customFetch<AdminProduct>(getUpdateVariantUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateVariantInput)
+  }
+);}
+
+
+
+
+export const getUpdateVariantMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVariant>>, TError,{id: string;data: BodyType<UpdateVariantInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateVariant>>, TError,{id: string;data: BodyType<UpdateVariantInput>}, TContext> => {
+
+const mutationKey = ['updateVariant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateVariant>>, {id: string;data: BodyType<UpdateVariantInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateVariant(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateVariantMutationResult = NonNullable<Awaited<ReturnType<typeof updateVariant>>>
+    export type UpdateVariantMutationBody = BodyType<UpdateVariantInput>
+    export type UpdateVariantMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a variant (stock, price override, active, size/color/sku)
+ */
+export const useUpdateVariant = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateVariant>>, TError,{id: string;data: BodyType<UpdateVariantInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateVariant>>,
+        TError,
+        {id: string;data: BodyType<UpdateVariantInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateVariantMutationOptions(options));
+    }
+
+export const getListCouponsUrl = (params?: ListCouponsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/coupons?${stringifiedParams}` : `/api/admin/coupons`
+}
+
+/**
+ * @summary List coupons for management (admin only)
+ */
+export const listCoupons = async (params?: ListCouponsParams, options?: RequestInit): Promise<CouponList> => {
+
+  return customFetch<CouponList>(getListCouponsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCouponsQueryKey = (params?: ListCouponsParams,) => {
+    return [
+    `/api/admin/coupons`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCouponsQueryOptions = <TData = Awaited<ReturnType<typeof listCoupons>>, TError = ErrorType<unknown>>(params?: ListCouponsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoupons>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCouponsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoupons>>> = ({ signal }) => listCoupons(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoupons>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCouponsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoupons>>>
+export type ListCouponsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List coupons for management (admin only)
+ */
+
+export function useListCoupons<TData = Awaited<ReturnType<typeof listCoupons>>, TError = ErrorType<unknown>>(
+ params?: ListCouponsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoupons>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCouponsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCouponUrl = () => {
+
+
+
+
+  return `/api/admin/coupons`
+}
+
+/**
+ * @summary Create a coupon (admin only)
+ */
+export const createCoupon = async (createCouponInput: CreateCouponInput, options?: RequestInit): Promise<Coupon> => {
+
+  return customFetch<Coupon>(getCreateCouponUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createCouponInput)
+  }
+);}
+
+
+
+
+export const getCreateCouponMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoupon>>, TError,{data: BodyType<CreateCouponInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoupon>>, TError,{data: BodyType<CreateCouponInput>}, TContext> => {
+
+const mutationKey = ['createCoupon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoupon>>, {data: BodyType<CreateCouponInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoupon(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCouponMutationResult = NonNullable<Awaited<ReturnType<typeof createCoupon>>>
+    export type CreateCouponMutationBody = BodyType<CreateCouponInput>
+    export type CreateCouponMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a coupon (admin only)
+ */
+export const useCreateCoupon = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoupon>>, TError,{data: BodyType<CreateCouponInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoupon>>,
+        TError,
+        {data: BodyType<CreateCouponInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCouponMutationOptions(options));
+    }
+
+export const getUpdateCouponUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/coupons/${id}`
+}
+
+/**
+ * @summary Update a coupon's fields (partial); activate/deactivate via active
+ */
+export const updateCoupon = async (id: string,
+    updateCouponInput: UpdateCouponInput, options?: RequestInit): Promise<Coupon> => {
+
+  return customFetch<Coupon>(getUpdateCouponUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateCouponInput)
+  }
+);}
+
+
+
+
+export const getUpdateCouponMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoupon>>, TError,{id: string;data: BodyType<UpdateCouponInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoupon>>, TError,{id: string;data: BodyType<UpdateCouponInput>}, TContext> => {
+
+const mutationKey = ['updateCoupon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoupon>>, {id: string;data: BodyType<UpdateCouponInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCoupon(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCouponMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoupon>>>
+    export type UpdateCouponMutationBody = BodyType<UpdateCouponInput>
+    export type UpdateCouponMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a coupon's fields (partial); activate/deactivate via active
+ */
+export const useUpdateCoupon = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoupon>>, TError,{id: string;data: BodyType<UpdateCouponInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoupon>>,
+        TError,
+        {id: string;data: BodyType<UpdateCouponInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCouponMutationOptions(options));
+    }
+
+export const getDeleteCouponUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/coupons/${id}`
+}
+
+/**
+ * @summary Delete a coupon (admin only); blocked if already redeemed
+ */
+export const deleteCoupon = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCouponUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCouponMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoupon>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCoupon>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteCoupon'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCoupon>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCoupon(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCouponMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCoupon>>>
+
+    export type DeleteCouponMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a coupon (admin only); blocked if already redeemed
+ */
+export const useDeleteCoupon = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoupon>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCoupon>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCouponMutationOptions(options));
+    }
+
+export const getCreateReturnUrl = () => {
+
+
+
+
+  return `/api/returns`
+}
+
+/**
+ * @summary Open a return ticket for one of the caller's orders (requerimientos §7.6)
+ */
+export const createReturn = async (createReturnInput: CreateReturnInput, options?: RequestInit): Promise<ReturnTicket> => {
+
+  return customFetch<ReturnTicket>(getCreateReturnUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createReturnInput)
+  }
+);}
+
+
+
+
+export const getCreateReturnMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReturn>>, TError,{data: BodyType<CreateReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReturn>>, TError,{data: BodyType<CreateReturnInput>}, TContext> => {
+
+const mutationKey = ['createReturn'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReturn>>, {data: BodyType<CreateReturnInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReturn(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReturnMutationResult = NonNullable<Awaited<ReturnType<typeof createReturn>>>
+    export type CreateReturnMutationBody = BodyType<CreateReturnInput>
+    export type CreateReturnMutationError = ErrorType<Error>
+
+    /**
+ * @summary Open a return ticket for one of the caller's orders (requerimientos §7.6)
+ */
+export const useCreateReturn = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReturn>>, TError,{data: BodyType<CreateReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReturn>>,
+        TError,
+        {data: BodyType<CreateReturnInput>},
+        TContext
+      > => {
+      return useMutation(getCreateReturnMutationOptions(options));
+    }
+
+export const getListReturnsUrl = (params?: ListReturnsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/returns?${stringifiedParams}` : `/api/admin/returns`
+}
+
+/**
+ * @summary List return tickets for the backoffice board (requerimientos §6.7)
+ */
+export const listReturns = async (params?: ListReturnsParams, options?: RequestInit): Promise<AdminReturnList> => {
+
+  return customFetch<AdminReturnList>(getListReturnsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReturnsQueryKey = (params?: ListReturnsParams,) => {
+    return [
+    `/api/admin/returns`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListReturnsQueryOptions = <TData = Awaited<ReturnType<typeof listReturns>>, TError = ErrorType<unknown>>(params?: ListReturnsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReturnsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReturns>>> = ({ signal }) => listReturns(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReturns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListReturnsQueryResult = NonNullable<Awaited<ReturnType<typeof listReturns>>>
+export type ListReturnsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List return tickets for the backoffice board (requerimientos §6.7)
+ */
+
+export function useListReturns<TData = Awaited<ReturnType<typeof listReturns>>, TError = ErrorType<unknown>>(
+ params?: ListReturnsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListReturnsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateReturnStatusUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/returns/${id}`
+}
+
+/**
+ * @summary Update a return ticket's status
+ */
+export const updateReturnStatus = async (id: string,
+    updateReturnStatusInput: UpdateReturnStatusInput, options?: RequestInit): Promise<AdminReturn> => {
+
+  return customFetch<AdminReturn>(getUpdateReturnStatusUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateReturnStatusInput)
+  }
+);}
+
+
+
+
+export const getUpdateReturnStatusMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReturnStatus>>, TError,{id: string;data: BodyType<UpdateReturnStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReturnStatus>>, TError,{id: string;data: BodyType<UpdateReturnStatusInput>}, TContext> => {
+
+const mutationKey = ['updateReturnStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReturnStatus>>, {id: string;data: BodyType<UpdateReturnStatusInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateReturnStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateReturnStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateReturnStatus>>>
+    export type UpdateReturnStatusMutationBody = BodyType<UpdateReturnStatusInput>
+    export type UpdateReturnStatusMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a return ticket's status
+ */
+export const useUpdateReturnStatus = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReturnStatus>>, TError,{id: string;data: BodyType<UpdateReturnStatusInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateReturnStatus>>,
+        TError,
+        {id: string;data: BodyType<UpdateReturnStatusInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateReturnStatusMutationOptions(options));
+    }
+
+export const getListUsersUrl = (params?: ListUsersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/users?${stringifiedParams}` : `/api/admin/users`
+}
+
+/**
+ * @summary List users for management (requerimientos §6.9, solo Admin)
+ */
+export const listUsers = async (params?: ListUsersParams, options?: RequestInit): Promise<AdminUserList> => {
+
+  return customFetch<AdminUserList>(getListUsersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListUsersQueryKey = (params?: ListUsersParams,) => {
+    return [
+    `/api/admin/users`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>(params?: ListUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUsersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
+export type ListUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List users for management (requerimientos §6.9, solo Admin)
+ */
+
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<unknown>>(
+ params?: ListUsersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEmployeeUrl = () => {
+
+
+
+
+  return `/api/admin/users`
+}
+
+/**
+ * @summary Create an employee (provisions a Supabase auth user, magic-link login)
+ */
+export const createEmployee = async (createEmployeeInput: CreateEmployeeInput, options?: RequestInit): Promise<AdminUser> => {
+
+  return customFetch<AdminUser>(getCreateEmployeeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createEmployeeInput)
+  }
+);}
+
+
+
+
+export const getCreateEmployeeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,{data: BodyType<CreateEmployeeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,{data: BodyType<CreateEmployeeInput>}, TContext> => {
+
+const mutationKey = ['createEmployee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEmployee>>, {data: BodyType<CreateEmployeeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEmployee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEmployeeMutationResult = NonNullable<Awaited<ReturnType<typeof createEmployee>>>
+    export type CreateEmployeeMutationBody = BodyType<CreateEmployeeInput>
+    export type CreateEmployeeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create an employee (provisions a Supabase auth user, magic-link login)
+ */
+export const useCreateEmployee = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmployee>>, TError,{data: BodyType<CreateEmployeeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEmployee>>,
+        TError,
+        {data: BodyType<CreateEmployeeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEmployeeMutationOptions(options));
+    }
+
+export const getUpdateUserUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/users/${id}`
+}
+
+/**
+ * @summary Update a user — block a client, edit an employee, change role
+ */
+export const updateUser = async (id: string,
+    updateUserInput: UpdateUserInput, options?: RequestInit): Promise<AdminUser> => {
+
+  return customFetch<AdminUser>(getUpdateUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateUserInput)
+  }
+);}
+
+
+
+
+export const getUpdateUserMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: string;data: BodyType<UpdateUserInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: string;data: BodyType<UpdateUserInput>}, TContext> => {
+
+const mutationKey = ['updateUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUser>>, {id: string;data: BodyType<UpdateUserInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateUser>>>
+    export type UpdateUserMutationBody = BodyType<UpdateUserInput>
+    export type UpdateUserMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a user — block a client, edit an employee, change role
+ */
+export const useUpdateUser = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUser>>, TError,{id: string;data: BodyType<UpdateUserInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateUser>>,
+        TError,
+        {id: string;data: BodyType<UpdateUserInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateUserMutationOptions(options));
+    }
+
+export const getGetPublicConfigUrl = () => {
+
+
+
+
+  return `/api/config`
+}
+
+/**
+ * @summary Public store config for checkout/home (delivery fee, Yape, banners)
+ */
+export const getPublicConfig = async ( options?: RequestInit): Promise<PublicConfig> => {
+
+  return customFetch<PublicConfig>(getGetPublicConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicConfigQueryKey = () => {
+    return [
+    `/api/config`
+    ] as const;
+    }
+
+
+export const getGetPublicConfigQueryOptions = <TData = Awaited<ReturnType<typeof getPublicConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicConfig>>> = ({ signal }) => getPublicConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicConfig>>>
+export type GetPublicConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Public store config for checkout/home (delivery fee, Yape, banners)
+ */
+
+export function useGetPublicConfig<TData = Awaited<ReturnType<typeof getPublicConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPickupPointsUrl = () => {
+
+
+
+
+  return `/api/pickup-points`
+}
+
+/**
+ * @summary Active pickup points in La Molina (for checkout recojo)
+ */
+export const listPickupPoints = async ( options?: RequestInit): Promise<PickupPointList> => {
+
+  return customFetch<PickupPointList>(getListPickupPointsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPickupPointsQueryKey = () => {
+    return [
+    `/api/pickup-points`
+    ] as const;
+    }
+
+
+export const getListPickupPointsQueryOptions = <TData = Awaited<ReturnType<typeof listPickupPoints>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPickupPoints>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPickupPointsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPickupPoints>>> = ({ signal }) => listPickupPoints({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPickupPoints>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPickupPointsQueryResult = NonNullable<Awaited<ReturnType<typeof listPickupPoints>>>
+export type ListPickupPointsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Active pickup points in La Molina (for checkout recojo)
+ */
+
+export function useListPickupPoints<TData = Awaited<ReturnType<typeof listPickupPoints>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPickupPoints>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPickupPointsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAdminConfigUrl = () => {
+
+
+
+
+  return `/api/admin/config`
+}
+
+/**
+ * @summary Get store config for the admin panel (admin only)
+ */
+export const getAdminConfig = async ( options?: RequestInit): Promise<AdminConfig> => {
+
+  return customFetch<AdminConfig>(getGetAdminConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminConfigQueryKey = () => {
+    return [
+    `/api/admin/config`
+    ] as const;
+    }
+
+
+export const getGetAdminConfigQueryOptions = <TData = Awaited<ReturnType<typeof getAdminConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminConfig>>> = ({ signal }) => getAdminConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminConfig>>>
+export type GetAdminConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get store config for the admin panel (admin only)
+ */
+
+export function useGetAdminConfig<TData = Awaited<ReturnType<typeof getAdminConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminConfigUrl = () => {
+
+
+
+
+  return `/api/admin/config`
+}
+
+/**
+ * @summary Update store config — delivery fee, Yape number/QR, banners (admin only)
+ */
+export const updateAdminConfig = async (updateConfigInput: UpdateConfigInput, options?: RequestInit): Promise<AdminConfig> => {
+
+  return customFetch<AdminConfig>(getUpdateAdminConfigUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateConfigInput)
+  }
+);}
+
+
+
+
+export const getUpdateAdminConfigMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminConfig>>, TError,{data: BodyType<UpdateConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminConfig>>, TError,{data: BodyType<UpdateConfigInput>}, TContext> => {
+
+const mutationKey = ['updateAdminConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminConfig>>, {data: BodyType<UpdateConfigInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminConfig>>>
+    export type UpdateAdminConfigMutationBody = BodyType<UpdateConfigInput>
+    export type UpdateAdminConfigMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update store config — delivery fee, Yape number/QR, banners (admin only)
+ */
+export const useUpdateAdminConfig = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminConfig>>, TError,{data: BodyType<UpdateConfigInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminConfig>>,
+        TError,
+        {data: BodyType<UpdateConfigInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminConfigMutationOptions(options));
+    }
+
+export const getCreateConfigMediaUploadUrlUrl = () => {
+
+
+
+
+  return `/api/admin/config/media/upload-url`
+}
+
+/**
+ * @summary Signed URL to upload a QR/banner image to public Storage (admin only)
+ */
+export const createConfigMediaUploadUrl = async (configMediaUploadInput?: ConfigMediaUploadInput, options?: RequestInit): Promise<ConfigMediaUploadUrl> => {
+
+  return customFetch<ConfigMediaUploadUrl>(getCreateConfigMediaUploadUrlUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(configMediaUploadInput)
+  }
+);}
+
+
+
+
+export const getCreateConfigMediaUploadUrlMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createConfigMediaUploadUrl>>, TError,{data?: BodyType<ConfigMediaUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createConfigMediaUploadUrl>>, TError,{data?: BodyType<ConfigMediaUploadInput>}, TContext> => {
+
+const mutationKey = ['createConfigMediaUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createConfigMediaUploadUrl>>, {data?: BodyType<ConfigMediaUploadInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createConfigMediaUploadUrl(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateConfigMediaUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof createConfigMediaUploadUrl>>>
+    export type CreateConfigMediaUploadUrlMutationBody = BodyType<ConfigMediaUploadInput> | undefined
+    export type CreateConfigMediaUploadUrlMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Signed URL to upload a QR/banner image to public Storage (admin only)
+ */
+export const useCreateConfigMediaUploadUrl = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createConfigMediaUploadUrl>>, TError,{data?: BodyType<ConfigMediaUploadInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createConfigMediaUploadUrl>>,
+        TError,
+        {data?: BodyType<ConfigMediaUploadInput>},
+        TContext
+      > => {
+      return useMutation(getCreateConfigMediaUploadUrlMutationOptions(options));
+    }
+
+export const getListAdminPickupPointsUrl = () => {
+
+
+
+
+  return `/api/admin/pickup-points`
+}
+
+/**
+ * @summary List all pickup points including inactive (admin only)
+ */
+export const listAdminPickupPoints = async ( options?: RequestInit): Promise<PickupPointList> => {
+
+  return customFetch<PickupPointList>(getListAdminPickupPointsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminPickupPointsQueryKey = () => {
+    return [
+    `/api/admin/pickup-points`
+    ] as const;
+    }
+
+
+export const getListAdminPickupPointsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminPickupPoints>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminPickupPoints>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminPickupPointsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminPickupPoints>>> = ({ signal }) => listAdminPickupPoints({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminPickupPoints>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminPickupPointsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminPickupPoints>>>
+export type ListAdminPickupPointsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all pickup points including inactive (admin only)
+ */
+
+export function useListAdminPickupPoints<TData = Awaited<ReturnType<typeof listAdminPickupPoints>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminPickupPoints>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminPickupPointsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePickupPointUrl = () => {
+
+
+
+
+  return `/api/admin/pickup-points`
+}
+
+/**
+ * @summary Create a pickup point (admin only)
+ */
+export const createPickupPoint = async (createPickupPointInput: CreatePickupPointInput, options?: RequestInit): Promise<PickupPoint> => {
+
+  return customFetch<PickupPoint>(getCreatePickupPointUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createPickupPointInput)
+  }
+);}
+
+
+
+
+export const getCreatePickupPointMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPickupPoint>>, TError,{data: BodyType<CreatePickupPointInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPickupPoint>>, TError,{data: BodyType<CreatePickupPointInput>}, TContext> => {
+
+const mutationKey = ['createPickupPoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPickupPoint>>, {data: BodyType<CreatePickupPointInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPickupPoint(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePickupPointMutationResult = NonNullable<Awaited<ReturnType<typeof createPickupPoint>>>
+    export type CreatePickupPointMutationBody = BodyType<CreatePickupPointInput>
+    export type CreatePickupPointMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a pickup point (admin only)
+ */
+export const useCreatePickupPoint = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPickupPoint>>, TError,{data: BodyType<CreatePickupPointInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPickupPoint>>,
+        TError,
+        {data: BodyType<CreatePickupPointInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePickupPointMutationOptions(options));
+    }
+
+export const getUpdatePickupPointUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/pickup-points/${id}`
+}
+
+/**
+ * @summary Update a pickup point (admin only)
+ */
+export const updatePickupPoint = async (id: string,
+    updatePickupPointInput: UpdatePickupPointInput, options?: RequestInit): Promise<PickupPoint> => {
+
+  return customFetch<PickupPoint>(getUpdatePickupPointUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updatePickupPointInput)
+  }
+);}
+
+
+
+
+export const getUpdatePickupPointMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePickupPoint>>, TError,{id: string;data: BodyType<UpdatePickupPointInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePickupPoint>>, TError,{id: string;data: BodyType<UpdatePickupPointInput>}, TContext> => {
+
+const mutationKey = ['updatePickupPoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePickupPoint>>, {id: string;data: BodyType<UpdatePickupPointInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePickupPoint(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePickupPointMutationResult = NonNullable<Awaited<ReturnType<typeof updatePickupPoint>>>
+    export type UpdatePickupPointMutationBody = BodyType<UpdatePickupPointInput>
+    export type UpdatePickupPointMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a pickup point (admin only)
+ */
+export const useUpdatePickupPoint = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePickupPoint>>, TError,{id: string;data: BodyType<UpdatePickupPointInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePickupPoint>>,
+        TError,
+        {id: string;data: BodyType<UpdatePickupPointInput>},
+        TContext
+      > => {
+      return useMutation(getUpdatePickupPointMutationOptions(options));
+    }
+
+export const getDeletePickupPointUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/pickup-points/${id}`
+}
+
+/**
+ * @summary Delete a pickup point (admin only); blocked if referenced by orders
+ */
+export const deletePickupPoint = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeletePickupPointUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeletePickupPointMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePickupPoint>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePickupPoint>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deletePickupPoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePickupPoint>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deletePickupPoint(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePickupPointMutationResult = NonNullable<Awaited<ReturnType<typeof deletePickupPoint>>>
+
+    export type DeletePickupPointMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a pickup point (admin only); blocked if referenced by orders
+ */
+export const useDeletePickupPoint = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePickupPoint>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePickupPoint>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeletePickupPointMutationOptions(options));
     }
 
