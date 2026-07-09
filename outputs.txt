@@ -1,0 +1,27 @@
+juanf@0HUMOR MINGW64 /c/software/projects/Antropic-Design-Studio (main)
+$ curl http://localhost:4000/api/products?limit=2
+{"items":[{"id":"dd729584-bc5c-47e6-bb1f-dad2efc47729","slug":"camiseta-basica-sol","name":"Camiseta Básica Sol","description":"Confeccionada con materiales suaves y de alta calidad, esta pieza combina comodidad y estilo para tu día a día. Diseño versátil pensado para acompañarte en cualquier ocasión y realzar tu look con la esencia ANTROPIC.","fit":"Regular","price":"19.99","badge":"mas-vendido","featured":true,"category":{"id":"bd06e87d-f58f-4347-99d5-883af0ed5b71","slug":"tops","name":"Tops","sortOrder":0},"occasions":[{"id":"b4df22cc-c248-4cb2-8c71-b114285f87d6","slug":"casual","name":"Casual","sortOrder":0}],"images":[{"kind":"image","path":"corcet_blanco","sortOrder":0},{"kind":"image","path":"modelo_01","sortOrder":1}],"variants":[{"id":"ce0d2c4f-00ea-4944-b241-a56a1718dc19","size":"L","color":"Blanco","sku":"CAMISETA-BASICA-SOL-L-BLANCO","stock":6},{"id":"b1af5cdd-05d2-4cc6-8124-f9cc609d2923","size":"L","color":"Dorado","sku":"CAMISETA-BASICA-SOL-L-DORADO","stock":6},{"id":"24713b40-3232-4a1e-aeec-9937fe3da3dd","size":"L","color":"Negro","sku":"CAMISETA-BASICA-SOL-L-NEGRO","stock":6},{"id":"27465c00-3a40-494e-8b10-ed7f6ea3fcbe","size":"M","color":"Blanco","sku":"CAMISETA-BASICA-SOL-M-BLANCO","stock":6},{"id":"e46c977e-aecf-4767-a15b-4e8a5f6eeac6","size":"M","color":"Dorado","sku":"CAMISETA-BASICA-SOL-M-DORADO","stock":6},{"id":"84c129ce-a31c-4fb3-a9d2-3d3cf3540961","size":"M","color":"Negro","sku":"CAMISETA-BASICA-SOL-M-NEGRO","stock":6},{"id":"016de58c-22d9-4a44-b629-c56e367f906c","size":"S","color":"Blanco","sku":"CAMISETA-BASICA-SOL-S-BLANCO","stock":6},{"id":"c7301044-d045-489e-96b3-31f3c6c25630","size":"S","color":"Dorado","sku":"CAMISETA-BASICA-SOL-S-DORADO","stock":6},{"id":"4129d422-232a-4501-ae81-8e38f69a29ac","size":"S","color":"Negro","sku":"CAMISETA-BASICA-SOL-S-NEGRO","stock":6},{"id":"59824ecf-8da9-40f7-9ea6-d12ce19e77fc","size":"XL","color":"Blanco","sku":"CAMISETA-BASICA-SOL-XL-BLANCO","stock":6},{"id":"b2373b3b-61e6-4d6b-98ed-c3f52e933b0e","size":"XL","color":"Dorado","sku":"CAMISETA-BASICA-SOL-XL-DORADO","stock":6},{"id":"580bca33-6b3e-4eaf-a6a4-0e33e70e0f66","size":"XL","color":"Negro","sku":"CAMISETA-BASICA-SOL-XL-NEGRO","stock":6},{"id":"b490f3f3-7332-4ff0-bc4a-5c1bfe4c2bc0","size":"XS","color":"Blanco","sku":"CAMISETA-BASICA-SOL-XS-BLANCO","stock":6},{"id":"9830e539-fdb9-4d22-8e0b-942db07e61c3","size":"XS","color":"Dorado","sku":"CAMISETA-BASICA-SOL-XS-DORADO","stock":6},{"id":"d31b04cb-2ba6-4987-83e5-d8e74b95c962","size":"XS","color":"Negro","sku":"CAMISETA-BASICA-SOL-XS-NEGRO","stock":6}]},{"id":"59465807-fe74-4c12-ba47-3c5dba83802b","slug":"jeans-mom-fit","name":"Jeans Mom Fit","description":"Confeccionada con materiales suaves y de alta calidad, esta pieza combina comodidad y estilo para tu día a día. Diseño versátil pensado para acompañarte en cualquier ocasión y realzar tu look con la esencia ANTROPIC.","fit":"Oversize","price":"69.99","badge":"mas-vendido","featured":true,"category":{"id":"971082cd-7443-489e-85a8-6a8519636e61","slug":"denim","name":"Denim","sortOrder":2},"occasions":[{"id":"b4df22cc-c248-4cb2-8c71-b114285f87d6","slug":"casual","name":"Casual","sortOrder":0}],"images":[{"kind":"image","path":"corcet_blanco","sortOrder":0},{"kind":"image","path":"modelo_02","sortOrder":1}],"variants":[{"id":"fb0866a2-c5a0-4129-b162-c3ffcf7b8caa","size":"L","color":"Denim","sku":"JEANS-MOM-FIT-L-DENIM","stock":3},{"id":"1ef7e78f-9da6-45b0-afcc-c2f00ebe2a2f","size":"L","color":"Negro","sku":"JEANS-MOM-FIT-L-NEGRO","stock":3},{"id":"be4482e8-242c-4c4d-9f00-9d4b503d4e0b","size":"M","color":"Denim","sku":"JEANS-MOM-FIT-M-DENIM","stock":3},{"id":"c365d9d8-18d7-4036-a210-1c1b79ee59c1","size":"M","color":"Negro","sku":"JEANS-MOM-FIT-M-NEGRO","stock":3},{"id":"6eebea84-8176-4a3f-abe4-e7da8a16026c","size":"S","color":"Denim","sku":"JEANS-MOM-FIT-S-DENIM","stock":3},{"id":"c2dee417-fd84-4252-aabb-7199cdc0617b","size":"S","color":"Negro","sku":"JEANS-MOM-FIT-S-NEGRO","stock":3},{"id":"903ab9af-c247-467b-a3c5-7f9c5c57f12f","size":"XL","color":"Denim","sku":"JEANS-MOM-FIT-XL-DENIM","stock":3},{"id":"04424bf5-d0b6-42db-9561-757c71269f3a","size":"XL","color":"Negro","sku":"JEANS-MOM-FIT-XL-NEGRO","stock":3}]}],"total":20,"page":1,"limit":2}
+juanf@0HUMOR MINGW64 /c/software/projects/Antropic-Design-Studio (main)
+$ PORT=4000 pnpm --filter @workspace/api-server run dev
+$ export NODE_ENV=development && pnpm run build && pnpm run start
+'export' is not recognized as an internal or external command,
+operable program or batch file.
+C:\software\projects\Antropic-Design-Studio\artifacts\api-server:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run start`
+Exit status 1
+
+
+juanf@0HUMOR MINGW64 /c/software/projects/Antropic-Design-Studio (main)
+$ PORT=5173 BASE_PATH=/ VITE_API_URL=http://localhost:4000 pnpm --filter @workspace/antropic-store run dev
+$ vite --config vite.config.ts --host 0.0.0.0
+(!) "base" option should start with a slash.
+7:30:33 p. m. [vite] (client) Re-optimizing dependencies because lockfile has changed
+
+  VITE v7.3.5  ready in 443 ms
+
+  ➜  Local:   http://localhost:5173/Program%20Files/Git/
+  ➜  Network: http://192.168.18.36:5173/Program%20Files/Git/
+  ➜  press h + enter to show help
+
+
+Los checklist digo todo ok. 

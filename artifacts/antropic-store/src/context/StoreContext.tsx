@@ -1,12 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-// ponytail: stand-in user until Supabase auth wires into the store (Phase 4+).
-const MOCK_USER = { name: 'María García', email: 'maria@example.com' };
+import type { User } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
 interface CartItem {
   productId: string;
   qty: number;
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
+// Result shape for auth actions: the UI shows `error` when present, redirects otherwise.
+type AuthResult = { error?: string };
 
 interface StoreContextType {
   favorites: string[];
@@ -15,9 +23,20 @@ interface StoreContextType {
   addToCart: (id: string) => void;
   removeFromCart: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
-  user: typeof MOCK_USER | null;
-  login: () => void;
-  logout: () => void;
+  user: AuthUser | null;
+  authLoading: boolean;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (name: string, email: string, password: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
+}
+
+function toAuthUser(u: User): AuthUser {
+  const metaName = typeof u.user_metadata?.name === 'string' ? u.user_metadata.name : '';
+  return {
+    id: u.id,
+    email: u.email ?? '',
+    name: metaName || u.email?.split('@')[0] || 'Usuaria',
+  };
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -33,10 +52,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : [];
   });
 
-  const [user, setUser] = useState<typeof MOCK_USER | null>(() => {
-    const saved = localStorage.getItem('antropic_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     localStorage.setItem('antropic_favorites', JSON.stringify(favorites));
@@ -46,13 +63,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('antropic_cart', JSON.stringify(cart));
   }, [cart]);
 
+  // Supabase persists the session in localStorage and keeps it fresh. We read the
+  // initial session, then subscribe to changes (login/logout/token refresh across tabs).
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('antropic_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('antropic_user');
-    }
-  }, [user]);
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session ? toAuthUser(data.session.user) : null);
+      setAuthLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session ? toAuthUser(session.user) : null);
+    });
+
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const toggleFavorite = (id: string) => {
     setFavorites(prev => 
@@ -82,11 +106,32 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCart(prev => prev.map(item => item.productId === id ? { ...item, qty } : item));
   };
 
-  const login = () => setUser(MOCK_USER);
-  const logout = () => setUser(null);
+  // onAuthStateChange drives setUser — these actions only kick off the request and
+  // surface any error string to the UI.
+  const login = async (email: string, password: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return error ? { error: error.message } : {};
+  };
+
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<AuthResult> => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
+    return error ? { error: error.message } : {};
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
-    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, addToCart, removeFromCart, updateQty, user, login, logout }}>
+    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, addToCart, removeFromCart, updateQty, user, authLoading, login, register, logout }}>
       {children}
     </StoreContext.Provider>
   );

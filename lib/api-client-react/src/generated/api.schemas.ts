@@ -75,6 +75,48 @@ export interface ProductList {
   limit: number;
 }
 
+export interface CartItemInput {
+  variantId: string;
+  /** @minimum 1 */
+  quantity?: number;
+}
+
+export interface CartQuantityInput {
+  /** @minimum 1 */
+  quantity: number;
+}
+
+export interface CartMergeInput {
+  items: CartItemInput[];
+}
+
+export interface CartItem {
+  variantId: string;
+  productId: string;
+  slug: string;
+  name: string;
+  size: string;
+  color: string;
+  sku: string;
+  stock: number;
+  unitPrice: string;
+  quantity: number;
+  /** @nullable */
+  image: string | null;
+}
+
+export interface Cart {
+  items: CartItem[];
+}
+
+export interface WishlistInput {
+  productId: string;
+}
+
+export interface Wishlist {
+  items: Product[];
+}
+
 export type ListProductsParams = {
 /**
  * @minimum 1

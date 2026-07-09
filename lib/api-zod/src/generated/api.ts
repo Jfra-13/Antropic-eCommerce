@@ -144,3 +144,269 @@ export const GetProductResponse = zod.object({
 })
 
 
+/**
+ * @summary Get the authenticated user's cart
+ */
+export const GetCartResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "image": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Add a variant to the cart (increments if already present)
+ */
+export const addCartItemBodyQuantityDefault = 1;
+
+
+
+export const AddCartItemBody = zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1).default(addCartItemBodyQuantityDefault)
+})
+
+export const AddCartItemResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "image": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Set the absolute quantity of a cart line
+ */
+export const UpdateCartItemParams = zod.object({
+  "variantId": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateCartItemBody = zod.object({
+  "quantity": zod.number().min(1)
+})
+
+export const UpdateCartItemResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "image": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Remove a variant from the cart
+ */
+export const RemoveCartItemParams = zod.object({
+  "variantId": zod.coerce.string().uuid()
+})
+
+export const RemoveCartItemResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "image": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Merge a guest cart into the persisted cart (sums quantities, clamps to stock)
+ */
+export const mergeCartBodyItemsItemQuantityDefault = 1;
+
+
+
+export const MergeCartBody = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1).default(mergeCartBodyItemsItemQuantityDefault)
+}))
+})
+
+export const MergeCartResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "image": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Get the authenticated user's wishlist products
+ */
+export const GetWishlistResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "category": zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+}),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "images": zod.array(zod.object({
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary Add a product to the wishlist (idempotent)
+ */
+export const AddWishlistItemBody = zod.object({
+  "productId": zod.string().uuid()
+})
+
+export const AddWishlistItemResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "category": zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+}),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "images": zod.array(zod.object({
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary Remove a product from the wishlist
+ */
+export const RemoveWishlistItemParams = zod.object({
+  "productId": zod.coerce.string().uuid()
+})
+
+export const RemoveWishlistItemResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "fit": zod.string().nullable(),
+  "price": zod.string(),
+  "badge": zod.string().nullable(),
+  "featured": zod.boolean(),
+  "category": zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+}),
+  "occasions": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "images": zod.array(zod.object({
+  "kind": zod.enum(['image', 'video']),
+  "path": zod.string(),
+  "sortOrder": zod.number()
+})),
+  "variants": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number()
+}))
+}))
+})
+
+

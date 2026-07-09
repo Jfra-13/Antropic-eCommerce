@@ -12,6 +12,10 @@ tags:
     description: Health operations
   - name: catalog
     description: Catalog read operations (categories, occasions, products)
+  - name: cart
+    description: Persisted cart operations (owner-scoped)
+  - name: wishlist
+    description: Persisted wishlist operations (owner-scoped)
 paths:
   /healthz:
     get:
@@ -129,6 +133,181 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /cart:
+    get:
+      operationId: getCart
+      tags: [cart]
+      summary: Get the authenticated user's cart
+      responses:
+        "200":
+          description: Cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /cart/items:
+    post:
+      operationId: addCartItem
+      tags: [cart]
+      summary: Add a variant to the cart (increments if already present)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemInput"
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "404":
+          description: Variant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Out of stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /cart/items/{variantId}:
+    patch:
+      operationId: updateCartItem
+      tags: [cart]
+      summary: Set the absolute quantity of a cart line
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartQuantityInput"
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+        "404":
+          description: Line not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Out of stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: removeCartItem
+      tags: [cart]
+      summary: Remove a variant from the cart
+      parameters:
+        - name: variantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+  /cart/merge:
+    post:
+      operationId: mergeCart
+      tags: [cart]
+      summary: Merge a guest cart into the persisted cart (sums quantities, clamps to stock)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartMergeInput"
+      responses:
+        "200":
+          description: Merged cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+  /wishlist:
+    get:
+      operationId: getWishlist
+      tags: [wishlist]
+      summary: Get the authenticated user's wishlist products
+      responses:
+        "200":
+          description: Wishlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wishlist"
+    post:
+      operationId: addWishlistItem
+      tags: [wishlist]
+      summary: Add a product to the wishlist (idempotent)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WishlistInput"
+      responses:
+        "200":
+          description: Updated wishlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wishlist"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /wishlist/{productId}:
+    delete:
+      operationId: removeWishlistItem
+      tags: [wishlist]
+      summary: Remove a product from the wishlist
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated wishlist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wishlist"
 components:
   schemas:
     HealthStatus:
@@ -282,3 +461,98 @@ components:
         - total
         - page
         - limit
+    CartItemInput:
+      type: object
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+      required:
+        - variantId
+    CartQuantityInput:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+      required:
+        - quantity
+    CartMergeInput:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItemInput"
+      required:
+        - items
+    CartItem:
+      type: object
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        size:
+          type: string
+        color:
+          type: string
+        sku:
+          type: string
+        stock:
+          type: integer
+        # Effective unit price (variant override or product price). Fixed-point string.
+        unitPrice:
+          type: string
+        quantity:
+          type: integer
+        image:
+          type: [string, "null"]
+      required:
+        - variantId
+        - productId
+        - slug
+        - name
+        - size
+        - color
+        - sku
+        - stock
+        - unitPrice
+        - quantity
+        - image
+    Cart:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+      required:
+        - items
+    WishlistInput:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+      required:
+        - productId
+    Wishlist:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+      required:
+        - items
