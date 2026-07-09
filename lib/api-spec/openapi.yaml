@@ -16,6 +16,12 @@ tags:
     description: Persisted cart operations (owner-scoped)
   - name: wishlist
     description: Persisted wishlist operations (owner-scoped)
+  - name: checkout
+    description: Checkout quote (server-side totals preview, owner-scoped)
+  - name: orders
+    description: Order operations (create from cart, list/get own orders)
+  - name: payments
+    description: Payment proof upload (Yape/Plin constancia, owner-scoped)
 paths:
   /healthz:
     get:
@@ -308,6 +314,192 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Wishlist"
+  /checkout/quote:
+    post:
+      operationId: checkoutQuote
+      tags: [checkout]
+      summary: Preview server-side totals for the current cart (subtotal + shipping - coupon)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutQuoteInput"
+      responses:
+        "200":
+          description: Quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutQuote"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Empty cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Coupon invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create an order from the authenticated user's cart (totals computed server-side)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderInput"
+      responses:
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Invalid body (missing address/pickup point)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Empty cart or out of stock
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Coupon invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List the authenticated user's orders (paginated, newest first)
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderList"
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get one of the authenticated user's orders (used for payment status polling)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orders/{id}/payment-proof/upload-url:
+    post:
+      operationId: createPaymentProofUploadUrl
+      tags: [payments]
+      summary: Get a signed URL to upload a payment proof directly to private Storage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Signed upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentProofUploadUrl"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /orders/{id}/payment-proof:
+    post:
+      operationId: attachPaymentProof
+      tags: [payments]
+      summary: Attach an uploaded payment proof and move the order to verification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachPaymentProofInput"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order not in a state that accepts a proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -556,3 +748,245 @@ components:
             $ref: "#/components/schemas/Product"
       required:
         - items
+    CheckoutQuoteInput:
+      type: object
+      properties:
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        couponCode:
+          type: [string, "null"]
+      required:
+        - deliveryMethod
+    QuoteItem:
+      type: object
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        variantLabel:
+          type: string
+        # Fixed-point money strings. Never parse to float for math.
+        unitPrice:
+          type: string
+        quantity:
+          type: integer
+        lineTotal:
+          type: string
+      required:
+        - variantId
+        - name
+        - variantLabel
+        - unitPrice
+        - quantity
+        - lineTotal
+    CheckoutQuote:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteItem"
+        subtotal:
+          type: string
+        shippingCost:
+          type: string
+        discountAmount:
+          type: string
+        total:
+          type: string
+        couponCode:
+          type: [string, "null"]
+      required:
+        - items
+        - subtotal
+        - shippingCost
+        - discountAmount
+        - total
+        - couponCode
+    CreateOrderInput:
+      type: object
+      properties:
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        shippingAddress:
+          type: [string, "null"]
+          description: Required when deliveryMethod is delivery
+        pickupPointId:
+          type: [string, "null"]
+          format: uuid
+          description: Required when deliveryMethod is recojo
+        couponCode:
+          type: [string, "null"]
+        idempotencyKey:
+          type: [string, "null"]
+          description: Client-supplied key; a repeated key returns the same order
+      required:
+        - deliveryMethod
+    OrderItem:
+      type: object
+      properties:
+        variantId:
+          type: [string, "null"]
+          format: uuid
+        productName:
+          type: string
+        variantLabel:
+          type: [string, "null"]
+        sku:
+          type: [string, "null"]
+        unitPrice:
+          type: string
+        quantity:
+          type: integer
+        lineTotal:
+          type: string
+      required:
+        - variantId
+        - productName
+        - variantLabel
+        - sku
+        - unitPrice
+        - quantity
+        - lineTotal
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        # Derived Yape match key: ANT-{orderNumber}. Not stored.
+        referenceCode:
+          type: string
+        paymentStatus:
+          type: string
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+        fulfillmentStatus:
+          type: [string, "null"]
+          enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        pickupPointId:
+          type: [string, "null"]
+          format: uuid
+        shippingAddress:
+          type: [string, "null"]
+        subtotal:
+          type: string
+        shippingCost:
+          type: string
+        discountAmount:
+          type: string
+        total:
+          type: string
+        couponCode:
+          type: [string, "null"]
+        paymentProofStatus:
+          type: [string, "null"]
+          enum: [pendiente, aprobado, rechazado, null]
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+      required:
+        - id
+        - orderNumber
+        - referenceCode
+        - paymentStatus
+        - fulfillmentStatus
+        - deliveryMethod
+        - pickupPointId
+        - shippingAddress
+        - subtotal
+        - shippingCost
+        - discountAmount
+        - total
+        - couponCode
+        - paymentProofStatus
+        - createdAt
+        - items
+    OrderListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        referenceCode:
+          type: string
+        paymentStatus:
+          type: string
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+        fulfillmentStatus:
+          type: [string, "null"]
+          enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        total:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderNumber
+        - referenceCode
+        - paymentStatus
+        - fulfillmentStatus
+        - deliveryMethod
+        - total
+        - createdAt
+    OrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderListItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    PaymentProofUploadUrl:
+      type: object
+      properties:
+        uploadUrl:
+          type: string
+          description: PUT the file to this URL (direct to private Storage)
+        path:
+          type: string
+          description: Storage object path to send back when attaching the proof
+        token:
+          type: string
+      required:
+        - uploadUrl
+        - path
+        - token
+    AttachPaymentProofInput:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Storage object path returned by the upload-url endpoint
+        amountReported:
+          type: [string, "null"]
+      required:
+        - path

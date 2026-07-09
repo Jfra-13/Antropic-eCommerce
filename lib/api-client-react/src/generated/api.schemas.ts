@@ -117,6 +117,217 @@ export interface Wishlist {
   items: Product[];
 }
 
+export type CheckoutQuoteInputDeliveryMethod = typeof CheckoutQuoteInputDeliveryMethod[keyof typeof CheckoutQuoteInputDeliveryMethod];
+
+
+export const CheckoutQuoteInputDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export interface CheckoutQuoteInput {
+  deliveryMethod: CheckoutQuoteInputDeliveryMethod;
+  /** @nullable */
+  couponCode?: string | null;
+}
+
+export interface QuoteItem {
+  variantId: string;
+  name: string;
+  variantLabel: string;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+export interface CheckoutQuote {
+  items: QuoteItem[];
+  subtotal: string;
+  shippingCost: string;
+  discountAmount: string;
+  total: string;
+  /** @nullable */
+  couponCode: string | null;
+}
+
+export type CreateOrderInputDeliveryMethod = typeof CreateOrderInputDeliveryMethod[keyof typeof CreateOrderInputDeliveryMethod];
+
+
+export const CreateOrderInputDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export interface CreateOrderInput {
+  deliveryMethod: CreateOrderInputDeliveryMethod;
+  /**
+     * Required when deliveryMethod is delivery
+     * @nullable
+     */
+  shippingAddress?: string | null;
+  /**
+     * Required when deliveryMethod is recojo
+     * @nullable
+     */
+  pickupPointId?: string | null;
+  /** @nullable */
+  couponCode?: string | null;
+  /**
+     * Client-supplied key; a repeated key returns the same order
+     * @nullable
+     */
+  idempotencyKey?: string | null;
+}
+
+export interface OrderItem {
+  /** @nullable */
+  variantId: string | null;
+  productName: string;
+  /** @nullable */
+  variantLabel: string | null;
+  /** @nullable */
+  sku: string | null;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+export type OrderPaymentStatus = typeof OrderPaymentStatus[keyof typeof OrderPaymentStatus];
+
+
+export const OrderPaymentStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+} as const;
+
+/**
+ * @nullable
+ */
+export type OrderFulfillmentStatus = typeof OrderFulfillmentStatus[keyof typeof OrderFulfillmentStatus] | null;
+
+
+export const OrderFulfillmentStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export type OrderDeliveryMethod = typeof OrderDeliveryMethod[keyof typeof OrderDeliveryMethod];
+
+
+export const OrderDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+/**
+ * @nullable
+ */
+export type OrderPaymentProofStatus = typeof OrderPaymentProofStatus[keyof typeof OrderPaymentProofStatus] | null;
+
+
+export const OrderPaymentProofStatus = {
+  pendiente: 'pendiente',
+  aprobado: 'aprobado',
+  rechazado: 'rechazado',
+} as const;
+
+export interface Order {
+  id: string;
+  orderNumber: number;
+  referenceCode: string;
+  paymentStatus: OrderPaymentStatus;
+  /** @nullable */
+  fulfillmentStatus: OrderFulfillmentStatus;
+  deliveryMethod: OrderDeliveryMethod;
+  /** @nullable */
+  pickupPointId: string | null;
+  /** @nullable */
+  shippingAddress: string | null;
+  subtotal: string;
+  shippingCost: string;
+  discountAmount: string;
+  total: string;
+  /** @nullable */
+  couponCode: string | null;
+  /** @nullable */
+  paymentProofStatus: OrderPaymentProofStatus;
+  createdAt: string;
+  items: OrderItem[];
+}
+
+export type OrderListItemPaymentStatus = typeof OrderListItemPaymentStatus[keyof typeof OrderListItemPaymentStatus];
+
+
+export const OrderListItemPaymentStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+} as const;
+
+/**
+ * @nullable
+ */
+export type OrderListItemFulfillmentStatus = typeof OrderListItemFulfillmentStatus[keyof typeof OrderListItemFulfillmentStatus] | null;
+
+
+export const OrderListItemFulfillmentStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export type OrderListItemDeliveryMethod = typeof OrderListItemDeliveryMethod[keyof typeof OrderListItemDeliveryMethod];
+
+
+export const OrderListItemDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export interface OrderListItem {
+  id: string;
+  orderNumber: number;
+  referenceCode: string;
+  paymentStatus: OrderListItemPaymentStatus;
+  /** @nullable */
+  fulfillmentStatus: OrderListItemFulfillmentStatus;
+  deliveryMethod: OrderListItemDeliveryMethod;
+  total: string;
+  createdAt: string;
+}
+
+export interface OrderList {
+  items: OrderListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface PaymentProofUploadUrl {
+  /** PUT the file to this URL (direct to private Storage) */
+  uploadUrl: string;
+  /** Storage object path to send back when attaching the proof */
+  path: string;
+  token: string;
+}
+
+export interface AttachPaymentProofInput {
+  /** Storage object path returned by the upload-url endpoint */
+  path: string;
+  /** @nullable */
+  amountReported?: string | null;
+}
+
 export type ListProductsParams = {
 /**
  * @minimum 1
@@ -140,5 +351,17 @@ featured?: boolean;
  * Case-insensitive name search
  */
 q?: string;
+};
+
+export type ListOrdersParams = {
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
 };
 

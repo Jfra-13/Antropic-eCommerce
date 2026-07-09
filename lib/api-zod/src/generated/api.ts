@@ -410,3 +410,188 @@ export const RemoveWishlistItemResponse = zod.object({
 })
 
 
+/**
+ * @summary Preview server-side totals for the current cart (subtotal + shipping - coupon)
+ */
+export const CheckoutQuoteBody = zod.object({
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "couponCode": zod.string().nullish()
+})
+
+export const CheckoutQuoteResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "name": zod.string(),
+  "variantLabel": zod.string(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+})),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable()
+})
+
+
+/**
+ * @summary Create an order from the authenticated user's cart (totals computed server-side)
+ */
+export const CreateOrderBody = zod.object({
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "shippingAddress": zod.string().nullish().describe('Required when deliveryMethod is delivery'),
+  "pickupPointId": zod.string().uuid().nullish().describe('Required when deliveryMethod is recojo'),
+  "couponCode": zod.string().nullish(),
+  "idempotencyKey": zod.string().nullish().describe('Client-supplied key; a repeated key returns the same order')
+})
+
+export const CreateOrderResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
+ * @summary List the authenticated user's orders (paginated, newest first)
+ */
+export const listOrdersQueryPageDefault = 1;
+
+export const listOrdersQueryLimitDefault = 20;
+export const listOrdersQueryLimitMax = 100;
+
+
+
+export const ListOrdersQueryParams = zod.object({
+  "page": zod.coerce.number().min(1).default(listOrdersQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listOrdersQueryLimitMax).default(listOrdersQueryLimitDefault)
+})
+
+export const ListOrdersResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "total": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Get one of the authenticated user's orders (used for payment status polling)
+ */
+export const GetOrderParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetOrderResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
+ * @summary Get a signed URL to upload a payment proof directly to private Storage
+ */
+export const CreatePaymentProofUploadUrlParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const CreatePaymentProofUploadUrlResponse = zod.object({
+  "uploadUrl": zod.string().describe('PUT the file to this URL (direct to private Storage)'),
+  "path": zod.string().describe('Storage object path to send back when attaching the proof'),
+  "token": zod.string()
+})
+
+
+/**
+ * @summary Attach an uploaded payment proof and move the order to verification
+ */
+export const AttachPaymentProofParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const AttachPaymentProofBody = zod.object({
+  "path": zod.string().describe('Storage object path returned by the upload-url endpoint'),
+  "amountReported": zod.string().nullish()
+})
+
+export const AttachPaymentProofResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
