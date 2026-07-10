@@ -4,20 +4,35 @@ Checklist de pendientes previos al despliegue a producción.
 
 ## 1. Configuración / variables de entorno
 
-- [ ] **Email del negocio** — completar en el panel de Configuración (número Yape, QR) y setear las env vars de correo:
-  - `RESEND_API_KEY` — API key de Resend.
-  - `RESEND_FROM` — remitente con dominio verificado (ej. `Antropic <noreply@antropic.pe>`).
-  - `ADMIN_NOTIFICATION_EMAIL` — casilla que recibe alertas del backoffice (nueva constancia, nueva devolución).
+> **Valores sensibles (keys, password, connection string) → `.local/PRE-DEPLOY.secrets.md` (gitignored).** Nunca escribir secretos en este archivo: está versionado en git.
+
+- [x] **Email del negocio (Resend)** — dominio `send.antropic.page` verificado (DKIM+SPF+DMARC en verde).
+  - `RESEND_API_KEY` — ✅ obtenido → ver `.local/PRE-DEPLOY.secrets.md` (rotar antes de prod).
+  - `RESEND_FROM` = `Antropic <noreply@send.antropic.page>` ✅
+  - `ADMIN_NOTIFICATION_EMAIL` = `mariacasasc16@gmail.com` ✅
+  - Pendiente negocio: número Yape + QR se cargan en el panel de Configuración (no es env var).
   - Sin estas variables el envío de email es un no-op logueado (la app no falla, pero **no manda correos**).
-- [ ] `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` en el servidor de la API.
-- [ ] Buckets de Supabase Storage creados: `public-media` (público) y `payment-proofs` (privado).
-- [ ] CORS: whitelist con el dominio real de Vercel (no `*`).
+- [x] `SUPABASE_URL` = `https://jmshmsnuicqzurndqvtm.supabase.co` (proyecto `antropic-ecommerce`) ✅
+  - `SUPABASE_SERVICE_ROLE_KEY` — ✅ obtenido → `.local/PRE-DEPLOY.secrets.md` (solo server, rotar antes de prod).
+  - `DATABASE_URL` — ✅ obtenido (Session pooler, puerto 5432) → `.local/PRE-DEPLOY.secrets.md`.
+- [x] Buckets de Supabase Storage creados: `public-media` (público) ✅ y `payment-proofs` (privado) ✅.
+- [ ] **Env vars del storefront (Vercel)** — el front las lee en build (`lib/supabase.ts`, `main.tsx`):
+  - `VITE_SUPABASE_URL` = mismo `SUPABASE_URL`.
+  - `VITE_SUPABASE_ANON_KEY` — ⬜ **falta juntar** la **anon** key (Supabase → Settings → API Keys → `anon public`). NO es la service_role.
+  - `VITE_API_URL` = URL pública del api-server (DigitalOcean) — se sabe post-deploy.
+- [ ] CORS: whitelist con el dominio real de Vercel (no `*`). — post-deploy (falta dominio Vercel).
 
 ## 2. Autenticación
 
-- [ ] **Arreglar inicio de sesión con Google** — configurar el proveedor Google OAuth en Supabase Auth (client ID/secret) y los redirect URIs del dominio de producción.
-- [ ] Verificar que el JWT de Supabase llega al API y el middleware lo valida contra JWKS.
-- [ ] Probar los 4 roles (visitante, cliente, empleado, admin) y que la matriz de permisos §6.0 se respeta.
+- [x] **Google OAuth configurado en Supabase** — proveedor Google activado con Client ID/Secret (proyecto Google Cloud `antropic`), callback `…supabase.co/auth/v1/callback`. Credenciales en `.local/PRE-DEPLOY.secrets.md`.
+  - Pendiente prod: agregar dominio Vercel a Supabase → URL Configuration (Site URL + Redirect URLs) y **publicar** la app en Google OAuth consent (hoy solo entran test users).
+- [ ] **SMTP propio para emails de Auth (Magic Link)** — los envía Supabase Auth, no nuestro Resend. Free tier limita ~3-4/hora y cae en spam. Configurar SMTP custom en Supabase → Auth → SMTP (usar credenciales SMTP de Resend). Bloqueante para que el Magic Link sea usable en prod.
+- [x] JWT Keys en Supabase migradas a **asimétrico (ECC P-256)** — requisito de `auth.ts` (JWKS). Legacy HS256 quedó como previous key.
+- [x] Schema (22 tablas) verificado en la DB de Supabase (`drizzle-kit push` → "No changes detected", 2026-07-09).
+- [x] Bearer JWT → API verificado por código: `main.tsx` registra `setAuthTokenGetter` con `supabase.auth.getSession().access_token`.
+- [ ] **Login del front desalineado (EN CURSO)** — hoy usa email+password (`signInWithPassword`/`signUp` en `StoreContext.tsx`). Lo decidido es **Google OAuth + Magic Link, sin contraseñas** (§1 requerimientos). Migrar `login`/`register` a `signInWithOAuth({provider:'google'})` + `signInWithOtp({email})` y ajustar la UI de login.
+- [ ] Verificar en runtime que el JWT llega al API y valida contra JWKS. — código listo; falta correr el stack y hacer login real.
+- [ ] Probar los 4 roles: **3 en DB** (`customer`/`employee`/`admin`, enum `role`) + visitante = sin sesión. Para probar admin/employee hay que promover un `profiles.role` a mano (nacen como `customer`). Validar matriz §6.0.
 
 ## 3. Validación funcional del flujo completo
 
