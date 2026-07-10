@@ -9,6 +9,11 @@ import type { PublicBanner } from './publicBanner';
 
 export interface PublicConfig {
   deliveryFee: string;
+  /**
+     * Subtotal (decimal string) from which delivery is free; null disables it
+     * @nullable
+     */
+  freeShippingThreshold: string | null;
   /** @nullable */
   yapeNumber: string | null;
   /**

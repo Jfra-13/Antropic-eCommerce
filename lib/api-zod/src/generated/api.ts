@@ -18,6 +18,18 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Get the authenticated caller's profile (id, email, role)
+ */
+export const GetMeResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "role": zod.enum(['customer', 'employee', 'admin'])
+})
+})
+
+
+/**
  * @summary List active categories
  */
 export const ListCategoriesResponseItem = zod.object({
@@ -1513,6 +1525,7 @@ export const UpdateUserResponse = zod.object({
  */
 export const GetPublicConfigResponse = zod.object({
   "deliveryFee": zod.string(),
+  "freeShippingThreshold": zod.string().nullable().describe('Subtotal (decimal string) from which delivery is free; null disables it'),
   "yapeNumber": zod.string().nullable(),
   "yapeQrUrl": zod.string().nullable().describe('Public URL of the Yape QR image'),
   "banners": zod.array(zod.object({
@@ -1540,6 +1553,7 @@ export const ListPickupPointsResponse = zod.object({
  */
 export const GetAdminConfigResponse = zod.object({
   "deliveryFee": zod.string().describe('Flat La Molina delivery fee, decimal string (e.g. \"12.00\")'),
+  "freeShippingThreshold": zod.string().nullable().describe('Subtotal (decimal string) from which delivery is free; null disables it'),
   "yapeNumber": zod.string().nullable(),
   "yapeQrPath": zod.string().nullable().describe('Storage object path of the Yape QR image'),
   "banners": zod.array(zod.object({
@@ -1554,6 +1568,7 @@ export const GetAdminConfigResponse = zod.object({
  */
 export const UpdateAdminConfigBody = zod.object({
   "deliveryFee": zod.string().optional(),
+  "freeShippingThreshold": zod.string().nullish(),
   "yapeNumber": zod.string().nullish(),
   "yapeQrPath": zod.string().nullish(),
   "banners": zod.array(zod.object({
@@ -1564,6 +1579,7 @@ export const UpdateAdminConfigBody = zod.object({
 
 export const UpdateAdminConfigResponse = zod.object({
   "deliveryFee": zod.string().describe('Flat La Molina delivery fee, decimal string (e.g. \"12.00\")'),
+  "freeShippingThreshold": zod.string().nullable().describe('Subtotal (decimal string) from which delivery is free; null disables it'),
   "yapeNumber": zod.string().nullable(),
   "yapeQrPath": zod.string().nullable().describe('Storage object path of the Yape QR image'),
   "banners": zod.array(zod.object({

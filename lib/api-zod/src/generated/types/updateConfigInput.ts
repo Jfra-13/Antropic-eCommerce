@@ -10,6 +10,8 @@ import type { Banner } from './banner';
 export interface UpdateConfigInput {
   deliveryFee?: string;
   /** @nullable */
+  freeShippingThreshold?: string | null;
+  /** @nullable */
   yapeNumber?: string | null;
   /** @nullable */
   yapeQrPath?: string | null;

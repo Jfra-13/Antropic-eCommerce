@@ -26,6 +26,8 @@ tags:
     description: Backoffice operations (employee/admin only)
   - name: config
     description: Public store config (delivery fee, Yape, pickup points, banners)
+  - name: auth
+    description: Authenticated caller identity
 paths:
   /healthz:
     get:
@@ -40,6 +42,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the authenticated caller's profile (id, email, role)
+      responses:
+        "200":
+          description: Caller profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /categories:
     get:
       operationId: listCategories
@@ -1436,6 +1456,26 @@ components:
       required:
         - code
         - message
+    Me:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+            role:
+              type: string
+              enum: [customer, employee, admin]
+          required:
+            - id
+            - email
+            - role
+      required:
+        - user
     Category:
       type: object
       properties:
@@ -2691,6 +2731,9 @@ components:
         deliveryFee:
           type: string
           description: Flat La Molina delivery fee, decimal string (e.g. "12.00")
+        freeShippingThreshold:
+          type: [string, "null"]
+          description: Subtotal (decimal string) from which delivery is free; null disables it
         yapeNumber:
           type: [string, "null"]
         yapeQrPath:
@@ -2702,6 +2745,7 @@ components:
             $ref: "#/components/schemas/Banner"
       required:
         - deliveryFee
+        - freeShippingThreshold
         - yapeNumber
         - yapeQrPath
         - banners
@@ -2710,6 +2754,9 @@ components:
       properties:
         deliveryFee:
           type: string
+        freeShippingThreshold:
+          type: [string, "null"]
+          description: Subtotal (decimal string) from which delivery is free; null disables it
         yapeNumber:
           type: [string, "null"]
         yapeQrUrl:
@@ -2721,6 +2768,7 @@ components:
             $ref: "#/components/schemas/PublicBanner"
       required:
         - deliveryFee
+        - freeShippingThreshold
         - yapeNumber
         - yapeQrUrl
         - banners
@@ -2729,6 +2777,8 @@ components:
       properties:
         deliveryFee:
           type: string
+        freeShippingThreshold:
+          type: [string, "null"]
         yapeNumber:
           type: [string, "null"]
         yapeQrPath:

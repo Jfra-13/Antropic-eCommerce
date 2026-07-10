@@ -14,6 +14,25 @@ export interface Error {
   message: string;
 }
 
+export type MeUserRole = typeof MeUserRole[keyof typeof MeUserRole];
+
+
+export const MeUserRole = {
+  customer: 'customer',
+  employee: 'employee',
+  admin: 'admin',
+} as const;
+
+export type MeUser = {
+  id: string;
+  email: string;
+  role: MeUserRole;
+};
+
+export interface Me {
+  user: MeUser;
+}
+
 export interface Category {
   id: string;
   slug: string;
@@ -837,6 +856,11 @@ export interface PublicBanner {
 export interface AdminConfig {
   /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
   deliveryFee: string;
+  /**
+     * Subtotal (decimal string) from which delivery is free; null disables it
+     * @nullable
+     */
+  freeShippingThreshold: string | null;
   /** @nullable */
   yapeNumber: string | null;
   /**
@@ -849,6 +873,11 @@ export interface AdminConfig {
 
 export interface PublicConfig {
   deliveryFee: string;
+  /**
+     * Subtotal (decimal string) from which delivery is free; null disables it
+     * @nullable
+     */
+  freeShippingThreshold: string | null;
   /** @nullable */
   yapeNumber: string | null;
   /**
@@ -861,6 +890,8 @@ export interface PublicConfig {
 
 export interface UpdateConfigInput {
   deliveryFee?: string;
+  /** @nullable */
+  freeShippingThreshold?: string | null;
   /** @nullable */
   yapeNumber?: string | null;
   /** @nullable */
