@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useProducts, useCategories } from "../lib/catalog";
+import { useStoreConfig } from "../lib/config";
 import { ProductCard } from "../components/ProductCard";
 import { ProductCarousel } from "../components/ProductCarousel";
 import { CategoryPills } from "../components/CategoryPills";
@@ -10,6 +11,13 @@ export default function Home() {
   // The API orders featured products first, so the top 8 are the "most wanted".
   const { products } = useProducts();
   const { categories } = useCategories();
+  const { config } = useStoreConfig();
+
+  // Banners are managed in the admin panel: the first active one takes over the hero
+  // image; the rest render as a promo strip. No banners = bundled fallback art.
+  const banners = config?.banners ?? [];
+  const heroImage = banners[0]?.imageUrl ?? modelo_01;
+  const promoBanners = banners.slice(1);
 
   const mostWanted = products.slice(0, 8);
   const categoryPills = categories.map((c) => ({ label: c.name, value: c.name }));
@@ -19,7 +27,7 @@ export default function Home() {
       {/* 1. Hero — one strong color block, 3-level type hierarchy */}
       <section className="flex flex-col md:flex-row w-full max-h-[800px] overflow-hidden">
         <div className="md:order-2 w-full md:w-1/2 h-[60vw] md:h-[600px] relative bg-muted">
-          <img src={modelo_01} alt="Nueva colección" className="w-full h-full object-cover object-top" />
+          <img src={heroImage} alt="Nueva colección" className="w-full h-full object-cover object-top" />
         </div>
         <div className="md:order-1 w-full md:w-1/2 bg-primary text-primary-foreground flex flex-col justify-center items-center md:items-start text-center md:text-left p-12 md:p-20 lg:p-24">
           <span className="font-sans text-sm uppercase tracking-[0.25em] mb-4 text-primary-foreground/80">Nueva colección</span>
@@ -34,6 +42,21 @@ export default function Home() {
       <section className="py-8 px-4 max-w-6xl mx-auto">
         <CategoryPills items={categoryPills} hrefFor={(v) => `/search?category=${v}`} />
       </section>
+
+      {/* Promo banners from the admin panel */}
+      {promoBanners.length > 0 && (
+        <section className="px-4 max-w-6xl mx-auto flex flex-col gap-4">
+          {promoBanners.map((b) => (
+            <Link key={b.imageUrl} href="/search" className="block overflow-hidden">
+              <img
+                src={b.imageUrl}
+                alt="Promoción"
+                className="w-full max-h-72 object-cover hover:scale-[1.02] transition-transform duration-500"
+              />
+            </Link>
+          ))}
+        </section>
+      )}
 
       {/* 3. Editorial feature — neutral bg, inverted split, color in accents only */}
       <section className="w-full bg-muted py-16 px-4 md:px-12">

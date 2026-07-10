@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
-import { isSizeAvailable, productStock, ALL_SIZES } from "../lib/product";
+import { findVariant, productStock, ALL_SIZES } from "../lib/product";
 import { useProduct, useProducts } from "../lib/catalog";
 import { useStore } from "../context/StoreContext";
 import { ProductCard } from "../components/ProductCard";
@@ -49,16 +49,19 @@ export default function ProductDetail() {
 
   const isFavorite = favorites.includes(product.id);
   const outOfStock = productStock(product) <= 0;
-  const selectedOut = selectedSize !== null && !isSizeAvailable(product, selectedSize);
+  const colorName = product.colors[selectedColor]?.name ?? "";
+  // The cart operates on exact size×color variants; availability is per combination.
+  const selectedVariant =
+    selectedSize !== null ? findVariant(product, selectedSize, colorName) : undefined;
+  const selectedOut =
+    selectedSize !== null && (!selectedVariant || selectedVariant.stock <= 0);
   const similar = products
     .filter((p) => p.category === product.category && p.id !== product.id)
     .slice(0, 8);
 
   const handleAdd = () => {
-    if (!selectedSize || selectedOut) return;
-    // ponytail: cart line doesn't carry size/color yet — needs a variant-aware
-    // cart model (arrives with checkout, PLAN task 7). Gating fixes the UX bug.
-    addToCart(product.id);
+    if (!selectedVariant || selectedVariant.stock <= 0) return;
+    addToCart(selectedVariant.id);
   };
 
   return (
@@ -177,7 +180,7 @@ export default function ProductDetail() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {product.variants.map((v) => {
-                  const available = v.stock > 0;
+                  const available = (findVariant(product, v.size, colorName)?.stock ?? 0) > 0;
                   const selected = selectedSize === v.size;
                   return (
                     <button

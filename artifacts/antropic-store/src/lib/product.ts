@@ -1,4 +1,5 @@
 import type { Product as ProductDto } from "@workspace/api-client-react";
+import { supabase } from "./supabase";
 import corcet_blanco from "../assets/corcet_blanco.png";
 import modelo_01 from "../assets/modelo_01.webp";
 import modelo_02 from "../assets/modelo_02.webp";
@@ -20,12 +21,16 @@ export function colorHex(name: string): string {
   return COLOR_HEX[name] ?? "#cccccc";
 }
 
-// Placeholder image resolver: the seed stores asset keys instead of real Storage
-// paths until product photography lands. Unknown keys fall back to the primary shot.
-const IMAGE_ASSETS: Record<string, string> = { corcet_blanco, modelo_01, modelo_02 };
+// Legacy seed rows store bundled-asset keys instead of Storage paths; anything else is a
+// real object path in the public bucket and resolves to its public URL.
+const BUNDLED_ASSETS: Record<string, string> = { corcet_blanco, modelo_01, modelo_02 };
+const MEDIA_BUCKET = "public-media";
 
-function resolveImage(path: string): string {
-  return IMAGE_ASSETS[path] ?? corcet_blanco;
+export function mediaUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path; // already a resolved URL
+  const bundled = BUNDLED_ASSETS[path];
+  if (bundled) return bundled;
+  return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 export interface ProductColor {
@@ -37,6 +42,14 @@ export interface ProductColor {
 // on the PDP (not hidden) so "avísame cuando haya stock" can be offered.
 export interface Variant {
   size: string;
+  stock: number;
+}
+
+// Exact size×color combination — what the cart and checkout operate on.
+export interface VariantOption {
+  id: string;
+  size: string;
+  color: string;
   stock: number;
 }
 
@@ -52,6 +65,7 @@ export interface Product {
   images: string[];
   colors: ProductColor[];
   variants: Variant[];
+  variantOptions: VariantOption[];
   occasion: string[]; // occasion names
   fit: string;
   details: string;
@@ -80,12 +94,21 @@ export function isSizeAvailable(p: Product, size: string): boolean {
   return (p.variants.find((v) => v.size === size)?.stock ?? 0) > 0;
 }
 
+// The exact variant for a size×color pick, if the combination exists.
+export function findVariant(
+  p: Product,
+  size: string,
+  color: string,
+): VariantOption | undefined {
+  return p.variantOptions.find((v) => v.size === size && v.color === color);
+}
+
 export function primaryImage(p: Product): string {
   return p.images[0];
 }
 
 // API DTO -> front Product. Aggregates size×color variants into per-size stock and
-// distinct color swatches, and resolves placeholder image keys to bundled assets.
+// distinct color swatches, and resolves media paths to displayable URLs.
 export function toProduct(dto: ProductDto): Product {
   const sizeOrder: string[] = [];
   const stockBySize = new Map<string, number>();
@@ -108,7 +131,7 @@ export function toProduct(dto: ProductDto): Product {
   }
 
   const images =
-    dto.images.length > 0 ? dto.images.map((i) => resolveImage(i.path)) : [corcet_blanco];
+    dto.images.length > 0 ? dto.images.map((i) => mediaUrl(i.path)) : [corcet_blanco];
 
   return {
     id: dto.id,
@@ -119,6 +142,12 @@ export function toProduct(dto: ProductDto): Product {
     images,
     colors,
     variants,
+    variantOptions: dto.variants.map((v) => ({
+      id: v.id,
+      size: v.size,
+      color: v.color,
+      stock: v.stock,
+    })),
     occasion: dto.occasions.map((o) => o.name),
     fit: dto.fit ?? "",
     details: dto.description ?? "",

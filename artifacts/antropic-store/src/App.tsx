@@ -13,6 +13,8 @@ import Search from "./pages/Search";
 import ProductDetail from "./pages/ProductDetail";
 import Favorites from "./pages/Favorites";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import OrderDetail from "./pages/OrderDetail";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
 
@@ -37,6 +39,8 @@ function Router() {
           <Route path="/product/:slug" component={ProductDetail} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/cart" component={Cart} />
+          <Route path="/checkout" component={Checkout} />
+          <Route path="/orders/:id" component={OrderDetail} />
           <Route path="/login" component={Login} />
           <Route path="/profile" component={Profile} />
           <Route component={NotFound} />

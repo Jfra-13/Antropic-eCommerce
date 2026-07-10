@@ -1,9 +1,18 @@
+import { Link, useLocation } from "wouter";
+import { useListOrders, getListOrdersQueryKey } from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
-import { useLocation } from "wouter";
+import { formatPrice, priceToNumber } from "../lib/product";
+import { orderStatusLabel } from "../lib/orders";
+
+const ORDERS_PARAMS = { page: 1, limit: 20 };
 
 export default function Profile() {
   const { user, logout } = useStore();
   const [, setLocation] = useLocation();
+
+  const orders = useListOrders(ORDERS_PARAMS, {
+    query: { queryKey: getListOrdersQueryKey(ORDERS_PARAMS), enabled: !!user },
+  });
 
   if (!user) {
     setLocation("/login");
@@ -29,8 +38,8 @@ export default function Profile() {
             <h2 className="font-serif text-2xl text-foreground">{user.name}</h2>
             <p className="font-sans text-muted-foreground mt-1">{user.email}</p>
           </div>
-          
-          <button 
+
+          <button
             onClick={handleLogout}
             className="w-full bg-white text-primary border-2 border-primary font-sans font-bold text-lg py-4 hover:bg-primary hover:text-white transition-colors shadow-sm"
           >
@@ -38,38 +47,56 @@ export default function Profile() {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 flex flex-col gap-8">
+        {/* Orders */}
+        <div className="flex-1">
           <div className="bg-white p-6 md:p-8 shadow-sm border border-border">
             <h3 className="font-serif text-2xl text-foreground mb-6 flex items-center gap-3">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-secondary"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>
               Mis Pedidos
             </h3>
-            <div className="bg-muted p-8 text-center border border-border border-dashed">
-              <p className="font-sans text-muted-foreground text-lg">Aún no has realizado ninguna compra.</p>
-            </div>
-          </div>
 
-          <div className="bg-white p-6 md:p-8 shadow-sm border border-border">
-            <h3 className="font-serif text-2xl text-foreground mb-6 flex items-center gap-3">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-secondary"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-              Configuración
-            </h3>
-            
-            <div className="flex flex-col gap-4 font-sans text-lg text-foreground">
-              <div className="flex items-center justify-between py-3 border-b border-muted">
-                <span>Recibir boletín de noticias</span>
-                <div className="w-12 h-6 bg-primary rounded-full relative cursor-pointer">
-                  <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
-                </div>
+            {orders.isLoading && (
+              <p className="font-sans text-muted-foreground">Cargando tus pedidos…</p>
+            )}
+
+            {orders.isError && (
+              <p className="font-sans text-sm text-destructive">
+                No pudimos cargar tus pedidos. Inténtalo de nuevo.
+              </p>
+            )}
+
+            {orders.data && orders.data.items.length === 0 && (
+              <div className="bg-muted p-8 text-center border border-border border-dashed">
+                <p className="font-sans text-muted-foreground text-lg mb-4">Aún no has realizado ninguna compra.</p>
+                <Link href="/search" className="font-sans font-bold text-sm text-primary hover:underline">
+                  Descubre la colección →
+                </Link>
               </div>
-              <div className="flex items-center justify-between py-3 border-b border-muted">
-                <span>Notificaciones SMS</span>
-                <div className="w-12 h-6 bg-border rounded-full relative cursor-pointer">
-                  <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></div>
-                </div>
+            )}
+
+            {orders.data && orders.data.items.length > 0 && (
+              <div className="flex flex-col divide-y divide-border">
+                {orders.data.items.map((o) => (
+                  <Link
+                    key={o.id}
+                    href={`/orders/${o.id}`}
+                    className="flex items-center justify-between py-4 group"
+                  >
+                    <div>
+                      <p className="font-sans font-bold text-foreground group-hover:text-primary transition-colors">
+                        Pedido #{o.orderNumber}
+                      </p>
+                      <p className="font-sans text-sm text-muted-foreground">
+                        {new Date(o.createdAt).toLocaleDateString()} · {orderStatusLabel(o)}
+                      </p>
+                    </div>
+                    <span className="font-sans font-bold text-foreground">
+                      {formatPrice(priceToNumber(o.total))}
+                    </span>
+                  </Link>
+                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

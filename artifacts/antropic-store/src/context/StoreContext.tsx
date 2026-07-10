@@ -8,18 +8,36 @@ import React, {
 } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Wishlist } from '@workspace/api-client-react';
+import type { Cart, Wishlist } from '@workspace/api-client-react';
 import {
   useGetWishlist,
   useAddWishlistItem,
   useRemoveWishlistItem,
   getGetWishlistQueryKey,
+  useGetCart,
+  useAddCartItem,
+  useUpdateCartItem,
+  useRemoveCartItem,
+  useMergeCart,
+  getGetCartQueryKey,
 } from '@workspace/api-client-react';
 import { supabase } from '../lib/supabase';
+import { useProducts } from '../lib/catalog';
+import { priceToNumber } from '../lib/product';
 
-interface CartItem {
+// One cart line, unified for guest and logged-in carts. `image` is a media path or URL —
+// render it through mediaUrl(). `unitPrice` is a decimal string (e.g. "29.99").
+export interface CartLine {
+  variantId: string;
   productId: string;
+  slug: string;
+  name: string;
+  size: string;
+  color: string;
+  unitPrice: string;
   qty: number;
+  stock: number;
+  image: string | null;
 }
 
 export interface AuthUser {
@@ -34,14 +52,15 @@ type AuthResult = { error?: string };
 interface StoreContextType {
   favorites: string[];
   toggleFavorite: (id: string) => void;
-  cart: CartItem[];
-  addToCart: (id: string) => void;
-  removeFromCart: (id: string) => void;
-  updateQty: (id: string, qty: number) => void;
+  cart: CartLine[];
+  cartLoading: boolean;
+  addToCart: (variantId: string, qty?: number) => void;
+  removeFromCart: (variantId: string) => void;
+  updateQty: (variantId: string, qty: number) => void;
   user: AuthUser | null;
   authLoading: boolean;
-  login: (email: string, password: string) => Promise<AuthResult>;
-  register: (name: string, email: string, password: string) => Promise<AuthResult>;
+  signInWithGoogle: () => Promise<AuthResult>;
+  sendMagicLink: (email: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
 }
 
@@ -55,9 +74,20 @@ function toAuthUser(u: User): AuthUser {
 }
 
 const GUEST_FAVORITES_KEY = 'antropic_favorites';
+// v2: variant-keyed lines ({variantId, qty}). The legacy product-keyed 'antropic_cart'
+// cannot be mapped to variants, so it is dropped on first load.
+const GUEST_CART_KEY = 'antropic_cart_v2';
+const LEGACY_GUEST_CART_KEY = 'antropic_cart';
+
+type GuestCartItem = { variantId: string; qty: number };
 
 function readGuestFavorites(): string[] {
   const saved = localStorage.getItem(GUEST_FAVORITES_KEY);
+  return saved ? JSON.parse(saved) : [];
+}
+
+function readGuestCart(): GuestCartItem[] {
+  const saved = localStorage.getItem(GUEST_CART_KEY);
   return saved ? JSON.parse(saved) : [];
 }
 
@@ -70,39 +100,146 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [authLoading, setAuthLoading] = useState(true);
 
   // ── Cart ────────────────────────────────────────────────────────────────
-  // Still localStorage + product-keyed. The variant-aware cart wired to the API
-  // arrives with checkout (Fase 4); the API cart is keyed by variantId, which the
-  // front doesn't resolve yet. Left untouched on purpose.
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('antropic_cart');
-    return saved ? JSON.parse(saved) : [];
+  // Logged out: variant-keyed lines in localStorage, hydrated against the catalog for
+  // display. Logged in: the server cart is the source of truth (variant-keyed, stock
+  // clamped server-side); mutations return the fresh cart and it is written straight
+  // into the query cache. Totals shown here are estimates — checkout quotes server-side.
+  const [guestCart, setGuestCart] = useState<GuestCartItem[]>(() => {
+    localStorage.removeItem(LEGACY_GUEST_CART_KEY);
+    return readGuestCart();
   });
 
   useEffect(() => {
-    localStorage.setItem('antropic_cart', JSON.stringify(cart));
-  }, [cart]);
+    if (user) return; // logged in: the server owns the cart
+    localStorage.setItem(GUEST_CART_KEY, JSON.stringify(guestCart));
+  }, [guestCart, user]);
 
-  const addToCart = (id: string) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.productId === id);
-      if (existing) {
-        return prev.map(item => item.productId === id ? { ...item, qty: item.qty + 1 } : item);
+  const { products } = useProducts();
+
+  const cartQuery = useGetCart({
+    query: { enabled: !!user, queryKey: getGetCartQueryKey() },
+  });
+  const addCartItem = useAddCartItem();
+  const updateCartItem = useUpdateCartItem();
+  const removeCartItem = useRemoveCartItem();
+  const mergeCart = useMergeCart();
+
+  const writeCart = (c: Cart) => {
+    queryClient.setQueryData(getGetCartQueryKey(), c);
+  };
+
+  // Guest lines hydrated from the cached catalog. A variant not in the catalog anymore
+  // (deactivated product) is silently dropped from display; merge skips it server-side too.
+  const guestLines = useMemo<CartLine[]>(() => {
+    const lines: CartLine[] = [];
+    for (const item of guestCart) {
+      for (const p of products) {
+        const option = p.variantOptions.find((v) => v.id === item.variantId);
+        if (!option) continue;
+        lines.push({
+          variantId: option.id,
+          productId: p.id,
+          slug: p.slug,
+          name: p.name,
+          size: option.size,
+          color: option.color,
+          unitPrice: priceToNumber(p.price).toFixed(2),
+          qty: item.qty,
+          stock: option.stock,
+          image: p.images[0] ?? null,
+        });
+        break;
       }
-      return [...prev, { productId: id, qty: 1 }];
-    });
-  };
+    }
+    return lines;
+  }, [guestCart, products]);
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.productId !== id));
-  };
+  const serverLines = useMemo<CartLine[]>(
+    () =>
+      (cartQuery.data?.items ?? []).map((i) => ({
+        variantId: i.variantId,
+        productId: i.productId,
+        slug: i.slug,
+        name: i.name,
+        size: i.size,
+        color: i.color,
+        unitPrice: i.unitPrice,
+        qty: i.quantity,
+        stock: i.stock,
+        image: i.image,
+      })),
+    [cartQuery.data],
+  );
 
-  const updateQty = (id: string, qty: number) => {
-    if (qty <= 0) {
-      removeFromCart(id);
+  const cart = user ? serverLines : guestLines;
+  const cartLoading = user ? cartQuery.isLoading : false;
+
+  const addToCart = (variantId: string, qty = 1) => {
+    if (!user) {
+      setGuestCart((prev) => {
+        const existing = prev.find((i) => i.variantId === variantId);
+        if (existing) {
+          return prev.map((i) =>
+            i.variantId === variantId ? { ...i, qty: i.qty + qty } : i,
+          );
+        }
+        return [...prev, { variantId, qty }];
+      });
       return;
     }
-    setCart(prev => prev.map(item => item.productId === id ? { ...item, qty } : item));
+    addCartItem.mutate(
+      { data: { variantId, quantity: qty } },
+      { onSuccess: writeCart },
+    );
   };
+
+  const removeFromCart = (variantId: string) => {
+    if (!user) {
+      setGuestCart((prev) => prev.filter((i) => i.variantId !== variantId));
+      return;
+    }
+    removeCartItem.mutate({ variantId }, { onSuccess: writeCart });
+  };
+
+  const updateQty = (variantId: string, qty: number) => {
+    if (qty <= 0) {
+      removeFromCart(variantId);
+      return;
+    }
+    if (!user) {
+      setGuestCart((prev) =>
+        prev.map((i) => (i.variantId === variantId ? { ...i, qty } : i)),
+      );
+      return;
+    }
+    updateCartItem.mutate({ variantId, data: { quantity: qty } }, { onSuccess: writeCart });
+  };
+
+  // Merge the guest cart into the server cart once per login (sums quantities, clamps to
+  // stock server-side). Mirrors the wishlist merge below.
+  const cartMergedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) {
+      cartMergedForUser.current = null;
+      return;
+    }
+    if (cartMergedForUser.current === user.id) return;
+    cartMergedForUser.current = user.id;
+
+    const guest = readGuestCart();
+    if (guest.length === 0) return;
+
+    mergeCart
+      .mutateAsync({ data: { items: guest.map((i) => ({ variantId: i.variantId, quantity: i.qty })) } })
+      .then(writeCart)
+      .catch(() => queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() }))
+      .finally(() => {
+        localStorage.removeItem(GUEST_CART_KEY);
+        setGuestCart([]);
+      });
+    // mergeCart/queryClient are stable; merge is keyed on the user id only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // ── Favorites / wishlist ──────────────────────────────────────────────────
   // Logged out: guest favorites (product ids) persist in localStorage. Logged in:
@@ -189,32 +326,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // onAuthStateChange drives setUser — these actions only kick off the request and
-  // surface any error string to the UI.
-  const login = async (email: string, password: string): Promise<AuthResult> => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  // Passwordless auth (decided: Google OAuth + Magic Link, minimal clicks).
+  // onAuthStateChange drives setUser once the session lands; these actions only kick
+  // off the flow and surface any error string to the UI.
+  //
+  // Google: full-page redirect to Google, then back to `redirectTo`. On success the
+  // browser navigates away, so the promise only matters for the error path.
+  const signInWithGoogle = async (): Promise<AuthResult> => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
     return error ? { error: error.message } : {};
   };
 
-  const register = async (
-    name: string,
-    email: string,
-    password: string,
-  ): Promise<AuthResult> => {
-    const { error } = await supabase.auth.signUp({
+  // Magic Link: emails a one-time access link. First login auto-creates the account,
+  // so there is no separate register flow.
+  const sendMagicLink = async (email: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
-      options: { data: { name } },
+      options: { emailRedirectTo: window.location.origin },
     });
     return error ? { error: error.message } : {};
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
+    // Server-owned caches are meaningless without a session.
+    queryClient.removeQueries({ queryKey: getGetCartQueryKey() });
+    queryClient.removeQueries({ queryKey: getGetWishlistQueryKey() });
   };
 
   return (
-    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, addToCart, removeFromCart, updateQty, user, authLoading, login, register, logout }}>
+    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, addToCart, removeFromCart, updateQty, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
       {children}
     </StoreContext.Provider>
   );
