@@ -23,6 +23,8 @@ export async function sendEmail(email: Email): Promise<void> {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ from, to: email.to, subject: email.subject, html: email.html }),
+      // Email is best-effort; never let a slow provider hold a request open indefinitely.
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
       logger.warn(

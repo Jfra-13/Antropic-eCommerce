@@ -16,12 +16,20 @@ function serviceRoleKey(): string {
 
 export type SignedUpload = { uploadUrl: string; path: string; token: string };
 
+// Node's fetch has no default timeout: an unreachable SUPABASE_URL would hang the request
+// (and the admin UI) forever. Fail loud instead — the caller surfaces a 500 the UI can show.
+const STORAGE_TIMEOUT_MS = 15_000;
+
 // Sign a direct upload into `bucket` at `path`. Shared by proof and public-media uploads.
 async function signUpload(bucket: string, path: string): Promise<SignedUpload> {
   const key = serviceRoleKey();
   const res = await fetch(
     `${SUPABASE_URL}/storage/v1/object/upload/sign/${bucket}/${path}`,
-    { method: "POST", headers: { Authorization: `Bearer ${key}`, apikey: key } },
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, apikey: key },
+      signal: AbortSignal.timeout(STORAGE_TIMEOUT_MS),
+    },
   );
   if (!res.ok) {
     throw new Error(`Storage sign failed (${res.status}): ${await res.text()}`);
@@ -64,6 +72,7 @@ export async function createProofDownloadUrl(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ expiresIn: expiresInSeconds }),
+    signal: AbortSignal.timeout(STORAGE_TIMEOUT_MS),
   });
   if (!res.ok) {
     throw new Error(`Storage sign (download) failed (${res.status}): ${await res.text()}`);

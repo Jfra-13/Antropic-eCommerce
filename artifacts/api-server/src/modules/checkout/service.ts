@@ -32,7 +32,7 @@ export async function quote(
     (sum, line) => sum + toCents(line.unitPrice) * line.quantity,
     0,
   );
-  const shippingCents = await getShippingCostCents(input.deliveryMethod);
+  const shippingCents = await getShippingCostCents(input.deliveryMethod, subtotalCents);
 
   let discountCents = 0;
   let couponCode: string | null = null;

@@ -21,28 +21,36 @@ import {
   deletePickupPointRow,
 } from "./queries";
 
-// Settings keys. `delivery_fee` is also read by the shipping module at order time — keep in sync.
+// Settings keys. `delivery_fee` and `free_shipping_threshold` are also read by the
+// shipping module at quote/order time — keep in sync.
 const KEY_DELIVERY_FEE = "delivery_fee";
+const KEY_FREE_SHIPPING_THRESHOLD = "free_shipping_threshold";
 const KEY_YAPE = "yape";
 const KEY_BANNERS = "banners";
 
 type YapeSetting = { number: string | null; qrPath: string | null };
 
-// Reads the three config settings and normalizes them into the admin shape (paths, not URLs).
+function moneyOrNull(value: unknown): string | null {
+  if (typeof value === "string" && value.trim() !== "") return value;
+  if (typeof value === "number") return value.toFixed(2);
+  return null;
+}
+
+// Reads the config settings and normalizes them into the admin shape (paths, not URLs).
 async function readConfig(): Promise<AdminConfig> {
-  const [fee, yape, banners] = await Promise.all([
+  const [fee, threshold, yape, banners] = await Promise.all([
     getSetting(KEY_DELIVERY_FEE),
+    getSetting(KEY_FREE_SHIPPING_THRESHOLD),
     getSetting(KEY_YAPE),
     getSetting(KEY_BANNERS),
   ]);
 
-  const deliveryFee =
-    typeof fee === "string" ? fee : typeof fee === "number" ? fee.toFixed(2) : "0.00";
   const y = (yape ?? {}) as Partial<YapeSetting>;
   const bannerList = Array.isArray(banners) ? (banners as Banner[]) : [];
 
   return {
-    deliveryFee,
+    deliveryFee: moneyOrNull(fee) ?? "0.00",
+    freeShippingThreshold: moneyOrNull(threshold),
     yapeNumber: y.number ?? null,
     yapeQrPath: y.qrPath ?? null,
     banners: bannerList,
@@ -58,6 +66,7 @@ export async function getPublicConfig(): Promise<PublicConfig> {
   const c = await readConfig();
   return {
     deliveryFee: c.deliveryFee,
+    freeShippingThreshold: c.freeShippingThreshold,
     yapeNumber: c.yapeNumber,
     yapeQrUrl: c.yapeQrPath ? publicMediaUrl(c.yapeQrPath) : null,
     banners: c.banners.filter((b) => b.active).map((b) => ({ imageUrl: publicMediaUrl(b.path) })),
@@ -67,6 +76,9 @@ export async function getPublicConfig(): Promise<PublicConfig> {
 export async function updateConfig(input: UpdateConfigInput): Promise<AdminConfig> {
   if (input.deliveryFee !== undefined) {
     await setSetting(KEY_DELIVERY_FEE, input.deliveryFee);
+  }
+  if (input.freeShippingThreshold !== undefined) {
+    await setSetting(KEY_FREE_SHIPPING_THRESHOLD, input.freeShippingThreshold);
   }
   // Yape number and QR share one setting object; merge partial updates over current values.
   if (input.yapeNumber !== undefined || input.yapeQrPath !== undefined) {

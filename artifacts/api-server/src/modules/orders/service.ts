@@ -104,7 +104,7 @@ export async function createOrder(
     (sum, line) => sum + toCents(line.unitPrice) * line.quantity,
     0,
   );
-  const shippingCents = await getShippingCostCents(input.deliveryMethod);
+  const shippingCents = await getShippingCostCents(input.deliveryMethod, subtotalCents);
 
   let discountCents = 0;
   let couponId: string | null = null;
