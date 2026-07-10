@@ -42,6 +42,23 @@ Checklist de pendientes previos al despliegue a producción.
 - [ ] Backoffice: verificar pago (aprobar/rechazar + stock), envíos, inventario, media de productos, CSV, cupones, devoluciones, usuarios, config, dashboard, reportes.
 - [ ] Notificaciones: confirmar que llegan los emails (pago aprobado, cambio de estado, stock disponible, alertas admin).
 
+### Checklist E2E ronda 3 (requiere api-server + store + admin corriendo, Resend configurado)
+
+- [ ] Login (Google y magic link) → agregar producto → checkout (nombre/teléfono inline si faltan) → orden creada.
+- [ ] Subir constancia **con vista previa** ("Confirmar y enviar") → email al backoffice.
+- [ ] Aprobar pago en admin → email "pago confirmado" con plantilla de marca → avanzar enviado/entregado → un email por estado.
+- [ ] Crear cupón con fechas en admin → aplicarlo en checkout.
+- [ ] Subir QR de Yape en Configuración (verificar que el timeout resolvió el cuelgue).
+- [ ] Desactivar el único producto de una categoría → la categoría desaparece del store y del buscador.
+- [ ] Editar precio/categoría de un producto (modal Editar del inventario) → se refleja en el store.
+- [ ] Eliminar producto sin ventas → desaparece; con ventas → diálogo ofrece desactivar.
+- [ ] Elegir color visual en una variante (picker) → swatch correcto en la ficha del producto.
+- [ ] Completar perfil (nombre/teléfono/dirección) en el store → visible en colas de Pagos y Envíos del admin.
+- [ ] Cambiar hero (título/subtítulo) y franja promo en Configuración → se ven en el Home.
+- [ ] Pedido entregado → "Solicitar cambio o devolución" → ticket visible en el pedido y en el admin; segundo intento bloqueado (ALREADY_OPEN).
+- [ ] Producto sin stock → "Avísame cuando haya stock" (logueada e invitada con email) → reponer stock en admin → email de reposición.
+- [ ] `STORE_URL` seteado en el api-server para que el botón "Ver mi pedido" de los emails apunte al dominio real.
+
 ## 4. Diferido (documentado, no bloquea el core pero falta)
 
 - [ ] **Recordatorios automáticos de carrito abandonado** — requieren un scheduler (cron externo o n8n). Hoy la data se ve en dashboard/reportes, pero el envío automático no existe.

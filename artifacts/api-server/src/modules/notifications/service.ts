@@ -2,19 +2,39 @@ import type { Order, ReturnTicket } from "@workspace/db";
 import { logger } from "../../lib/logger";
 import { sendEmail, adminNotificationEmail } from "../../lib/notify";
 import { referenceCode } from "../orders/mappers";
+import { getOrderItems } from "../orders/queries";
+import { orderEmailHtml } from "./templates";
 import { getProfileEmail, pendingStockAlerts, markStockAlertsNotified } from "./queries";
 
 // Every function here is fire-and-forget from the caller's view: wrapped so a notification
 // failure can never bubble into a business flow. Callers use `void notifications.notifyX(...)`.
 
-// Human-readable message per fulfillment state (customer-facing).
-const FULFILLMENT_MESSAGE: Record<string, string> = {
-  en_preparacion: "Estamos preparando tu pedido.",
-  enviado: "Tu pedido fue enviado.",
-  entregado: "Tu pedido fue entregado. ¡Gracias por tu compra!",
-  recojo_pendiente: "Tu pedido está listo para recojo.",
-  recogido: "Confirmamos el recojo de tu pedido. ¡Gracias!",
-  cancelado: "Tu pedido fue cancelado.",
+// Customer-facing heading + body per fulfillment state.
+const FULFILLMENT_COPY: Record<string, { heading: string; message: string }> = {
+  en_preparacion: {
+    heading: "Tu pedido está en preparación",
+    message: "Tu pago fue verificado y ya estamos preparando tu pedido con mucho cariño.",
+  },
+  enviado: {
+    heading: "¡Tu pedido va en camino!",
+    message: "Tu pedido salió de nuestro local y está en camino a la dirección que nos diste.",
+  },
+  entregado: {
+    heading: "Tu pedido fue entregado",
+    message: "Gracias por confiar en nosotros. Esperamos que disfrutes tu compra — ¡vuelve pronto!",
+  },
+  recojo_pendiente: {
+    heading: "Tu pedido está listo para recojo",
+    message: "Puedes pasar a recogerlo en el punto que elegiste. Te esperamos.",
+  },
+  recogido: {
+    heading: "Confirmamos el recojo de tu pedido",
+    message: "Gracias por confiar en nosotros. Esperamos que disfrutes tu compra — ¡vuelve pronto!",
+  },
+  cancelado: {
+    heading: "Tu pedido fue cancelado",
+    message: "Si crees que es un error o quieres coordinar, responde este correo y te ayudamos.",
+  },
 };
 
 export async function notifyPaymentApproved(order: Order): Promise<void> {
@@ -22,11 +42,16 @@ export async function notifyPaymentApproved(order: Order): Promise<void> {
     const to = await getProfileEmail(order.userId);
     if (!to) return;
     const ref = referenceCode(order.orderNumber);
+    const items = await getOrderItems(order.id);
     await sendEmail({
       to,
       subject: `Pago confirmado — pedido ${ref}`,
-      html: `<p>¡Tu pago fue verificado! Confirmamos tu pedido <strong>${ref}</strong> por S/ ${order.total}.</p>
-             <p>Te avisaremos cuando cambie de estado.</p>`,
+      html: orderEmailHtml({
+        heading: "¡Tu pago fue verificado!",
+        message: "Confirmamos tu pago y tu pedido ya entró en proceso. Te avisaremos en cada paso.",
+        order,
+        items,
+      }),
     });
   } catch (err) {
     logger.warn({ err, orderId: order.id }, "notifyPaymentApproved failed");
@@ -40,11 +65,15 @@ export async function notifyOrderStatusChanged(order: Order): Promise<void> {
     const to = await getProfileEmail(order.userId);
     if (!to) return;
     const ref = referenceCode(order.orderNumber);
-    const message = FULFILLMENT_MESSAGE[status] ?? "El estado de tu pedido cambió.";
+    const copy = FULFILLMENT_COPY[status] ?? {
+      heading: "El estado de tu pedido cambió",
+      message: "Entra a tu pedido para ver el detalle.",
+    };
+    const items = await getOrderItems(order.id);
     await sendEmail({
       to,
-      subject: `Actualización de tu pedido ${ref}`,
-      html: `<p>${message}</p><p>Pedido <strong>${ref}</strong>.</p>`,
+      subject: `${copy.heading} — pedido ${ref}`,
+      html: orderEmailHtml({ heading: copy.heading, message: copy.message, order, items }),
     });
   } catch (err) {
     logger.warn({ err, orderId: order.id }, "notifyOrderStatusChanged failed");
