@@ -56,6 +56,9 @@ export default function Config() {
 function ConfigForm({ initial }: { initial: AdminConfig }) {
   const queryClient = useQueryClient();
   const [deliveryFee, setDeliveryFee] = useState(initial.deliveryFee);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(
+    initial.freeShippingThreshold ?? "",
+  );
   const [yapeNumber, setYapeNumber] = useState(initial.yapeNumber ?? "");
   const [yapeQrPath, setYapeQrPath] = useState(initial.yapeQrPath);
   const [banners, setBanners] = useState<Banner[]>(initial.banners);
@@ -70,6 +73,7 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
     save.mutate({
       data: {
         deliveryFee: deliveryFee.trim() || "0.00",
+        freeShippingThreshold: freeShippingThreshold.trim() || null,
         yapeNumber: yapeNumber.trim() || null,
         yapeQrPath,
         banners,
@@ -92,12 +96,20 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
       </Section>
 
       <Section title="Delivery La Molina">
-        <Field
-          label="Tarifa de delivery (S/)"
-          value={deliveryFee}
-          onChange={setDeliveryFee}
-          placeholder="12.00"
-        />
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Tarifa de delivery (S/)"
+            value={deliveryFee}
+            onChange={setDeliveryFee}
+            placeholder="12.00"
+          />
+          <Field
+            label="Envío gratis desde (S/) — vacío para desactivar"
+            value={freeShippingThreshold}
+            onChange={setFreeShippingThreshold}
+            placeholder="150.00"
+          />
+        </div>
       </Section>
 
       <Section title="Banners promocionales">
