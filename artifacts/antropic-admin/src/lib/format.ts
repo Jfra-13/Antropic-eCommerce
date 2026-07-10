@@ -13,3 +13,11 @@ export function errorMessage(e: unknown): string {
   }
   return e instanceof Error ? e.message : "Error inesperado";
 }
+
+// Business error code ({ code }) from an ApiError, for branching on specific failures.
+export function errorCode(e: unknown): string | undefined {
+  if (e instanceof ApiError) {
+    return (e.data as { code?: string } | null)?.code ?? undefined;
+  }
+  return undefined;
+}

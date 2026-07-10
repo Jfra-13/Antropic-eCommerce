@@ -110,7 +110,15 @@ export default function Shipments() {
                           <span className="font-medium">#{item.orderNumber}</span>
                           <span className="text-xs text-slate-400">{soles(item.total)}</span>
                         </div>
+                        {item.customerName && (
+                          <div className="text-xs font-medium text-slate-700 truncate">
+                            {item.customerName}
+                          </div>
+                        )}
                         <div className="text-xs text-slate-500 truncate">{item.customerEmail}</div>
+                        {item.customerPhone && (
+                          <div className="text-xs text-slate-500">{item.customerPhone}</div>
+                        )}
                         {item.shippingAddress && (
                           <div className="text-xs text-slate-400 truncate">{item.shippingAddress}</div>
                         )}

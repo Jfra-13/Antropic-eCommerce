@@ -62,6 +62,9 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
   const [yapeNumber, setYapeNumber] = useState(initial.yapeNumber ?? "");
   const [yapeQrPath, setYapeQrPath] = useState(initial.yapeQrPath);
   const [banners, setBanners] = useState<Banner[]>(initial.banners);
+  const [heroTitle, setHeroTitle] = useState(initial.hero.title ?? "");
+  const [heroSubtitle, setHeroSubtitle] = useState(initial.hero.subtitle ?? "");
+  const [promoText, setPromoText] = useState(initial.promoText ?? "");
 
   const save = useUpdateAdminConfig({
     mutation: {
@@ -77,13 +80,15 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
         yapeNumber: yapeNumber.trim() || null,
         yapeQrPath,
         banners,
+        hero: { title: heroTitle.trim() || null, subtitle: heroSubtitle.trim() || null },
+        promoText: promoText.trim() || null,
       },
     });
   }
 
   return (
     <div className="space-y-6">
-      <Section title="Pago Yape / Plin">
+      <Section title="Pagos (Yape / Plin)">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Número Yape" value={yapeNumber} onChange={setYapeNumber} placeholder="+51 9xx xxx xxx" />
           <ImageField
@@ -95,7 +100,7 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
         </div>
       </Section>
 
-      <Section title="Delivery La Molina">
+      <Section title="Envío (delivery La Molina)">
         <div className="grid grid-cols-2 gap-4">
           <Field
             label="Tarifa de delivery (S/)"
@@ -112,8 +117,33 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
         </div>
       </Section>
 
-      <Section title="Banners promocionales">
+      <Section title="Banners">
         <BannerList banners={banners} onChange={setBanners} />
+      </Section>
+
+      <Section title="Textos de la tienda">
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Hero — título (vacío usa el texto por defecto)"
+            value={heroTitle}
+            onChange={setHeroTitle}
+            placeholder="Verano 2025"
+          />
+          <Field
+            label="Hero — subtítulo"
+            value={heroSubtitle}
+            onChange={setHeroSubtitle}
+            placeholder="Nueva colección disponible"
+          />
+        </div>
+        <div className="mt-3">
+          <Field
+            label="Franja promocional (texto bajo el hero)"
+            value={promoText}
+            onChange={setPromoText}
+            placeholder="Envíos a toda La Molina · Pagos con Yape"
+          />
+        </div>
       </Section>
 
       <div className="flex items-center gap-3">

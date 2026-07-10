@@ -1,11 +1,25 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Plus, RefreshCw, Upload, Download, X, Film } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Upload,
+  Download,
+  X,
+  Film,
+} from "lucide-react";
 import {
   useListAdminProducts,
   useListCategories,
+  useListOccasions,
   useCreateProduct,
   useUpdateProduct,
+  useDeleteProduct,
   useCreateVariant,
   useUpdateVariant,
   useImportProducts,
@@ -19,7 +33,7 @@ import {
   type ProductImportResult,
 } from "@workspace/api-client-react";
 import { supabase } from "@/lib/supabase";
-import { soles, errorMessage } from "@/lib/format";
+import { soles, errorMessage, errorCode } from "@/lib/format";
 
 const MEDIA_BUCKET = "public-media";
 function publicUrl(path: string): string {
@@ -97,6 +111,7 @@ export default function Inventory() {
                 <th className="px-4 py-3 font-medium">Precio</th>
                 <th className="px-4 py-3 font-medium">Stock</th>
                 <th className="px-4 py-3 font-medium">Activo</th>
+                <th className="px-4 py-3 font-medium text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -129,6 +144,8 @@ function ProductRow({
   onChanged: () => void;
 }) {
   const updateProduct = useUpdateProduct({ mutation: { onSuccess: onChanged } });
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const lowStock = product.stockTotal <= 3;
 
   return (
@@ -155,16 +172,259 @@ function ProductRow({
             }
           />
         </td>
+        <td className="px-4 py-3">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              className="text-slate-500 hover:text-slate-900"
+              title="Editar producto"
+            >
+              <Pencil size={15} />
+            </button>
+            <button
+              onClick={() => setDeleting(true)}
+              className="text-slate-500 hover:text-red-600"
+              title="Eliminar producto"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-slate-50 px-6 py-4">
+          <td colSpan={7} className="bg-slate-50 px-6 py-4">
             <MediaPanel product={product} onChanged={onChanged} />
             <VariantsPanel product={product} onChanged={onChanged} />
           </td>
         </tr>
       )}
+      {editing && (
+        <EditProductModal
+          product={product}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onChanged();
+          }}
+        />
+      )}
+      {deleting && (
+        <DeleteProductDialog
+          product={product}
+          onClose={() => setDeleting(false)}
+          onDone={() => {
+            setDeleting(false);
+            onChanged();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+// Rendered from inside a <tbody>, so it must escape the table via a portal.
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+            <X size={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function EditProductModal({
+  product,
+  onClose,
+  onSaved,
+}: {
+  product: AdminProduct;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { data: categories } = useListCategories({ includeEmpty: true });
+  const { data: occasions } = useListOccasions();
+  const [name, setName] = useState(product.name);
+  const [price, setPrice] = useState(product.price);
+  const [categoryId, setCategoryId] = useState(product.categoryId);
+  const [description, setDescription] = useState(product.description ?? "");
+  const [fit, setFit] = useState(product.fit ?? "");
+  const [badge, setBadge] = useState(product.badge ?? "");
+  const [featured, setFeatured] = useState(product.featured);
+  const [occasionIds, setOccasionIds] = useState<string[]>(product.occasions.map((o) => o.id));
+  const update = useUpdateProduct({ mutation: { onSuccess: onSaved } });
+
+  const toggleOccasion = (id: string) =>
+    setOccasionIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const canSubmit = name.trim() && price.trim() && categoryId;
+
+  return (
+    <Modal title={`Editar — ${product.name}`} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Nombre" value={name} onChange={setName} />
+        <Field label="Precio (S/)" value={price} onChange={setPrice} />
+        <div>
+          <label className="block text-xs text-slate-500 mb-1">Categoría</label>
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-900 focus:outline-none"
+          >
+            {(categories ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Field label="Fit (Regular, Oversize…)" value={fit} onChange={setFit} />
+        <Field label="Badge (nuevo, mas-vendido…)" value={badge} onChange={setBadge} />
+        <div className="flex items-end pb-1.5">
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+            Destacado
+          </label>
+        </div>
+      </div>
+      <div className="mt-3">
+        <label className="block text-xs text-slate-500 mb-1">Descripción</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-900 focus:outline-none"
+        />
+      </div>
+      {(occasions ?? []).length > 0 && (
+        <div className="mt-3">
+          <label className="block text-xs text-slate-500 mb-1">Ocasiones</label>
+          <div className="flex flex-wrap gap-3">
+            {(occasions ?? []).map((o) => (
+              <label key={o.id} className="flex items-center gap-1.5 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={occasionIds.includes(o.id)}
+                  onChange={() => toggleOccasion(o.id)}
+                />
+                {o.name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          onClick={() =>
+            update.mutate({
+              id: product.id,
+              data: {
+                name: name.trim(),
+                price: price.trim(),
+                categoryId,
+                description: description.trim() || null,
+                fit: fit.trim() || null,
+                badge: badge.trim() || null,
+                featured,
+                occasionIds,
+              },
+            })
+          }
+          disabled={!canSubmit || update.isPending}
+          className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+        >
+          {update.isPending ? "Guardando…" : "Guardar cambios"}
+        </button>
+        <button
+          onClick={onClose}
+          className="rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Cancelar
+        </button>
+        {update.isError && <span className="text-sm text-red-600">{errorMessage(update.error)}</span>}
+      </div>
+    </Modal>
+  );
+}
+
+// Delete flow: hard-delete for never-sold products; a 409 REFERENCED flips the dialog into
+// offering deactivation (order history keeps its rows).
+function DeleteProductDialog({
+  product,
+  onClose,
+  onDone,
+}: {
+  product: AdminProduct;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const del = useDeleteProduct({ mutation: { onSuccess: onDone } });
+  const deactivate = useUpdateProduct({ mutation: { onSuccess: onDone } });
+  const referenced = del.isError && errorCode(del.error) === "REFERENCED";
+
+  return (
+    <Modal title={`Eliminar — ${product.name}`} onClose={onClose}>
+      {!referenced ? (
+        <>
+          <p className="text-sm text-slate-600">
+            Se eliminará el producto con sus variantes, fotos y apariciones en carritos y
+            favoritos. Esta acción no se puede deshacer.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={() => del.mutate({ id: product.id })}
+              disabled={del.isPending}
+              className="rounded-md bg-red-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              {del.isPending ? "Eliminando…" : "Eliminar definitivamente"}
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            {del.isError && !referenced && (
+              <span className="text-sm text-red-600">{errorMessage(del.error)}</span>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-slate-600">
+            Este producto tiene ventas registradas, por lo que no puede eliminarse (el historial
+            de pedidos y los reportes lo referencian). Podés desactivarlo: deja de mostrarse en la
+            tienda pero conserva su historial.
+          </p>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              onClick={() => deactivate.mutate({ id: product.id, data: { active: false } })}
+              disabled={deactivate.isPending}
+              className="rounded-md bg-slate-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {deactivate.isPending ? "Desactivando…" : "Desactivar producto"}
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            {deactivate.isError && (
+              <span className="text-sm text-red-600">{errorMessage(deactivate.error)}</span>
+            )}
+          </div>
+        </>
+      )}
+    </Modal>
   );
 }
 
@@ -323,13 +583,26 @@ function VariantsPanel({ product, onChanged }: { product: AdminProduct; onChange
 
 function VariantRow({ variant, onChanged }: { variant: AdminProductVariant; onChanged: () => void }) {
   const [stock, setStock] = useState(String(variant.stock));
+  const [hex, setHex] = useState(variant.colorHex);
   const update = useUpdateVariant({ mutation: { onSuccess: onChanged } });
-  const dirty = stock !== String(variant.stock);
+  const dirty = stock !== String(variant.stock) || hex !== variant.colorHex;
 
   return (
     <tr>
       <td className="py-1.5">{variant.size}</td>
-      <td className="py-1.5">{variant.color}</td>
+      <td className="py-1.5">
+        <div className="flex items-center gap-2">
+          {/* Native color picker doubles as the swatch preview; the hex lands in the DB. */}
+          <input
+            type="color"
+            value={hex ?? "#cccccc"}
+            onChange={(e) => setHex(e.target.value)}
+            title={hex ?? "Sin color visual"}
+            className="h-6 w-6 cursor-pointer rounded border border-slate-300 p-0"
+          />
+          {variant.color}
+        </div>
+      </td>
       <td className="py-1.5 font-mono text-xs text-slate-500">{variant.sku}</td>
       <td className="py-1.5">
         <input
@@ -351,7 +624,9 @@ function VariantRow({ variant, onChanged }: { variant: AdminProductVariant; onCh
       <td className="py-1.5 text-right">
         {dirty && (
           <button
-            onClick={() => update.mutate({ id: variant.id, data: { stock: Number(stock) } })}
+            onClick={() =>
+              update.mutate({ id: variant.id, data: { stock: Number(stock), colorHex: hex } })
+            }
             disabled={update.isPending}
             className="rounded bg-slate-900 px-2.5 py-1 text-xs text-white hover:bg-slate-800 disabled:opacity-50"
           >
@@ -369,6 +644,7 @@ function VariantRow({ variant, onChanged }: { variant: AdminProductVariant; onCh
 function AddVariantForm({ productId, onChanged }: { productId: string; onChanged: () => void }) {
   const [size, setSize] = useState("");
   const [color, setColor] = useState("");
+  const [hex, setHex] = useState<string | null>(null);
   const [sku, setSku] = useState("");
   const [stock, setStock] = useState("0");
   const create = useCreateVariant({
@@ -376,6 +652,7 @@ function AddVariantForm({ productId, onChanged }: { productId: string; onChanged
       onSuccess: () => {
         setSize("");
         setColor("");
+        setHex(null);
         setSku("");
         setStock("0");
         onChanged();
@@ -389,13 +666,23 @@ function AddVariantForm({ productId, onChanged }: { productId: string; onChanged
     <div className="flex items-end gap-2">
       <Field label="Talla" value={size} onChange={setSize} />
       <Field label="Color" value={color} onChange={setColor} />
+      <div>
+        <label className="block text-xs text-slate-500 mb-1">Color visual</label>
+        <input
+          type="color"
+          value={hex ?? "#cccccc"}
+          onChange={(e) => setHex(e.target.value)}
+          title="Color mostrado en la tienda"
+          className="h-8 w-10 cursor-pointer rounded border border-slate-300 p-0"
+        />
+      </div>
       <Field label="SKU" value={sku} onChange={setSku} />
       <Field label="Stock" value={stock} onChange={setStock} type="number" />
       <button
         onClick={() =>
           create.mutate({
             id: productId,
-            data: { size, color, sku, stock: Number(stock) },
+            data: { size, color, colorHex: hex, sku, stock: Number(stock) },
           })
         }
         disabled={!canSubmit || create.isPending}
@@ -409,7 +696,8 @@ function AddVariantForm({ productId, onChanged }: { productId: string; onChanged
 }
 
 function CreateProductForm({ onDone }: { onDone: () => void }) {
-  const { data: categories } = useListCategories();
+  // includeEmpty: a brand-new category with no products yet must still be assignable.
+  const { data: categories } = useListCategories({ includeEmpty: true });
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [categoryId, setCategoryId] = useState("");

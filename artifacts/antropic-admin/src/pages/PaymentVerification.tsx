@@ -99,7 +99,15 @@ export default function PaymentVerification() {
                       <div className="font-medium">#{item.orderNumber}</div>
                       <div className="text-xs text-slate-400 capitalize">{item.deliveryMethod}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{item.customerEmail}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {item.customerName && (
+                        <div className="font-medium text-slate-900">{item.customerName}</div>
+                      )}
+                      <div>{item.customerEmail}</div>
+                      {item.customerPhone && (
+                        <div className="text-xs text-slate-400">{item.customerPhone}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div>{soles(item.total)}</div>
                       {item.amountReported != null && (
