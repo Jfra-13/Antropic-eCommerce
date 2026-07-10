@@ -1,8 +1,17 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useListOrders, getListOrdersQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListOrders,
+  getListOrdersQueryKey,
+  useGetMe,
+  getGetMeQueryKey,
+  useUpdateMe,
+} from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
 import { formatPrice, priceToNumber } from "../lib/product";
 import { orderStatusLabel } from "../lib/orders";
+import { apiErrorMessage } from "../lib/errors";
 
 const ORDERS_PARAMS = { page: 1, limit: 20 };
 
@@ -38,6 +47,8 @@ export default function Profile() {
             <h2 className="font-serif text-2xl text-foreground">{user.name}</h2>
             <p className="font-sans text-muted-foreground mt-1">{user.email}</p>
           </div>
+
+          <ProfileDataCard />
 
           <button
             onClick={handleLogout}
@@ -100,6 +111,157 @@ export default function Profile() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Contact/shipping data behind the pencil: locked gray inputs by default, editable on
+// demand, saved via PATCH /me (email is the login identity — never editable here).
+function ProfileDataCard() {
+  const queryClient = useQueryClient();
+  const { data: me } = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
+  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+
+  const save = useUpdateMe({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        setEditing(false);
+      },
+    },
+  });
+
+  const profile = me?.user;
+
+  const startEditing = () => {
+    setFullName(profile?.fullName ?? "");
+    setPhone(profile?.phone ?? "");
+    setAddress(profile?.shippingAddress ?? "");
+    setEditing(true);
+  };
+
+  const submit = () => {
+    save.mutate({
+      data: {
+        fullName: fullName.trim() || undefined,
+        phone: phone.trim() || undefined,
+        shippingAddress: address.trim() || undefined,
+      },
+    });
+  };
+
+  return (
+    <div className="bg-white p-6 shadow-sm border border-border">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-sans font-bold text-base uppercase tracking-wide text-foreground">
+          Mis datos
+        </h3>
+        {!editing && (
+          <button
+            type="button"
+            onClick={startEditing}
+            aria-label="Editar mis datos"
+            className="text-muted-foreground hover:text-primary transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <ProfileField label="Correo" value={profile?.email ?? ""} locked />
+        {editing ? (
+          <>
+            <EditableField label="Nombre completo" value={fullName} onChange={setFullName} placeholder="Tu nombre y apellido" />
+            <EditableField label="Teléfono" value={phone} onChange={setPhone} placeholder="9xx xxx xxx" />
+            <EditableField label="Dirección de envío" value={address} onChange={setAddress} placeholder="Calle, número, referencia" />
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                type="button"
+                onClick={submit}
+                disabled={save.isPending}
+                className="flex-1 bg-primary text-primary-foreground font-sans font-bold text-sm py-2.5 hover:bg-foreground transition-colors disabled:opacity-50"
+              >
+                {save.isPending ? "Guardando…" : "Guardar"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="flex-1 border border-border text-muted-foreground font-sans font-bold text-sm py-2.5 hover:border-foreground hover:text-foreground transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+            {save.isError && (
+              <p className="font-sans text-xs text-destructive">{apiErrorMessage(save.error)}</p>
+            )}
+          </>
+        ) : (
+          <>
+            <ProfileField label="Nombre completo" value={profile?.fullName ?? ""} placeholder="Sin completar" />
+            <ProfileField label="Teléfono" value={profile?.phone ?? ""} placeholder="Sin completar" />
+            <ProfileField label="Dirección de envío" value={profile?.shippingAddress ?? ""} placeholder="Sin completar" />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileField({
+  label,
+  value,
+  placeholder,
+  locked,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  locked?: boolean;
+}) {
+  return (
+    <div>
+      <label className="font-sans text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1">
+        {label}
+      </label>
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        disabled
+        title={locked ? "El correo no se puede cambiar" : undefined}
+        className="w-full bg-muted px-3 py-2 font-sans text-sm text-muted-foreground border border-transparent cursor-default"
+      />
+    </div>
+  );
+}
+
+function EditableField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="font-sans text-xs font-bold text-muted-foreground uppercase tracking-wide block mb-1">
+        {label}
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-white px-3 py-2 font-sans text-sm text-foreground border border-border focus:border-primary focus:outline-none transition-colors"
+      />
     </div>
   );
 }

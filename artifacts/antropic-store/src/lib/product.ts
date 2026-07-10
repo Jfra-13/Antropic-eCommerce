@@ -127,7 +127,8 @@ export function toProduct(dto: ProductDto): Product {
   for (const v of dto.variants) {
     if (seenColor.has(v.color)) continue;
     seenColor.add(v.color);
-    colors.push({ name: v.color, hex: colorHex(v.color) });
+    // The admin-picked hex from the DB wins; the local name map only covers legacy rows.
+    colors.push({ name: v.color, hex: v.colorHex ?? colorHex(v.color) });
   }
 
   const images =

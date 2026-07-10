@@ -7,6 +7,9 @@ import {
   useListPickupPoints,
   getListPickupPointsQueryKey,
   getGetCartQueryKey,
+  useGetMe,
+  getGetMeQueryKey,
+  useUpdateMe,
   type CheckoutQuote,
 } from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
@@ -28,14 +31,36 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
 
+  // Contact data: prefilled from the profile; shown as inline inputs when incomplete
+  // (the server rejects orders without name + phone — PROFILE_INCOMPLETE).
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saveContact, setSaveContact] = useState(true);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const prefilled = useRef(false);
+
   // One key per checkout visit: a double click on "Confirmar" returns the same order.
   const idempotencyKey = useRef<string>(crypto.randomUUID());
 
   const pickupPoints = useListPickupPoints({
     query: { queryKey: getListPickupPointsQueryKey(), enabled: deliveryMethod === "recojo" },
   });
+  const { data: me } = useGetMe({ query: { queryKey: getGetMeQueryKey(), enabled: !!user } });
   const quoteMutation = useCheckoutQuote();
+  const updateMe = useUpdateMe();
   const createOrder = useCreateOrder();
+
+  const profile = me?.user;
+  const profileIncomplete = !!profile && (!profile.fullName?.trim() || !profile.phone?.trim());
+
+  // Prefill once when the profile arrives; the user keeps control after that.
+  useEffect(() => {
+    if (!profile || prefilled.current) return;
+    prefilled.current = true;
+    setFullName(profile.fullName ?? "");
+    setPhone(profile.phone ?? "");
+    if (profile.shippingAddress) setAddress(profile.shippingAddress);
+  }, [profile]);
 
   // Server-side totals preview. Re-quoted whenever the method or coupon changes; a coupon
   // rejected by the API is dropped so the totals always reflect what the order would charge.
@@ -88,10 +113,36 @@ export default function Checkout() {
   const canConfirm =
     quote !== null &&
     !createOrder.isPending &&
+    !updateMe.isPending &&
+    fullName.trim().length > 0 &&
+    phone.trim().length > 0 &&
     (deliveryMethod === "delivery" ? address.trim().length > 0 : pickupPointId !== "");
 
-  const confirm = () => {
+  const confirm = async () => {
     if (!canConfirm) return;
+    setContactError(null);
+    try {
+      // The server requires name + phone on the profile before ordering. Sync it first
+      // when it changed; "saveContact" only decides whether the address is kept too.
+      const nameChanged = fullName.trim() !== (profile?.fullName ?? "");
+      const phoneChanged = phone.trim() !== (profile?.phone ?? "");
+      const saveAddress =
+        saveContact && deliveryMethod === "delivery" &&
+        address.trim() !== (profile?.shippingAddress ?? "");
+      if (nameChanged || phoneChanged || saveAddress) {
+        await updateMe.mutateAsync({
+          data: {
+            fullName: nameChanged ? fullName.trim() : undefined,
+            phone: phoneChanged ? phone.trim() : undefined,
+            shippingAddress: saveAddress ? address.trim() : undefined,
+          },
+        });
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      }
+    } catch (e) {
+      setContactError(apiErrorMessage(e));
+      return;
+    }
     createOrder.mutate(
       {
         data: {
@@ -118,8 +169,50 @@ export default function Checkout() {
         <h1 className="font-sans font-bold text-3xl md:text-4xl uppercase tracking-wide text-foreground mb-8">Finalizar compra</h1>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Delivery + coupon */}
+          {/* Contact + delivery + coupon */}
           <div className="flex-1 flex flex-col gap-8">
+            <section>
+              <h2 className="font-sans font-bold text-lg uppercase tracking-wide text-foreground mb-4">Tus datos</h2>
+              {profileIncomplete && (
+                <p className="font-sans text-sm text-muted-foreground mb-3">
+                  Necesitamos tu nombre y teléfono para coordinar la entrega.
+                </p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-sans text-sm font-bold text-foreground mb-1 block">Nombre completo</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Tu nombre y apellido"
+                    className="w-full bg-muted border-2 border-transparent px-4 py-3 font-sans text-sm text-foreground focus:border-primary focus:outline-none transition-colors"
+                    data-testid="input-fullname"
+                  />
+                </div>
+                <div>
+                  <label className="font-sans text-sm font-bold text-foreground mb-1 block">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="9xx xxx xxx"
+                    className="w-full bg-muted border-2 border-transparent px-4 py-3 font-sans text-sm text-foreground focus:border-primary focus:outline-none transition-colors"
+                    data-testid="input-phone"
+                  />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 mt-3 font-sans text-sm text-muted-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveContact}
+                  onChange={(e) => setSaveContact(e.target.checked)}
+                />
+                Guardar para próximas compras
+              </label>
+              {contactError && <p className="text-xs text-destructive mt-2">{contactError}</p>}
+            </section>
+
             <section>
               <h2 className="font-sans font-bold text-lg uppercase tracking-wide text-foreground mb-4">Entrega</h2>
               <div className="flex gap-3 mb-4">

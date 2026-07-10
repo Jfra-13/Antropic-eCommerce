@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
+import { useCreateStockAlert } from "@workspace/api-client-react";
 import { findVariant, productStock, ALL_SIZES } from "../lib/product";
 import { useProduct, useProducts } from "../lib/catalog";
 import { useStore } from "../context/StoreContext";
+import { apiErrorMessage } from "../lib/errors";
 import { ProductCard } from "../components/ProductCard";
 import { ProductCarousel } from "../components/ProductCarousel";
 import { Breadcrumb } from "../components/Breadcrumb";
@@ -20,7 +22,6 @@ export default function ProductDetail() {
   const [activeImage, setActiveImage] = useState(0);
   const [zoom, setZoom] = useState(false);
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
-  const [notified, setNotified] = useState(false);
 
   const imageCount = product?.images.length ?? 0;
 
@@ -186,7 +187,7 @@ export default function ProductDetail() {
                     <button
                       key={v.size}
                       type="button"
-                      onClick={() => { setSelectedSize(v.size); setNotified(false); }}
+                      onClick={() => setSelectedSize(v.size)}
                       className={`min-w-[3rem] px-4 py-2 border font-sans font-bold text-sm transition-all ${
                         selected
                           ? "bg-primary text-primary-foreground border-primary"
@@ -210,15 +211,17 @@ export default function ProductDetail() {
             {/* Actions */}
             <div className="flex items-center gap-3 mt-2">
               {selectedOut ? (
-                <button
-                  type="button"
-                  onClick={() => setNotified(true)}
-                  disabled={notified}
-                  className="flex-grow border-2 border-primary text-primary font-sans font-bold text-base py-4 hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-60"
-                  data-testid="button-notify-stock"
-                >
-                  {notified ? "Te avisaremos ✓" : "Avísame cuando haya stock"}
-                </button>
+                selectedVariant ? (
+                  <NotifyStockButton key={selectedVariant.id} variantId={selectedVariant.id} />
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-grow border-2 border-border text-muted-foreground font-sans font-bold text-base py-4"
+                  >
+                    Combinación no disponible
+                  </button>
+                )
               ) : (
                 <button
                   type="button"
@@ -290,7 +293,92 @@ export default function ProductDetail() {
       </Dialog>
 
       {/* Size guide */}
-      <Dialog open={sizeGuideOpen} onOpenChange={setSizeGuideOpen}>
+      <SizeGuideDialog open={sizeGuideOpen} onOpenChange={setSizeGuideOpen} />
+    </div>
+  );
+}
+
+// Real back-in-stock subscription (POST /stock-alerts). Logged-in users subscribe with
+// their profile email in one tap; guests type an email inline. Keyed by variantId so
+// switching size/color resets the subscribed state.
+function NotifyStockButton({ variantId }: { variantId: string }) {
+  const { user } = useStore();
+  const [email, setEmail] = useState("");
+  const [askEmail, setAskEmail] = useState(false);
+  const subscribe = useCreateStockAlert();
+
+  const submit = (guestEmail?: string) => {
+    subscribe.mutate({ data: { variantId, email: guestEmail ?? null } });
+  };
+
+  if (subscribe.isSuccess) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="flex-grow border-2 border-primary text-primary font-sans font-bold text-base py-4 opacity-60"
+        data-testid="button-notify-stock"
+      >
+        Te avisaremos ✓
+      </button>
+    );
+  }
+
+  if (!user && askEmail) {
+    return (
+      <div className="flex-grow flex flex-col gap-2">
+        <div className="flex gap-2">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="tu@correo.com"
+            className="flex-grow bg-muted px-4 py-3 font-sans text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            type="button"
+            onClick={() => submit(email.trim())}
+            disabled={!email.trim() || subscribe.isPending}
+            className="border-2 border-primary text-primary font-sans font-bold text-sm px-4 hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50"
+          >
+            {subscribe.isPending ? "…" : "Avisarme"}
+          </button>
+        </div>
+        {subscribe.isError && (
+          <p className="text-xs text-destructive">{apiErrorMessage(subscribe.error)}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-grow flex flex-col gap-1">
+      <button
+        type="button"
+        onClick={() => (user ? submit() : setAskEmail(true))}
+        disabled={subscribe.isPending}
+        className="w-full border-2 border-primary text-primary font-sans font-bold text-base py-4 hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-60"
+        data-testid="button-notify-stock"
+      >
+        {subscribe.isPending ? "Guardando…" : "Avísame cuando haya stock"}
+      </button>
+      {subscribe.isError && (
+        <p className="text-xs text-destructive">{apiErrorMessage(subscribe.error)}</p>
+      )}
+    </div>
+  );
+}
+
+function SizeGuideDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
+  return (
+    <div>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md bg-background border-border">
           <DialogTitle className="font-sans font-bold text-lg uppercase tracking-wide">Tabla de medidas</DialogTitle>
           <div className="overflow-x-auto hide-scrollbar">

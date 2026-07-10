@@ -15,13 +15,17 @@ export function SearchOverlay({ open, onOpenChange }: { open: boolean; onOpenCha
   const { categories } = useCategories();
 
   // ponytail: no click/sales analytics yet — stand-ins until the API lands.
-  // Top clicked → first 2 categories, imaged by one of their products.
+  // Top clicked → first 2 categories WITH a product image; imageless categories (all
+  // products deactivated) are skipped so the next one takes the tile.
   const topCategories = useMemo(
     () =>
-      categories.slice(0, 2).map((c) => ({
-        name: c.name,
-        image: products.find((p) => p.category === c.name)?.images[0],
-      })),
+      categories
+        .map((c) => ({
+          name: c.name,
+          image: products.find((p) => p.category === c.name)?.images[0],
+        }))
+        .filter((c): c is { name: string; image: string } => !!c.image)
+        .slice(0, 2),
     [categories, products],
   );
   // Best sellers → 2 products flagged mas-vendido first.

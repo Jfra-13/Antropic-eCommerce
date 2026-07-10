@@ -14,6 +14,11 @@ const CODE_MESSAGES: Record<string, string> = {
   PICKUP_POINT_INVALID: "El punto de recojo ya no está disponible.",
   SHIPPING_ADDRESS_REQUIRED: "Ingresa una dirección de envío.",
   UNAUTHENTICATED: "Inicia sesión para continuar.",
+  PROFILE_INCOMPLETE: "Completa tu nombre y teléfono para poder enviarte el pedido.",
+  NOT_ELIGIBLE: "Solo puedes solicitar cambios de pedidos ya entregados o recogidos.",
+  ALREADY_OPEN: "Ya tienes una solicitud abierta para este pedido.",
+  IN_STOCK: "¡Esta variante ya tiene stock! Recarga la página.",
+  EMAIL_REQUIRED: "Ingresa tu correo para avisarte.",
 };
 
 export function apiErrorCode(e: unknown): string | undefined {

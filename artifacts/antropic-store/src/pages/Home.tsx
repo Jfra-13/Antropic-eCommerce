@@ -19,6 +19,12 @@ export default function Home() {
   const heroImage = banners[0]?.imageUrl ?? modelo_01;
   const promoBanners = banners.slice(1);
 
+  // Hero texts and the promo strip come from the admin config; null falls back to
+  // the launch copy so the page never renders empty.
+  const heroTitle = config?.hero.title ?? "Verano 2025";
+  const heroSubtitle = config?.hero.subtitle ?? "Nueva colección";
+  const promoText = config?.promoText ?? null;
+
   const mostWanted = products.slice(0, 8);
   const categoryPills = categories.map((c) => ({ label: c.name, value: c.name }));
 
@@ -30,13 +36,20 @@ export default function Home() {
           <img src={heroImage} alt="Nueva colección" className="w-full h-full object-cover object-top" />
         </div>
         <div className="md:order-1 w-full md:w-1/2 bg-primary text-primary-foreground flex flex-col justify-center items-center md:items-start text-center md:text-left p-12 md:p-20 lg:p-24">
-          <span className="font-sans text-sm uppercase tracking-[0.25em] mb-4 text-primary-foreground/80">Nueva colección</span>
-          <h1 className="font-sans font-bold text-5xl md:text-6xl lg:text-7xl uppercase leading-none mb-8">Verano<br />2025</h1>
+          <span className="font-sans text-sm uppercase tracking-[0.25em] mb-4 text-primary-foreground/80">{heroSubtitle}</span>
+          <h1 className="font-sans font-bold text-5xl md:text-6xl lg:text-7xl uppercase leading-none mb-8">{heroTitle}</h1>
           <Link href="/search" className="inline-block bg-background text-foreground font-sans font-bold text-sm uppercase tracking-wider px-8 py-4 hover:bg-foreground hover:text-background transition-colors">
             Comprar ahora
           </Link>
         </div>
       </section>
+
+      {/* Promo strip — admin-managed text under the hero */}
+      {promoText && (
+        <div className="bg-foreground text-background text-center py-2.5 px-4 font-sans text-sm tracking-wide">
+          {promoText}
+        </div>
+      )}
 
       {/* 2. Category quick-filter pills (no repeated imagery) */}
       <section className="py-8 px-4 max-w-6xl mx-auto">

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,11 +6,15 @@ import {
   getGetOrderQueryKey,
   useCreatePaymentProofUploadUrl,
   useAttachPaymentProof,
+  useListMyReturns,
+  getListMyReturnsQueryKey,
+  useCreateReturn,
   type Order,
+  type ReturnTicket,
 } from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
 import { useStoreConfig } from "../lib/config";
-import { formatPrice, priceToNumber } from "../lib/product";
+import { formatPrice, priceToNumber, ALL_SIZES } from "../lib/product";
 import { fulfillmentStatusLabel, paymentStatusLabel } from "../lib/orders";
 import { apiErrorMessage } from "../lib/errors";
 import { supabase } from "../lib/supabase";
@@ -87,6 +91,10 @@ export default function OrderDetail() {
 
         <OrderSummary order={order} />
 
+        {(order.fulfillmentStatus === "entregado" || order.fulfillmentStatus === "recogido") && (
+          <ReturnSection orderId={order.id} />
+        )}
+
         <Link href="/profile" className="font-sans text-sm text-primary hover:underline">
           ← Volver a mis pedidos
         </Link>
@@ -139,17 +147,40 @@ function PaymentInstructions({ order }: { order: Order }) {
   );
 }
 
+// Two-step proof upload: pick the file, review a local preview, THEN confirm and send.
+// Nothing leaves the device until the customer confirms.
 function ProofUpload({ orderId }: { orderId: string }) {
   const queryClient = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [amount, setAmount] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createUploadUrl = useCreatePaymentProofUploadUrl();
   const attachProof = useAttachPaymentProof();
 
-  async function handleFile(file: File) {
+  // Object URLs leak until revoked; release the previous one on change and on unmount.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  function pickFile(f: File) {
+    setError(null);
+    setFile(f);
+    setPreviewUrl(URL.createObjectURL(f));
+  }
+
+  function clearFile() {
+    setFile(null);
+    setPreviewUrl(null);
+  }
+
+  async function send() {
+    if (!file) return;
     setBusy(true);
     setError(null);
     try {
@@ -163,6 +194,7 @@ function ProofUpload({ orderId }: { orderId: string }) {
         data: { path: upload.path, amountReported: amount.trim() || null },
       });
       queryClient.invalidateQueries({ queryKey: getGetOrderQueryKey(orderId) });
+      clearFile();
     } catch (e) {
       setError(apiErrorMessage(e));
     } finally {
@@ -192,20 +224,212 @@ function ProofUpload({ orderId }: { orderId: string }) {
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) handleFile(f);
+          if (f) pickFile(f);
           e.target.value = "";
         }}
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={busy}
-        className="bg-primary text-primary-foreground font-sans font-bold text-sm uppercase tracking-wider px-6 py-3 hover:bg-foreground transition-colors disabled:opacity-60 self-start"
-        data-testid="button-upload-proof"
-      >
-        {busy ? "Subiendo constancia…" : "Subir constancia de pago"}
-      </button>
+
+      {!file ? (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="bg-primary text-primary-foreground font-sans font-bold text-sm uppercase tracking-wider px-6 py-3 hover:bg-foreground transition-colors self-start"
+          data-testid="button-upload-proof"
+        >
+          Elegir constancia de pago
+        </button>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <p className="font-sans text-sm text-muted-foreground">
+            Revisa que la constancia se vea bien antes de enviarla:
+          </p>
+          {previewUrl && (
+            <img
+              src={previewUrl}
+              alt="Vista previa de la constancia"
+              className="max-w-xs max-h-72 object-contain border border-border self-start"
+            />
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={send}
+              disabled={busy}
+              className="bg-primary text-primary-foreground font-sans font-bold text-sm uppercase tracking-wider px-6 py-3 hover:bg-foreground transition-colors disabled:opacity-60"
+              data-testid="button-confirm-proof"
+            >
+              {busy ? "Enviando…" : "Confirmar y enviar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={busy}
+              className="border border-border text-muted-foreground font-sans font-bold text-sm uppercase tracking-wider px-6 py-3 hover:border-foreground hover:text-foreground transition-colors disabled:opacity-60"
+            >
+              Elegir otra
+            </button>
+          </div>
+        </div>
+      )}
       {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+// Returns/exchanges (§7.6): available once the order is delivered/picked up. One open
+// ticket per order — the server enforces it; the UI shows the existing ticket instead.
+function ReturnSection({ orderId }: { orderId: string }) {
+  const queryClient = useQueryClient();
+  const params = { orderId };
+  const { data: tickets, isLoading } = useListMyReturns(params, {
+    query: { queryKey: getListMyReturnsQueryKey(params) },
+  });
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [currentSize, setCurrentSize] = useState("");
+  const [desiredSize, setDesiredSize] = useState("");
+
+  const createReturn = useCreateReturn({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListMyReturnsQueryKey(params) });
+        setOpen(false);
+      },
+    },
+  });
+
+  if (isLoading) return null;
+  const ticket = (tickets ?? [])[0];
+
+  return (
+    <div className="border border-border p-6">
+      <h2 className="font-sans font-bold text-lg uppercase tracking-wide text-foreground mb-3">
+        Cambios y devoluciones
+      </h2>
+
+      {ticket ? (
+        <ReturnTicketCard ticket={ticket} />
+      ) : !open ? (
+        <div className="flex flex-col items-start gap-2">
+          <p className="font-sans text-sm text-muted-foreground">
+            ¿La talla no fue la correcta o hubo un problema con tu pedido?
+          </p>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="border-2 border-primary text-primary font-sans font-bold text-sm uppercase tracking-wider px-6 py-3 hover:bg-primary hover:text-primary-foreground transition-colors"
+            data-testid="button-open-return"
+          >
+            Solicitar cambio o devolución
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="font-sans text-sm font-bold text-foreground mb-1 block">Motivo</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Cuéntanos qué pasó…"
+              className="w-full bg-muted border-2 border-transparent px-4 py-3 font-sans text-sm text-foreground focus:border-primary focus:outline-none transition-colors"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3 max-w-sm">
+            <SizeSelect label="Talla actual" value={currentSize} onChange={setCurrentSize} />
+            <SizeSelect label="Talla deseada" value={desiredSize} onChange={setDesiredSize} />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                createReturn.mutate({
+                  data: {
+                    orderId,
+                    reason: reason.trim() || null,
+                    currentSize: currentSize || null,
+                    desiredSize: desiredSize || null,
+                  },
+                })
+              }
+              disabled={!reason.trim() || createReturn.isPending}
+              className="bg-primary text-primary-foreground font-sans font-bold text-sm uppercase tracking-wider px-6 py-3 hover:bg-foreground transition-colors disabled:opacity-50"
+              data-testid="button-submit-return"
+            >
+              {createReturn.isPending ? "Enviando…" : "Enviar solicitud"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="font-sans text-sm text-muted-foreground hover:text-foreground"
+            >
+              Cancelar
+            </button>
+          </div>
+          {createReturn.isError && (
+            <p className="text-xs text-destructive">{apiErrorMessage(createReturn.error)}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const RETURN_STATUS_LABELS: Record<ReturnTicket["status"], string> = {
+  nueva: "Recibida — te contactaremos pronto",
+  en_proceso: "En proceso",
+  resuelta: "Resuelta",
+  cerrada: "Cerrada",
+};
+
+function ReturnTicketCard({ ticket }: { ticket: ReturnTicket }) {
+  return (
+    <div className="bg-muted p-4 flex flex-col gap-1">
+      <p className="font-sans font-bold text-foreground">
+        Solicitud #{ticket.ticketNumber} · {RETURN_STATUS_LABELS[ticket.status]}
+      </p>
+      {ticket.reason && (
+        <p className="font-sans text-sm text-muted-foreground">Motivo: {ticket.reason}</p>
+      )}
+      {(ticket.currentSize || ticket.desiredSize) && (
+        <p className="font-sans text-sm text-muted-foreground">
+          {ticket.currentSize && <>Talla actual: {ticket.currentSize}</>}
+          {ticket.currentSize && ticket.desiredSize && " · "}
+          {ticket.desiredSize && <>Talla deseada: {ticket.desiredSize}</>}
+        </p>
+      )}
+      <p className="font-sans text-xs text-muted-foreground mt-1">
+        Creada el {new Date(ticket.createdAt).toLocaleDateString()}. La coordinación sigue por
+        WhatsApp o correo.
+      </p>
+    </div>
+  );
+}
+
+function SizeSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="font-sans text-sm font-bold text-foreground mb-1 block">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-muted px-3 py-2.5 font-sans text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+      >
+        <option value="">—</option>
+        {ALL_SIZES.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
