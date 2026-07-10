@@ -10,6 +10,11 @@ export interface ProductVariant {
   id: string;
   size: string;
   color: string;
+  /**
+     * Swatch color as
+     * @nullable
+     */
+  colorHex: string | null;
   sku: string;
   stock: number;
 }

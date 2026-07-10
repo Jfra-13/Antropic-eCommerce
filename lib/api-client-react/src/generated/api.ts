@@ -47,13 +47,16 @@ import type {
   CreatePickupPointInput,
   CreateProductInput,
   CreateReturnInput,
+  CreateStockAlertInput,
   CreateVariantInput,
   DashboardSummary,
   Error,
   GetSalesReportParams,
   HealthStatus,
   ListAdminProductsParams,
+  ListCategoriesParams,
   ListCouponsParams,
+  ListMyReturnsParams,
   ListOrdersParams,
   ListPaymentVerificationQueueParams,
   ListProductsParams,
@@ -78,6 +81,7 @@ import type {
   ShipmentList,
   UpdateConfigInput,
   UpdateCouponInput,
+  UpdateMeInput,
   UpdatePickupPointInput,
   UpdateProductInput,
   UpdateReturnStatusInput,
@@ -269,20 +273,97 @@ export function useGetMe<TData = Awaited<ReturnType<typeof getMe>>, TError = Err
 
 
 
-export const getListCategoriesUrl = () => {
+export const getUpdateMeUrl = () => {
 
 
 
 
-  return `/api/categories`
+  return `/api/me`
 }
 
 /**
- * @summary List active categories
+ * @summary Update the authenticated caller's profile (name, phone, shipping address)
  */
-export const listCategories = async ( options?: RequestInit): Promise<Category[]> => {
+export const updateMe = async (updateMeInput: UpdateMeInput, options?: RequestInit): Promise<Me> => {
 
-  return customFetch<Category[]>(getListCategoriesUrl(),
+  return customFetch<Me>(getUpdateMeUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateMeInput)
+  }
+);}
+
+
+
+
+export const getUpdateMeMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMe>>, TError,{data: BodyType<UpdateMeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMe>>, TError,{data: BodyType<UpdateMeInput>}, TContext> => {
+
+const mutationKey = ['updateMe'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMe>>, {data: BodyType<UpdateMeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateMe(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMeMutationResult = NonNullable<Awaited<ReturnType<typeof updateMe>>>
+    export type UpdateMeMutationBody = BodyType<UpdateMeInput>
+    export type UpdateMeMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update the authenticated caller's profile (name, phone, shipping address)
+ */
+export const useUpdateMe = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMe>>, TError,{data: BodyType<UpdateMeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMe>>,
+        TError,
+        {data: BodyType<UpdateMeInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateMeMutationOptions(options));
+    }
+
+export const getListCategoriesUrl = (params?: ListCategoriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/categories?${stringifiedParams}` : `/api/categories`
+}
+
+/**
+ * @summary List categories (by default only those with at least one active product)
+ */
+export const listCategories = async (params?: ListCategoriesParams, options?: RequestInit): Promise<Category[]> => {
+
+  return customFetch<Category[]>(getListCategoriesUrl(params),
   {
     ...options,
     method: 'GET'
@@ -295,23 +376,23 @@ export const listCategories = async ( options?: RequestInit): Promise<Category[]
 
 
 
-export const getListCategoriesQueryKey = () => {
+export const getListCategoriesQueryKey = (params?: ListCategoriesParams,) => {
     return [
-    `/api/categories`
+    `/api/categories`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(params?: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListCategoriesQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCategories>>> = ({ signal }) => listCategories(params, { signal, ...requestOptions });
 
 
 
@@ -325,15 +406,15 @@ export type ListCategoriesQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List active categories
+ * @summary List categories (by default only those with at least one active product)
  */
 
 export function useListCategories<TData = Awaited<ReturnType<typeof listCategories>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListCategoriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListCategoriesQueryOptions(options)
+  const queryOptions = getListCategoriesQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -2205,6 +2286,77 @@ export const useUpdateProduct = <TError = ErrorType<Error>,
       return useMutation(getUpdateProductMutationOptions(options));
     }
 
+export const getDeleteProductUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/products/${id}`
+}
+
+/**
+ * Products referenced by order items return 409 REFERENCED — deactivate instead.
+ * @summary Hard-delete a product that was never sold (admin only)
+ */
+export const deleteProduct = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteProductUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteProductMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProduct>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProduct>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteProduct'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProduct>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteProduct(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProductMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProduct>>>
+
+    export type DeleteProductMutationError = ErrorType<Error>
+
+    /**
+ * @summary Hard-delete a product that was never sold (admin only)
+ */
+export const useDeleteProduct = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProduct>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProduct>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteProductMutationOptions(options));
+    }
+
 export const getCreateVariantUrl = (id: string,) => {
 
 
@@ -3014,6 +3166,90 @@ export const useDeleteCoupon = <TError = ErrorType<Error>,
       return useMutation(getDeleteCouponMutationOptions(options));
     }
 
+export const getListMyReturnsUrl = (params?: ListMyReturnsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/returns?${stringifiedParams}` : `/api/returns`
+}
+
+/**
+ * @summary List the authenticated caller's return tickets, optionally for one order
+ */
+export const listMyReturns = async (params?: ListMyReturnsParams, options?: RequestInit): Promise<ReturnTicket[]> => {
+
+  return customFetch<ReturnTicket[]>(getListMyReturnsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyReturnsQueryKey = (params?: ListMyReturnsParams,) => {
+    return [
+    `/api/returns`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListMyReturnsQueryOptions = <TData = Awaited<ReturnType<typeof listMyReturns>>, TError = ErrorType<Error>>(params?: ListMyReturnsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyReturnsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyReturns>>> = ({ signal }) => listMyReturns(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyReturns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyReturnsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyReturns>>>
+export type ListMyReturnsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary List the authenticated caller's return tickets, optionally for one order
+ */
+
+export function useListMyReturns<TData = Awaited<ReturnType<typeof listMyReturns>>, TError = ErrorType<Error>>(
+ params?: ListMyReturnsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyReturnsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreateReturnUrl = () => {
 
 
@@ -3082,6 +3318,77 @@ export const useCreateReturn = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getCreateReturnMutationOptions(options));
+    }
+
+export const getCreateStockAlertUrl = () => {
+
+
+
+
+  return `/api/stock-alerts`
+}
+
+/**
+ * Authenticated callers default to their profile email; guests must send one.
+ * @summary Subscribe to a back-in-stock email for a variant (idempotent)
+ */
+export const createStockAlert = async (createStockAlertInput: CreateStockAlertInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getCreateStockAlertUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createStockAlertInput)
+  }
+);}
+
+
+
+
+export const getCreateStockAlertMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStockAlert>>, TError,{data: BodyType<CreateStockAlertInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createStockAlert>>, TError,{data: BodyType<CreateStockAlertInput>}, TContext> => {
+
+const mutationKey = ['createStockAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createStockAlert>>, {data: BodyType<CreateStockAlertInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createStockAlert(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateStockAlertMutationResult = NonNullable<Awaited<ReturnType<typeof createStockAlert>>>
+    export type CreateStockAlertMutationBody = BodyType<CreateStockAlertInput>
+    export type CreateStockAlertMutationError = ErrorType<Error>
+
+    /**
+ * @summary Subscribe to a back-in-stock email for a variant (idempotent)
+ */
+export const useCreateStockAlert = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStockAlert>>, TError,{data: BodyType<CreateStockAlertInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createStockAlert>>,
+        TError,
+        {data: BodyType<CreateStockAlertInput>},
+        TContext
+      > => {
+      return useMutation(getCreateStockAlertMutationOptions(options));
     }
 
 export const getListReturnsUrl = (params?: ListReturnsParams,) => {

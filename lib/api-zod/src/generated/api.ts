@@ -24,14 +24,48 @@ export const GetMeResponse = zod.object({
   "user": zod.object({
   "id": zod.string().uuid(),
   "email": zod.string(),
-  "role": zod.enum(['customer', 'employee', 'admin'])
+  "role": zod.enum(['customer', 'employee', 'admin']),
+  "fullName": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "shippingAddress": zod.string().nullable()
 })
 })
 
 
 /**
- * @summary List active categories
+ * @summary Update the authenticated caller's profile (name, phone, shipping address)
  */
+
+
+
+
+export const UpdateMeBody = zod.object({
+  "fullName": zod.string().min(1).optional(),
+  "phone": zod.string().min(1).optional(),
+  "shippingAddress": zod.string().optional()
+})
+
+export const UpdateMeResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string().uuid(),
+  "email": zod.string(),
+  "role": zod.enum(['customer', 'employee', 'admin']),
+  "fullName": zod.string().nullable(),
+  "phone": zod.string().nullable(),
+  "shippingAddress": zod.string().nullable()
+})
+})
+
+
+/**
+ * @summary List categories (by default only those with at least one active product)
+ */
+export const listCategoriesQueryIncludeEmptyDefault = false;
+
+export const ListCategoriesQueryParams = zod.object({
+  "includeEmpty": zod.coerce.boolean().default(listCategoriesQueryIncludeEmptyDefault).describe('When true, include categories without active products (admin views)')
+})
+
 export const ListCategoriesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
@@ -103,6 +137,7 @@ export const ListProductsResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable().describe('Swatch color as'),
   "sku": zod.string(),
   "stock": zod.number()
 }))
@@ -150,6 +185,7 @@ export const GetProductResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable().describe('Swatch color as'),
   "sku": zod.string(),
   "stock": zod.number()
 }))
@@ -325,6 +361,7 @@ export const GetWishlistResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable().describe('Swatch color as'),
   "sku": zod.string(),
   "stock": zod.number()
 }))
@@ -370,6 +407,7 @@ export const AddWishlistItemResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable().describe('Swatch color as'),
   "sku": zod.string(),
   "stock": zod.number()
 }))
@@ -415,6 +453,7 @@ export const RemoveWishlistItemResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable().describe('Swatch color as'),
   "sku": zod.string(),
   "stock": zod.number()
 }))
@@ -628,6 +667,8 @@ export const ListPaymentVerificationQueueResponse = zod.object({
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
   "customerEmail": zod.string(),
+  "customerName": zod.string().nullable(),
+  "customerPhone": zod.string().nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "total": zod.string(),
   "amountReported": zod.string().nullable(),
@@ -733,6 +774,8 @@ export const ListShipmentsResponse = zod.object({
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
   "customerEmail": zod.string(),
+  "customerName": zod.string().nullable(),
+  "customerPhone": zod.string().nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "fulfillmentStatus": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado']),
   "shippingAddress": zod.string().nullable(),
@@ -824,6 +867,7 @@ export const ListAdminProductsResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable(),
   "sku": zod.string(),
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
@@ -848,6 +892,7 @@ export const ListAdminProductsResponse = zod.object({
 
 export const createProductBodyFeaturedDefault = false;
 
+export const createProductBodyVariantsItemColorHexRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
 
 export const createProductBodyVariantsItemStockDefault = 0;
 export const createProductBodyVariantsItemStockMin = 0;
@@ -866,6 +911,7 @@ export const CreateProductBody = zod.object({
   "variants": zod.array(zod.object({
   "size": zod.string().min(1),
   "color": zod.string().min(1),
+  "colorHex": zod.string().regex(createProductBodyVariantsItemColorHexRegExp).nullish(),
   "sku": zod.string().min(1),
   "stock": zod.number().min(createProductBodyVariantsItemStockMin).default(createProductBodyVariantsItemStockDefault),
   "priceOverride": zod.string().nullish()
@@ -895,6 +941,7 @@ export const CreateProductResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable(),
   "sku": zod.string(),
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
@@ -954,6 +1001,7 @@ export const UpdateProductResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable(),
   "sku": zod.string(),
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
@@ -969,6 +1017,17 @@ export const UpdateProductResponse = zod.object({
 
 
 /**
+ * Products referenced by order items return 409 REFERENCED — deactivate instead.
+ * @summary Hard-delete a product that was never sold (admin only)
+ */
+export const DeleteProductParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteProductResponse = zod.void()
+
+
+/**
  * @summary Add a size/color variant to a product
  */
 export const CreateVariantParams = zod.object({
@@ -977,6 +1036,7 @@ export const CreateVariantParams = zod.object({
 
 
 
+export const createVariantBodyColorHexRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
 
 export const createVariantBodyStockDefault = 0;
 export const createVariantBodyStockMin = 0;
@@ -986,6 +1046,7 @@ export const createVariantBodyStockMin = 0;
 export const CreateVariantBody = zod.object({
   "size": zod.string().min(1),
   "color": zod.string().min(1),
+  "colorHex": zod.string().regex(createVariantBodyColorHexRegExp).nullish(),
   "sku": zod.string().min(1),
   "stock": zod.number().min(createVariantBodyStockMin).default(createVariantBodyStockDefault),
   "priceOverride": zod.string().nullish()
@@ -1014,6 +1075,7 @@ export const CreateVariantResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable(),
   "sku": zod.string(),
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
@@ -1066,6 +1128,7 @@ export const AttachProductMediaResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable(),
   "sku": zod.string(),
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
@@ -1120,6 +1183,7 @@ export const UpdateVariantParams = zod.object({
 
 
 
+export const updateVariantBodyColorHexRegExp = new RegExp('^#[0-9a-fA-F]{6}$');
 
 export const updateVariantBodyStockMin = 0;
 
@@ -1128,6 +1192,7 @@ export const updateVariantBodyStockMin = 0;
 export const UpdateVariantBody = zod.object({
   "size": zod.string().min(1).optional(),
   "color": zod.string().min(1).optional(),
+  "colorHex": zod.string().regex(updateVariantBodyColorHexRegExp).nullish(),
   "sku": zod.string().min(1).optional(),
   "stock": zod.number().min(updateVariantBodyStockMin).optional(),
   "priceOverride": zod.string().nullish(),
@@ -1157,6 +1222,7 @@ export const UpdateVariantResponse = zod.object({
   "id": zod.string().uuid(),
   "size": zod.string(),
   "color": zod.string(),
+  "colorHex": zod.string().nullable(),
   "sku": zod.string(),
   "stock": zod.number(),
   "priceOverride": zod.string().nullable(),
@@ -1352,6 +1418,28 @@ export const DeleteCouponResponse = zod.void()
 
 
 /**
+ * @summary List the authenticated caller's return tickets, optionally for one order
+ */
+export const ListMyReturnsQueryParams = zod.object({
+  "orderId": zod.coerce.string().uuid().optional()
+})
+
+export const ListMyReturnsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "ticketNumber": zod.number(),
+  "orderId": zod.string().uuid(),
+  "userId": zod.string().uuid(),
+  "reason": zod.string().nullable(),
+  "currentSize": zod.string().nullable(),
+  "desiredSize": zod.string().nullable(),
+  "photoPath": zod.string().nullable(),
+  "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada']),
+  "createdAt": zod.coerce.date()
+})
+export const ListMyReturnsResponse = zod.array(ListMyReturnsResponseItem)
+
+
+/**
  * @summary Open a return ticket for one of the caller's orders (requerimientos §7.6)
  */
 export const CreateReturnBody = zod.object({
@@ -1374,6 +1462,18 @@ export const CreateReturnResponse = zod.object({
   "status": zod.enum(['nueva', 'en_proceso', 'resuelta', 'cerrada']),
   "createdAt": zod.coerce.date()
 })
+
+
+/**
+ * Authenticated callers default to their profile email; guests must send one.
+ * @summary Subscribe to a back-in-stock email for a variant (idempotent)
+ */
+export const CreateStockAlertBody = zod.object({
+  "variantId": zod.string().uuid(),
+  "email": zod.string().email().nullish().describe('Required for guests; authenticated callers default to their profile email')
+})
+
+export const CreateStockAlertResponse = zod.void()
 
 
 /**
@@ -1530,7 +1630,12 @@ export const GetPublicConfigResponse = zod.object({
   "yapeQrUrl": zod.string().nullable().describe('Public URL of the Yape QR image'),
   "banners": zod.array(zod.object({
   "imageUrl": zod.string()
-}))
+})),
+  "hero": zod.object({
+  "title": zod.string().nullable(),
+  "subtitle": zod.string().nullable()
+}),
+  "promoText": zod.string().nullable()
 })
 
 
@@ -1559,7 +1664,12 @@ export const GetAdminConfigResponse = zod.object({
   "banners": zod.array(zod.object({
   "path": zod.string(),
   "active": zod.boolean()
-}))
+})),
+  "hero": zod.object({
+  "title": zod.string().nullable(),
+  "subtitle": zod.string().nullable()
+}),
+  "promoText": zod.string().nullable().describe('Promo strip text shown under the hero; null hides nothing (store falls back)')
 })
 
 
@@ -1574,7 +1684,12 @@ export const UpdateAdminConfigBody = zod.object({
   "banners": zod.array(zod.object({
   "path": zod.string(),
   "active": zod.boolean()
-})).optional()
+})).optional(),
+  "hero": zod.object({
+  "title": zod.string().nullable(),
+  "subtitle": zod.string().nullable()
+}).optional(),
+  "promoText": zod.string().nullish()
 })
 
 export const UpdateAdminConfigResponse = zod.object({
@@ -1585,7 +1700,12 @@ export const UpdateAdminConfigResponse = zod.object({
   "banners": zod.array(zod.object({
   "path": zod.string(),
   "active": zod.boolean()
-}))
+})),
+  "hero": zod.object({
+  "title": zod.string().nullable(),
+  "subtitle": zod.string().nullable()
+}),
+  "promoText": zod.string().nullable().describe('Promo strip text shown under the hero; null hides nothing (store falls back)')
 })
 
 

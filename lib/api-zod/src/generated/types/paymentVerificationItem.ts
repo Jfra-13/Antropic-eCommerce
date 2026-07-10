@@ -12,6 +12,10 @@ export interface PaymentVerificationItem {
   orderNumber: number;
   referenceCode: string;
   customerEmail: string;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerPhone: string | null;
   deliveryMethod: PaymentVerificationItemDeliveryMethod;
   total: string;
   /** @nullable */

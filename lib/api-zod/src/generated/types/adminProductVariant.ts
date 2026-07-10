@@ -10,6 +10,8 @@ export interface AdminProductVariant {
   id: string;
   size: string;
   color: string;
+  /** @nullable */
+  colorHex: string | null;
   sku: string;
   stock: number;
   /** @nullable */

@@ -13,6 +13,10 @@ export interface ShipmentItem {
   orderNumber: number;
   referenceCode: string;
   customerEmail: string;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerPhone: string | null;
   deliveryMethod: ShipmentItemDeliveryMethod;
   fulfillmentStatus: ShipmentItemFulfillmentStatus;
   /** @nullable */

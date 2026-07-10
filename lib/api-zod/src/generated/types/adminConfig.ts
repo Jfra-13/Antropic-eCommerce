@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Banner } from './banner';
+import type { HeroText } from './heroText';
 
 export interface AdminConfig {
   /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
@@ -23,4 +24,10 @@ export interface AdminConfig {
      */
   yapeQrPath: string | null;
   banners: Banner[];
+  hero: HeroText;
+  /**
+     * Promo strip text shown under the hero; null hides nothing (store falls back)
+     * @nullable
+     */
+  promoText: string | null;
 }

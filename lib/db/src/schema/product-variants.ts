@@ -24,6 +24,8 @@ export const productVariants = pgTable(
       .references(() => products.id),
     size: text("size").notNull(),
     color: text("color").notNull(),
+    // Swatch hex (#RRGGBB) shown in the storefront; null falls back to a client-side name map.
+    colorHex: text("color_hex"),
     sku: text("sku").notNull().unique(),
     stock: integer("stock").notNull().default(0),
     priceOverride: money("price_override"),

@@ -27,10 +27,24 @@ export type MeUser = {
   id: string;
   email: string;
   role: MeUserRole;
+  /** @nullable */
+  fullName: string | null;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  shippingAddress: string | null;
 };
 
 export interface Me {
   user: MeUser;
+}
+
+export interface UpdateMeInput {
+  /** @minLength 1 */
+  fullName?: string;
+  /** @minLength 1 */
+  phone?: string;
+  shippingAddress?: string;
 }
 
 export interface Category {
@@ -65,6 +79,11 @@ export interface ProductVariant {
   id: string;
   size: string;
   color: string;
+  /**
+     * Swatch color as
+     * @nullable
+     */
+  colorHex: string | null;
   sku: string;
   stock: number;
 }
@@ -360,6 +379,10 @@ export interface PaymentVerificationItem {
   orderNumber: number;
   referenceCode: string;
   customerEmail: string;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerPhone: string | null;
   deliveryMethod: PaymentVerificationItemDeliveryMethod;
   total: string;
   /** @nullable */
@@ -401,6 +424,10 @@ export interface ShipmentItem {
   orderNumber: number;
   referenceCode: string;
   customerEmail: string;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerPhone: string | null;
   deliveryMethod: ShipmentItemDeliveryMethod;
   fulfillmentStatus: ShipmentItemFulfillmentStatus;
   /** @nullable */
@@ -436,6 +463,8 @@ export interface AdminProductVariant {
   id: string;
   size: string;
   color: string;
+  /** @nullable */
+  colorHex: string | null;
   sku: string;
   stock: number;
   /** @nullable */
@@ -509,6 +538,11 @@ export interface CreateVariantInput {
   size: string;
   /** @minLength 1 */
   color: string;
+  /**
+     * @nullable
+     * @pattern ^#[0-9a-fA-F]{6}$
+     */
+  colorHex?: string | null;
   /** @minLength 1 */
   sku: string;
   /** @minimum 0 */
@@ -554,6 +588,11 @@ export interface UpdateVariantInput {
   size?: string;
   /** @minLength 1 */
   color?: string;
+  /**
+     * @nullable
+     * @pattern ^#[0-9a-fA-F]{6}$
+     */
+  colorHex?: string | null;
   /** @minLength 1 */
   sku?: string;
   /** @minimum 0 */
@@ -853,6 +892,13 @@ export interface PublicBanner {
   imageUrl: string;
 }
 
+export interface HeroText {
+  /** @nullable */
+  title: string | null;
+  /** @nullable */
+  subtitle: string | null;
+}
+
 export interface AdminConfig {
   /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
   deliveryFee: string;
@@ -869,6 +915,12 @@ export interface AdminConfig {
      */
   yapeQrPath: string | null;
   banners: Banner[];
+  hero: HeroText;
+  /**
+     * Promo strip text shown under the hero; null hides nothing (store falls back)
+     * @nullable
+     */
+  promoText: string | null;
 }
 
 export interface PublicConfig {
@@ -886,6 +938,9 @@ export interface PublicConfig {
      */
   yapeQrUrl: string | null;
   banners: PublicBanner[];
+  hero: HeroText;
+  /** @nullable */
+  promoText: string | null;
 }
 
 export interface UpdateConfigInput {
@@ -897,6 +952,9 @@ export interface UpdateConfigInput {
   /** @nullable */
   yapeQrPath?: string | null;
   banners?: Banner[];
+  hero?: HeroText;
+  /** @nullable */
+  promoText?: string | null;
 }
 
 export interface TopProduct {
@@ -971,6 +1029,15 @@ export interface SalesReport {
   abandonedCarts: AbandonedCarts;
 }
 
+export interface CreateStockAlertInput {
+  variantId: string;
+  /**
+     * Required for guests; authenticated callers default to their profile email
+     * @nullable
+     */
+  email?: string | null;
+}
+
 export interface ConfigMediaUploadInput {
   /** MIME type of the file to upload (informational) */
   contentType?: string;
@@ -985,6 +1052,13 @@ export interface ConfigMediaUploadUrl {
   /** Public read URL for the uploaded object */
   publicUrl: string;
 }
+
+export type ListCategoriesParams = {
+/**
+ * When true, include categories without active products (admin views)
+ */
+includeEmpty?: boolean;
+};
 
 export type ListProductsParams = {
 /**
@@ -1106,6 +1180,10 @@ page?: number;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type ListMyReturnsParams = {
+orderId?: string;
 };
 
 export type ListReturnsParams = {

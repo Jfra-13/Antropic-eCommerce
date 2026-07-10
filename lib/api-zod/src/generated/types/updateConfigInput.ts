@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Banner } from './banner';
+import type { HeroText } from './heroText';
 
 export interface UpdateConfigInput {
   deliveryFee?: string;
@@ -16,4 +17,7 @@ export interface UpdateConfigInput {
   /** @nullable */
   yapeQrPath?: string | null;
   banners?: Banner[];
+  hero?: HeroText;
+  /** @nullable */
+  promoText?: string | null;
 }

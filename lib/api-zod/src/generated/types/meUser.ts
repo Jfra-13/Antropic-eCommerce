@@ -11,4 +11,10 @@ export type MeUser = {
   id: string;
   email: string;
   role: MeUserRole;
+  /** @nullable */
+  fullName: string | null;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  shippingAddress: string | null;
 };

@@ -11,6 +11,11 @@ export interface CreateVariantInput {
   size: string;
   /** @minLength 1 */
   color: string;
+  /**
+     * @nullable
+     * @pattern ^#[0-9a-fA-F]{6}$
+     */
+  colorHex?: string | null;
   /** @minLength 1 */
   sku: string;
   /** @minimum 0 */

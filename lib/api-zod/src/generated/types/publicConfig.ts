@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { HeroText } from './heroText';
 import type { PublicBanner } from './publicBanner';
 
 export interface PublicConfig {
@@ -22,4 +23,7 @@ export interface PublicConfig {
      */
   yapeQrUrl: string | null;
   banners: PublicBanner[];
+  hero: HeroText;
+  /** @nullable */
+  promoText: string | null;
 }
