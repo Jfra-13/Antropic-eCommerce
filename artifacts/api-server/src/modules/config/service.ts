@@ -27,8 +27,11 @@ const KEY_DELIVERY_FEE = "delivery_fee";
 const KEY_FREE_SHIPPING_THRESHOLD = "free_shipping_threshold";
 const KEY_YAPE = "yape";
 const KEY_BANNERS = "banners";
+const KEY_HERO = "hero";
+const KEY_PROMO_TEXT = "promo_text";
 
 type YapeSetting = { number: string | null; qrPath: string | null };
+type HeroSetting = { title: string | null; subtitle: string | null };
 
 function moneyOrNull(value: unknown): string | null {
   if (typeof value === "string" && value.trim() !== "") return value;
@@ -38,14 +41,17 @@ function moneyOrNull(value: unknown): string | null {
 
 // Reads the config settings and normalizes them into the admin shape (paths, not URLs).
 async function readConfig(): Promise<AdminConfig> {
-  const [fee, threshold, yape, banners] = await Promise.all([
+  const [fee, threshold, yape, banners, hero, promoText] = await Promise.all([
     getSetting(KEY_DELIVERY_FEE),
     getSetting(KEY_FREE_SHIPPING_THRESHOLD),
     getSetting(KEY_YAPE),
     getSetting(KEY_BANNERS),
+    getSetting(KEY_HERO),
+    getSetting(KEY_PROMO_TEXT),
   ]);
 
   const y = (yape ?? {}) as Partial<YapeSetting>;
+  const h = (hero ?? {}) as Partial<HeroSetting>;
   const bannerList = Array.isArray(banners) ? (banners as Banner[]) : [];
 
   return {
@@ -54,6 +60,8 @@ async function readConfig(): Promise<AdminConfig> {
     yapeNumber: y.number ?? null,
     yapeQrPath: y.qrPath ?? null,
     banners: bannerList,
+    hero: { title: h.title ?? null, subtitle: h.subtitle ?? null },
+    promoText: typeof promoText === "string" && promoText.trim() !== "" ? promoText : null,
   };
 }
 
@@ -70,6 +78,8 @@ export async function getPublicConfig(): Promise<PublicConfig> {
     yapeNumber: c.yapeNumber,
     yapeQrUrl: c.yapeQrPath ? publicMediaUrl(c.yapeQrPath) : null,
     banners: c.banners.filter((b) => b.active).map((b) => ({ imageUrl: publicMediaUrl(b.path) })),
+    hero: c.hero,
+    promoText: c.promoText,
   };
 }
 
@@ -91,6 +101,12 @@ export async function updateConfig(input: UpdateConfigInput): Promise<AdminConfi
   }
   if (input.banners !== undefined) {
     await setSetting(KEY_BANNERS, input.banners);
+  }
+  if (input.hero !== undefined) {
+    await setSetting(KEY_HERO, input.hero);
+  }
+  if (input.promoText !== undefined) {
+    await setSetting(KEY_PROMO_TEXT, input.promoText);
   }
   return readConfig();
 }

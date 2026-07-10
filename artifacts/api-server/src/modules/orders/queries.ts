@@ -158,7 +158,25 @@ export async function listOrdersForUser(
   return { items, total: counted[0]?.count ?? 0 };
 }
 
-export type ShipmentRow = { order: Order; customerEmail: string };
+// Contact fields the order flow needs: completeness gate at creation, contact info on the
+// admin boards.
+export async function getProfileContact(
+  userId: string,
+): Promise<{ fullName: string | null; phone: string | null } | undefined> {
+  const rows = await db
+    .select({ fullName: profiles.fullName, phone: profiles.phone })
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .limit(1);
+  return rows[0];
+}
+
+export type ShipmentRow = {
+  order: Order;
+  customerEmail: string;
+  customerName: string | null;
+  customerPhone: string | null;
+};
 
 // Paid orders in fulfilment (the logistics board), optionally filtered by method/status.
 // Oldest first — logistics works the oldest order first.
@@ -174,7 +192,12 @@ export async function listShipments(
   const offset = (page - 1) * limit;
 
   const rows = await db
-    .select({ order: orders, customerEmail: profiles.email })
+    .select({
+      order: orders,
+      customerEmail: profiles.email,
+      customerName: profiles.fullName,
+      customerPhone: profiles.phone,
+    })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
     .where(where)

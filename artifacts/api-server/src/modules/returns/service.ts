@@ -7,13 +7,18 @@ import type {
 } from "@workspace/api-zod";
 import * as notifications from "../notifications/service";
 import {
-  orderBelongsToUser,
+  getOrderForReturn,
+  hasOpenTicket,
   insertReturnTicket,
+  listMyReturns,
   listReturns,
   getAdminReturnById,
   updateReturnStatusRow,
   type AdminReturnRow,
 } from "./queries";
+
+// Only orders the customer already has in hand are eligible for a return/exchange.
+const RETURNABLE_STATUSES = new Set(["entregado", "recogido"]);
 
 type ReturnStatus = ReturnTicket["status"];
 
@@ -54,13 +59,31 @@ export type CreateReturnResult =
   | { ok: true; ticket: ReturnTicketDto }
   | { ok: false; status: number; code: string; message: string };
 
-// Customer opens a return ticket (requerimientos §7.6). Guarded to their own order.
+// Customer opens a return ticket (requerimientos §7.6). Guarded to their own order,
+// gated to delivered/picked-up orders, one open ticket per order.
 export async function createReturn(
   userId: string,
   input: CreateReturnInput,
 ): Promise<CreateReturnResult> {
-  if (!(await orderBelongsToUser(input.orderId, userId))) {
+  const order = await getOrderForReturn(input.orderId, userId);
+  if (!order) {
     return { ok: false, status: 404, code: "NOT_FOUND", message: "Order not found" };
+  }
+  if (!order.fulfillmentStatus || !RETURNABLE_STATUSES.has(order.fulfillmentStatus)) {
+    return {
+      ok: false,
+      status: 422,
+      code: "NOT_ELIGIBLE",
+      message: "Only delivered or picked-up orders can open a return",
+    };
+  }
+  if (await hasOpenTicket(input.orderId)) {
+    return {
+      ok: false,
+      status: 409,
+      code: "ALREADY_OPEN",
+      message: "An open return ticket already exists for this order",
+    };
   }
   const ticket = await insertReturnTicket({
     orderId: input.orderId,
@@ -73,6 +96,13 @@ export async function createReturn(
   // Best-effort: alert the backoffice of the new return request.
   void notifications.notifyAdminNewReturn(ticket);
   return { ok: true, ticket: toReturnTicketDto(ticket) };
+}
+
+export async function getMyReturns(
+  userId: string,
+  orderId: string | undefined,
+): Promise<ReturnTicketDto[]> {
+  return (await listMyReturns(userId, orderId)).map(toReturnTicketDto);
 }
 
 export async function getReturns(

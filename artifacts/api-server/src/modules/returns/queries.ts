@@ -6,18 +6,45 @@ import {
   type ReturnTicket,
   type InsertReturnTicket,
 } from "@workspace/db";
-import { and, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 
 type ReturnStatus = ReturnTicket["status"];
 
-// Ownership gate: a customer may only open a return for their own order.
-export async function orderBelongsToUser(orderId: string, userId: string): Promise<boolean> {
+// Ownership gate + eligibility data: a customer may only open a return for their own order,
+// and only once it was delivered/picked up.
+export async function getOrderForReturn(
+  orderId: string,
+  userId: string,
+): Promise<{ fulfillmentStatus: string | null } | undefined> {
   const rows = await db
-    .select({ id: orders.id })
+    .select({ fulfillmentStatus: orders.fulfillmentStatus })
     .from(orders)
     .where(and(eq(orders.id, orderId), eq(orders.userId, userId)))
     .limit(1);
+  return rows[0];
+}
+
+// An "open" ticket (nueva/en_proceso) blocks a second one for the same order.
+export async function hasOpenTicket(orderId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: returnTickets.id })
+    .from(returnTickets)
+    .where(and(eq(returnTickets.orderId, orderId), inArray(returnTickets.status, ["nueva", "en_proceso"])))
+    .limit(1);
   return rows.length > 0;
+}
+
+export async function listMyReturns(
+  userId: string,
+  orderId: string | undefined,
+): Promise<ReturnTicket[]> {
+  const conds = [eq(returnTickets.userId, userId)];
+  if (orderId) conds.push(eq(returnTickets.orderId, orderId));
+  return db
+    .select()
+    .from(returnTickets)
+    .where(and(...conds))
+    .orderBy(desc(returnTickets.createdAt));
 }
 
 export async function insertReturnTicket(values: InsertReturnTicket): Promise<ReturnTicket> {

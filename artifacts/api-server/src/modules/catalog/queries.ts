@@ -6,6 +6,10 @@ import {
   productVariants,
   productMedia,
   productOccasions,
+  stockAlerts,
+  cartItems,
+  wishlists,
+  orderItems,
   type Category,
   type Occasion,
   type Product,
@@ -15,8 +19,7 @@ import {
   type InsertProductVariant,
   type InsertProductMedia,
 } from "@workspace/db";
-import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
-import type { Tx } from "../../lib/tx";
+import { and, asc, desc, eq, exists, ilike, inArray, sql } from "drizzle-orm";
 
 export type ProductFilters = {
   page: number;
@@ -27,11 +30,24 @@ export type ProductFilters = {
   q?: string;
 };
 
-export function selectCategories(): Promise<Category[]> {
+// Public default hides categories without active products (an orphan tile in the store's
+// search/pills is worse than a missing one); the admin passes includeEmpty to see all.
+export function selectCategories(includeEmpty: boolean): Promise<Category[]> {
+  const conds = [eq(categories.active, true)];
+  if (!includeEmpty) {
+    conds.push(
+      exists(
+        db
+          .select({ one: sql`1` })
+          .from(products)
+          .where(and(eq(products.categoryId, categories.id), eq(products.active, true))),
+      ),
+    );
+  }
   return db
     .select()
     .from(categories)
-    .where(eq(categories.active, true))
+    .where(and(...conds))
     .orderBy(asc(categories.sortOrder), asc(categories.name));
 }
 
@@ -374,7 +390,7 @@ export async function importProductGroup(group: ImportProductGroup): Promise<voi
 // Update a variant; returns the owning productId (to rebuild the product DTO) or undefined.
 export async function updateVariantRow(
   id: string,
-  patch: Partial<Pick<InsertProductVariant, "size" | "color" | "sku" | "stock" | "priceOverride" | "active">>,
+  patch: Partial<Pick<InsertProductVariant, "size" | "color" | "colorHex" | "sku" | "stock" | "priceOverride" | "active">>,
 ): Promise<string | undefined> {
   if (Object.keys(patch).length === 0) {
     const rows = await db
@@ -413,4 +429,79 @@ export async function deleteProductMediaRow(id: string): Promise<string | undefi
     .where(eq(productMedia.id, id))
     .returning({ productId: productMedia.productId });
   return deleted[0]?.productId;
+}
+
+// --- Product deletion (round 3) ---
+
+// True when any of the product's variants appears in order_items — order history and
+// reports must never lose their product rows, so such products are deactivated instead.
+export async function productHasSales(productId: string): Promise<boolean> {
+  const rows = await db
+    .select({ one: sql`1` })
+    .from(orderItems)
+    .innerJoin(productVariants, eq(orderItems.variantId, productVariants.id))
+    .where(eq(productVariants.productId, productId))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export type DeleteProductRow = { deleted: boolean; mediaPaths: string[] };
+
+// Hard-delete a never-sold product and every dependent row. Returns the media storage
+// paths so the caller can best-effort clean the bucket AFTER the commit (a Storage
+// failure must not roll back the DB delete).
+export async function deleteProductTx(productId: string): Promise<DeleteProductRow> {
+  return db.transaction(async (tx) => {
+    const media = await tx
+      .select({ path: productMedia.storagePath })
+      .from(productMedia)
+      .where(eq(productMedia.productId, productId));
+
+    const variantIds = (
+      await tx
+        .select({ id: productVariants.id })
+        .from(productVariants)
+        .where(eq(productVariants.productId, productId))
+    ).map((v) => v.id);
+
+    if (variantIds.length > 0) {
+      await tx.delete(stockAlerts).where(inArray(stockAlerts.variantId, variantIds));
+      await tx.delete(cartItems).where(inArray(cartItems.variantId, variantIds));
+    }
+    await tx.delete(wishlists).where(eq(wishlists.productId, productId));
+    await tx.delete(productOccasions).where(eq(productOccasions.productId, productId));
+    await tx.delete(productMedia).where(eq(productMedia.productId, productId));
+    await tx.delete(productVariants).where(eq(productVariants.productId, productId));
+    const deleted = await tx
+      .delete(products)
+      .where(eq(products.id, productId))
+      .returning({ id: products.id });
+
+    return { deleted: deleted.length > 0, mediaPaths: media.map((m) => m.path) };
+  });
+}
+
+// --- Stock alerts ("avísame cuando haya stock") ---
+
+export async function getVariantForAlert(
+  id: string,
+): Promise<{ stock: number } | undefined> {
+  const rows = await db
+    .select({ stock: productVariants.stock })
+    .from(productVariants)
+    .where(eq(productVariants.id, id))
+    .limit(1);
+  return rows[0];
+}
+
+// Idempotent by the (variantId, email) unique index — resubscribing is a silent no-op.
+export async function insertStockAlert(
+  variantId: string,
+  email: string,
+  userId: string | null,
+): Promise<void> {
+  await db
+    .insert(stockAlerts)
+    .values({ variantId, email, userId })
+    .onConflictDoNothing();
 }

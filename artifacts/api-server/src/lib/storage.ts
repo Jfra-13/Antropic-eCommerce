@@ -57,6 +57,25 @@ export async function createPublicMediaUploadUrl(): Promise<SignedUpload & { pub
   return { ...signed, publicUrl: publicMediaUrl(signed.path) };
 }
 
+// Batch-delete objects from the public bucket (product media cleanup after a hard delete).
+// Callers treat this as best-effort — a failure logs and leaves orphan objects behind.
+export async function deletePublicMediaObjects(paths: string[]): Promise<void> {
+  const key = serviceRoleKey();
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${PUBLIC_BUCKET}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      apikey: key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prefixes: paths }),
+    signal: AbortSignal.timeout(STORAGE_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`Storage delete failed (${res.status}): ${await res.text()}`);
+  }
+}
+
 // Signed READ URL for a proof in the private bucket. Employee/admin verify the constancia
 // against the Yape payment; the URL expires so the sensitive image is not permanently public.
 export async function createProofDownloadUrl(

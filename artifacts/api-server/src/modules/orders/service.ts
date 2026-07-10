@@ -13,6 +13,7 @@ import { validateCoupon } from "../coupons/service";
 import { tryConsumeCoupon } from "../coupons/queries";
 import {
   getCartForCheckout,
+  getProfileContact,
   getActivePickupPoint,
   getOrderByIdempotencyKey,
   insertOrder,
@@ -67,6 +68,13 @@ export async function createOrder(
   if (input.idempotencyKey) {
     const existing = await getOrderByIdempotencyKey(userId, input.idempotencyKey);
     if (existing) return { ok: true, status: 200, order: await buildOrderDto(existing) };
+  }
+
+  // The order needs a reachable customer: name + phone on the profile (requerimientos §7.4).
+  // The server enforces it; the checkout UI guides the user to fill it inline.
+  const contact = await getProfileContact(userId);
+  if (!contact?.fullName?.trim() || !contact.phone?.trim()) {
+    return err(422, "PROFILE_INCOMPLETE", "Profile name and phone are required to order");
   }
 
   // Delivery method requirements.
@@ -203,6 +211,8 @@ export async function getShipments(
     orderNumber: r.order.orderNumber,
     referenceCode: referenceCode(r.order.orderNumber),
     customerEmail: r.customerEmail,
+    customerName: r.customerName,
+    customerPhone: r.customerPhone,
     deliveryMethod: r.order.deliveryMethod,
     // fulfillmentStatus is guaranteed non-null by the query (isNotNull filter).
     fulfillmentStatus: r.order.fulfillmentStatus!,

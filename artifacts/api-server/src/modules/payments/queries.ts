@@ -33,6 +33,8 @@ export async function attachProofAndVerify(
 export type VerificationQueueRow = {
   order: Order;
   customerEmail: string;
+  customerName: string | null;
+  customerPhone: string | null;
   proofPath: string | null;
   amountReported: string | null;
 };
@@ -46,7 +48,12 @@ export async function listVerificationQueue(
   const offset = (page - 1) * limit;
 
   const orderRows = await db
-    .select({ order: orders, customerEmail: profiles.email })
+    .select({
+      order: orders,
+      customerEmail: profiles.email,
+      customerName: profiles.fullName,
+      customerPhone: profiles.phone,
+    })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
     .where(eq(orders.paymentStatus, "en_verificacion"))
@@ -82,6 +89,8 @@ export async function listVerificationQueue(
     return {
       order: r.order,
       customerEmail: r.customerEmail,
+      customerName: r.customerName,
+      customerPhone: r.customerPhone,
       proofPath: proof?.path ?? null,
       amountReported: proof?.amount ?? null,
     };

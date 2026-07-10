@@ -78,6 +78,8 @@ export async function getVerificationQueue(
       orderNumber: r.order.orderNumber,
       referenceCode: referenceCode(r.order.orderNumber),
       customerEmail: r.customerEmail,
+      customerName: r.customerName,
+      customerPhone: r.customerPhone,
       deliveryMethod: r.order.deliveryMethod,
       total: r.order.total,
       amountReported: r.amountReported,

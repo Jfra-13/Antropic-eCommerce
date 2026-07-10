@@ -24,7 +24,14 @@ const JWKS = createRemoteJWKSet(
 const ISSUER = `${SUPABASE_URL}/auth/v1`;
 
 export type Role = Profile["role"];
-export type AuthUser = { id: string; email: string; role: Role };
+export type AuthUser = {
+  id: string;
+  email: string;
+  role: Role;
+  fullName: string | null;
+  phone: string | null;
+  shippingAddress: string | null;
+};
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -93,8 +100,25 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     return;
   }
 
-  req.user = { id: profile.id, email: profile.email, role: profile.role };
+  req.user = {
+    id: profile.id,
+    email: profile.email,
+    role: profile.role,
+    fullName: profile.fullName,
+    phone: profile.phone,
+    shippingAddress: profile.shippingAddress,
+  };
   next();
+};
+
+// Like requireAuth but lets anonymous callers through with req.user unset. A present-but-invalid
+// token is still a 401 — silently downgrading a bad token to "guest" would mask client bugs.
+export const optionalAuth: RequestHandler = (req, res, next) => {
+  if (!bearerToken(req.headers.authorization)) {
+    next();
+    return;
+  }
+  void requireAuth(req, res, next);
 };
 
 // Gate a route to specific roles. Must run after requireAuth.

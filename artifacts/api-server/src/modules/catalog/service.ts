@@ -21,9 +21,13 @@ import {
   insertProductTx,
   updateProductTx,
   productExists,
+  productHasSales,
+  deleteProductTx,
   insertVariant,
   updateVariantRow,
   getVariantStock,
+  getVariantForAlert,
+  insertStockAlert,
   insertProductMedia,
   deleteProductMediaRow,
   importProductGroup,
@@ -32,9 +36,11 @@ import {
 } from "./queries";
 import { toCategoryDto, toOccasionDto, toProductDto, toAdminProductDto } from "./mappers";
 import * as notifications from "../notifications/service";
+import { deletePublicMediaObjects } from "../../lib/storage";
+import { logger } from "../../lib/logger";
 
-export async function getCategories() {
-  return (await selectCategories()).map(toCategoryDto);
+export async function getCategories(includeEmpty = false) {
+  return (await selectCategories(includeEmpty)).map(toCategoryDto);
 }
 
 export async function getOccasions() {
@@ -115,6 +121,7 @@ export async function createProduct(input: CreateProductInput): Promise<AdminCat
       (input.variants ?? []).map((v) => ({
         size: v.size,
         color: v.color,
+        colorHex: v.colorHex ?? null,
         sku: v.sku,
         stock: v.stock ?? 0,
         priceOverride: v.priceOverride ?? null,
@@ -172,6 +179,7 @@ export async function addVariant(
       productId,
       size: input.size,
       color: input.color,
+      colorHex: input.colorHex ?? null,
       sku: input.sku,
       stock: input.stock ?? 0,
       priceOverride: input.priceOverride ?? null,
@@ -188,6 +196,58 @@ export async function addVariant(
     }
     throw e;
   }
+}
+
+export type DeleteProductResult =
+  | { ok: true }
+  | { ok: false; status: number; code: string; message: string };
+
+// Hard-delete is reserved for products that never sold; sold products keep their row
+// (order history and reports reference it) and must be deactivated instead.
+export async function deleteProduct(id: string): Promise<DeleteProductResult> {
+  if (!(await productExists(id))) {
+    return { ok: false, status: 404, code: "NOT_FOUND", message: "Product not found" };
+  }
+  if (await productHasSales(id)) {
+    return {
+      ok: false,
+      status: 409,
+      code: "REFERENCED",
+      message: "Product has sales; deactivate it instead of deleting",
+    };
+  }
+  const { deleted, mediaPaths } = await deleteProductTx(id);
+  if (!deleted) {
+    return { ok: false, status: 404, code: "NOT_FOUND", message: "Product not found" };
+  }
+  // Best-effort Storage cleanup AFTER the commit — an orphan object is cheaper than a
+  // rolled-back delete over a Storage hiccup.
+  if (mediaPaths.length > 0) {
+    deletePublicMediaObjects(mediaPaths).catch((err) => {
+      logger.warn({ err, productId: id, mediaPaths }, "product media cleanup failed");
+    });
+  }
+  return { ok: true };
+}
+
+export type StockAlertResult =
+  | { ok: true }
+  | { ok: false; status: number; code: string; message: string };
+
+export async function subscribeStockAlert(
+  variantId: string,
+  email: string,
+  userId: string | null,
+): Promise<StockAlertResult> {
+  const variant = await getVariantForAlert(variantId);
+  if (!variant) {
+    return { ok: false, status: 404, code: "NOT_FOUND", message: "Variant not found" };
+  }
+  if (variant.stock > 0) {
+    return { ok: false, status: 409, code: "IN_STOCK", message: "Variant currently has stock" };
+  }
+  await insertStockAlert(variantId, email, userId);
+  return { ok: true };
 }
 
 // --- Product media (photos + lookbook videos; requerimientos §6.5) ---
@@ -288,7 +348,7 @@ export async function importProducts(
     return { ok: false, message: `CSV inválido: ${parsed.errors[0]!.message}` };
   }
 
-  const [cats, occs] = await Promise.all([selectCategories(), selectOccasions()]);
+  const [cats, occs] = await Promise.all([selectCategories(true), selectOccasions()]);
   const catMap = nameSlugMap(cats);
   const occMap = nameSlugMap(occs);
 
@@ -370,6 +430,7 @@ export async function updateVariant(
   const patch: Record<string, unknown> = {};
   if (input.size !== undefined) patch["size"] = input.size;
   if (input.color !== undefined) patch["color"] = input.color;
+  if (input.colorHex !== undefined) patch["colorHex"] = input.colorHex;
   if (input.sku !== undefined) patch["sku"] = input.sku;
   if (input.stock !== undefined) patch["stock"] = input.stock;
   if (input.priceOverride !== undefined) patch["priceOverride"] = input.priceOverride;

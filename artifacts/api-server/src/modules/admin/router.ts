@@ -18,6 +18,7 @@ import {
   UpdateProductParams,
   UpdateProductBody,
   UpdateProductResponse,
+  DeleteProductParams,
   CreateVariantParams,
   CreateVariantBody,
   CreateVariantResponse,
@@ -190,6 +191,21 @@ router.patch("/admin/products/:id", async (req, res) => {
     return;
   }
   res.json(UpdateProductResponse.parse(result.product));
+});
+
+// Hard-delete (admin only): blocked with 409 REFERENCED when the product has sales.
+router.delete("/admin/products/:id", requireRole("admin"), async (req, res) => {
+  const params = DeleteProductParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAM", message: "Invalid product id" });
+    return;
+  }
+  const result = await catalog.deleteProduct(params.data.id);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(204).send();
 });
 
 router.post("/admin/products/:id/variants", async (req, res) => {
