@@ -72,6 +72,27 @@ Checklist de pendientes previos al despliegue a producción.
 - [ ] Editar hero en Config → Contenido → el Home lo refleja (ya existía; confirmar tras el rediseño con tabs).
 - [ ] Sidebar del admin: anclar/desanclar persiste tras recargar; en pantallas `< md` arranca colapsada; admin usable en tablet y celular.
 
+### Checklist E2E ronda 5 (requiere api-server + store + admin corriendo)
+
+> **Post-deploy obligatorio**: el banner superior del navbar y los canales de contacto (WhatsApp/Instagram/TikTok) arrancan vacíos — cargarlos una vez en admin → Configuración (pestañas Contenido y Contacto). Sin eso el banner no se muestra y el bloque de contacto del footer queda oculto.
+
+- [ ] Verificar en la DB que "Sale" y "Novedades" existen como categorías activas con slugs `sale`/`novedades`; si no, crearlas desde el admin.
+- [ ] Desactivar "Accesorios" en admin → desaparece del navbar (desktop y mobile), de las pills y del search; reactivar → vuelve.
+- [ ] Cambiar `sortOrder` de una categoría → el dropdown Ropa refleja el orden.
+- [ ] Configurar banner superior en admin → visible en store; vaciarlo → el banner desaparece sin dejar hueco.
+- [ ] Configurar WhatsApp/Instagram/TikTok → footer los usa; vaciar TikTok → ícono oculto.
+- [ ] Editar FAQ en admin (agregar/reordenar) → `/faq` lo refleja; sin config → muestra las 5 por defecto.
+- [ ] Editar política de devoluciones → `/devoluciones` la refleja; CTA lleva a perfil y el flujo de ticket existente funciona.
+- [ ] `/recojo` lista solo puntos activos; desactivar uno en admin → desaparece.
+- [ ] Footer "Mis Envíos" → perfil con pedidos (logueado) / CTA login (anónimo).
+- [ ] Favicon visible en pestañas de store y admin.
+- [ ] Sidebar admin fija con kanban largo; "Cerrar sesión" visible sin scroll.
+- [ ] Shipments: columnas terminales muestran solo 7 días + link a historial; columnas activas completas.
+- [ ] Pedidos: buscar por número, filtrar por estado, paginar; "Ver pedidos" desde un cliente en Usuarios filtra correcto.
+- [ ] Como **employee**: ve Pedidos pero NO Reportes/Usuarios/Config/Cupones; endpoints admin-only devuelven 403.
+- [ ] Inventario y Usuarios paginan (crear >50 productos de prueba o bajar `limit` temporalmente para verificar).
+- [ ] Gráfico de reportes: ejes con cifras, tooltip con fecha/monto/pedidos, promedio visible.
+
 ## 4. Diferido (documentado, no bloquea el core pero falta)
 
 - [ ] **Recordatorios automáticos de carrito abandonado** — requieren un scheduler (cron externo o n8n). Hoy la data se ve en dashboard/reportes, pero el envío automático no existe.

@@ -1,6 +1,6 @@
 # Plan ronda 5 — contenido de tienda configurable + backoffice operable a escala
 
-> Estado: **pendiente de ejecución**.
+> Estado: **ejecutado (fases 1-5, 2026-07-11)**. La Fase 6 (verificación E2E manual) quedó pendiente de correr con el stack levantado — checklist copiado a `PRE-DEPLOY.md`.
 > Regla de ejecución (igual que rondas 3/4): cada fase cierra con `pnpm run typecheck` verde, build verde y su propio commit convencional. No se avanza de fase con el árbol sucio.
 
 ---
