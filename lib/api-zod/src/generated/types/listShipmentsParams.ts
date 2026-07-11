@@ -12,6 +12,11 @@ export type ListShipmentsParams = {
 deliveryMethod?: ListShipmentsDeliveryMethod;
 status?: ListShipmentsStatus;
 /**
+ * When set, terminal statuses (entregado, recogido) only include orders updated in the last N days; active statuses are never filtered. Omitted = full history (current behaviour).
+ * @minimum 1
+ */
+recentTerminalDays?: number;
+/**
  * @minimum 1
  */
 page?: number;

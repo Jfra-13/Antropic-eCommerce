@@ -702,6 +702,86 @@ export const ListPaymentVerificationQueueResponse = zod.object({
 
 
 /**
+ * @summary List all orders for back-office operations, searchable and filterable
+ */
+export const listAdminOrdersQueryPageDefault = 1;
+
+export const listAdminOrdersQueryLimitDefault = 20;
+export const listAdminOrdersQueryLimitMax = 100;
+
+
+
+export const ListAdminOrdersQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Matches order number, customer name or customer email'),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']).optional(),
+  "fulfillmentStatus": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado']).optional(),
+  "userId": zod.coerce.string().uuid().optional(),
+  "from": zod.date().optional().describe('Orders created on or after this date'),
+  "to": zod.date().optional().describe('Orders created on or before this date (inclusive, end of day)'),
+  "page": zod.coerce.number().min(1).default(listAdminOrdersQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listAdminOrdersQueryLimitMax).default(listAdminOrdersQueryLimitDefault)
+})
+
+export const ListAdminOrdersResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "customerEmail": zod.string(),
+  "customerName": zod.string().nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "total": zod.string(),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Get one order with items, customer and delivery detail
+ */
+export const GetAdminOrderParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetAdminOrderResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "customerEmail": zod.string(),
+  "customerName": zod.string().nullable(),
+  "customerPhone": zod.string().nullable(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "pickupPointName": zod.string().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
  * @summary Approve a payment — moves the order to pagado and decrements stock (idempotent)
  */
 export const ApproveOrderPaymentParams = zod.object({
@@ -774,6 +854,7 @@ export const RejectOrderPaymentResponse = zod.object({
 /**
  * @summary List paid orders in fulfilment (logistics board), filterable by method and status
  */
+
 export const listShipmentsQueryPageDefault = 1;
 
 export const listShipmentsQueryLimitDefault = 50;
@@ -784,6 +865,7 @@ export const listShipmentsQueryLimitMax = 100;
 export const ListShipmentsQueryParams = zod.object({
   "deliveryMethod": zod.enum(['delivery', 'recojo']).optional(),
   "status": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado']).optional(),
+  "recentTerminalDays": zod.coerce.number().min(1).optional().describe('When set, terminal statuses (entregado, recogido) only include orders updated in the last N days; active statuses are never filtered. Omitted = full history (current behaviour).'),
   "page": zod.coerce.number().min(1).default(listShipmentsQueryPageDefault),
   "limit": zod.coerce.number().min(1).max(listShipmentsQueryLimitMax).default(listShipmentsQueryLimitDefault)
 })
@@ -1784,7 +1866,18 @@ export const GetPublicConfigResponse = zod.object({
   "tag": zod.string().nullable(),
   "title": zod.string().nullable(),
   "imageUrl": zod.string().nullable().describe('Public URL of the editorial image')
-})
+}),
+  "announcementText": zod.string().nullable(),
+  "contact": zod.object({
+  "whatsappNumber": zod.string().nullable().describe('Digits only, international format without \"+\" (e.g. \"51999999999\")'),
+  "instagramUrl": zod.string().nullable(),
+  "tiktokUrl": zod.string().nullable()
+}).describe('Store contact channels; null\/empty link hides that channel in the UI'),
+  "faq": zod.array(zod.object({
+  "question": zod.string(),
+  "answer": zod.string()
+})),
+  "returnsPolicy": zod.string().nullable()
 })
 
 
@@ -1823,7 +1916,18 @@ export const GetAdminConfigResponse = zod.object({
   "tag": zod.string().nullable(),
   "title": zod.string().nullable(),
   "imagePath": zod.string().nullable().describe('Storage object path of the editorial image')
-})
+}),
+  "announcementText": zod.string().nullable().describe('Top navbar announcement banner; null hides the banner'),
+  "contact": zod.object({
+  "whatsappNumber": zod.string().nullable().describe('Digits only, international format without \"+\" (e.g. \"51999999999\")'),
+  "instagramUrl": zod.string().nullable(),
+  "tiktokUrl": zod.string().nullable()
+}).describe('Store contact channels; null\/empty link hides that channel in the UI'),
+  "faq": zod.array(zod.object({
+  "question": zod.string(),
+  "answer": zod.string()
+})).describe('FAQ entries in render order; empty = store shows its defaults'),
+  "returnsPolicy": zod.string().nullable().describe('Returns-policy page text; null = store shows its default')
 })
 
 
@@ -1848,7 +1952,18 @@ export const UpdateAdminConfigBody = zod.object({
   "tag": zod.string().nullable(),
   "title": zod.string().nullable(),
   "imagePath": zod.string().nullable().describe('Storage object path of the editorial image')
-}).optional()
+}).optional(),
+  "announcementText": zod.string().nullish(),
+  "contact": zod.object({
+  "whatsappNumber": zod.string().nullable().describe('Digits only, international format without \"+\" (e.g. \"51999999999\")'),
+  "instagramUrl": zod.string().nullable(),
+  "tiktokUrl": zod.string().nullable()
+}).optional().describe('Store contact channels; null\/empty link hides that channel in the UI'),
+  "faq": zod.array(zod.object({
+  "question": zod.string(),
+  "answer": zod.string()
+})).optional(),
+  "returnsPolicy": zod.string().nullish()
 })
 
 export const UpdateAdminConfigResponse = zod.object({
@@ -1869,7 +1984,18 @@ export const UpdateAdminConfigResponse = zod.object({
   "tag": zod.string().nullable(),
   "title": zod.string().nullable(),
   "imagePath": zod.string().nullable().describe('Storage object path of the editorial image')
-})
+}),
+  "announcementText": zod.string().nullable().describe('Top navbar announcement banner; null hides the banner'),
+  "contact": zod.object({
+  "whatsappNumber": zod.string().nullable().describe('Digits only, international format without \"+\" (e.g. \"51999999999\")'),
+  "instagramUrl": zod.string().nullable(),
+  "tiktokUrl": zod.string().nullable()
+}).describe('Store contact channels; null\/empty link hides that channel in the UI'),
+  "faq": zod.array(zod.object({
+  "question": zod.string(),
+  "answer": zod.string()
+})).describe('FAQ entries in render order; empty = store shows its defaults'),
+  "returnsPolicy": zod.string().nullable().describe('Returns-policy page text; null = store shows its default')
 })
 
 

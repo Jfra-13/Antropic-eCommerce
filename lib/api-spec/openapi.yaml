@@ -598,6 +598,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentVerificationQueue"
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      tags: [admin]
+      summary: List all orders for back-office operations, searchable and filterable
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Matches order number, customer name or customer email
+          schema:
+            type: string
+        - name: paymentStatus
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+        - name: fulfillmentStatus
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado]
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          description: Orders created on or after this date
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Orders created on or before this date (inclusive, end of day)
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated admin orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderList"
+  /admin/orders/{id}:
+    get:
+      operationId: getAdminOrder
+      tags: [admin]
+      summary: Get one order with items, customer and delivery detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderDetail"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /admin/orders/{id}/approve:
     post:
       operationId: approveOrderPayment
@@ -678,6 +769,16 @@ paths:
           schema:
             type: string
             enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado]
+        - name: recentTerminalDays
+          in: query
+          required: false
+          description: >-
+            When set, terminal statuses (entregado, recogido) only include orders
+            updated in the last N days; active statuses are never filtered.
+            Omitted = full history (current behaviour).
+          schema:
+            type: integer
+            minimum: 1
         - name: page
           in: query
           required: false
@@ -2328,6 +2429,140 @@ components:
         - total
         - page
         - limit
+    AdminOrderListItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        referenceCode:
+          type: string
+        customerEmail:
+          type: string
+        customerName:
+          type: [string, "null"]
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        paymentStatus:
+          type: string
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+        fulfillmentStatus:
+          type: [string, "null"]
+          enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
+        total:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderNumber
+        - referenceCode
+        - customerEmail
+        - customerName
+        - deliveryMethod
+        - paymentStatus
+        - fulfillmentStatus
+        - total
+        - createdAt
+    AdminOrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminOrderListItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    AdminOrderDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNumber:
+          type: integer
+        referenceCode:
+          type: string
+        customerEmail:
+          type: string
+        customerName:
+          type: [string, "null"]
+        customerPhone:
+          type: [string, "null"]
+        paymentStatus:
+          type: string
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+        fulfillmentStatus:
+          type: [string, "null"]
+          enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        pickupPointId:
+          type: [string, "null"]
+          format: uuid
+        pickupPointName:
+          type: [string, "null"]
+        shippingAddress:
+          type: [string, "null"]
+        subtotal:
+          type: string
+        shippingCost:
+          type: string
+        discountAmount:
+          type: string
+        total:
+          type: string
+        couponCode:
+          type: [string, "null"]
+        paymentProofStatus:
+          type: [string, "null"]
+          enum: [pendiente, aprobado, rechazado, null]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+      required:
+        - id
+        - orderNumber
+        - referenceCode
+        - customerEmail
+        - customerName
+        - customerPhone
+        - paymentStatus
+        - fulfillmentStatus
+        - deliveryMethod
+        - pickupPointId
+        - pickupPointName
+        - shippingAddress
+        - subtotal
+        - shippingCost
+        - discountAmount
+        - total
+        - couponCode
+        - paymentProofStatus
+        - createdAt
+        - updatedAt
+        - items
     PaymentProofUploadUrl:
       type: object
       properties:
@@ -3215,6 +3450,19 @@ components:
           description: Promo strip text shown under the hero; null hides nothing (store falls back)
         editorial:
           $ref: "#/components/schemas/EditorialContent"
+        announcementText:
+          type: [string, "null"]
+          description: Top navbar announcement banner; null hides the banner
+        contact:
+          $ref: "#/components/schemas/ContactInfo"
+        faq:
+          type: array
+          description: FAQ entries in render order; empty = store shows its defaults
+          items:
+            $ref: "#/components/schemas/FaqEntry"
+        returnsPolicy:
+          type: [string, "null"]
+          description: Returns-policy page text; null = store shows its default
       required:
         - deliveryFee
         - freeShippingThreshold
@@ -3224,6 +3472,10 @@ components:
         - hero
         - promoText
         - editorial
+        - announcementText
+        - contact
+        - faq
+        - returnsPolicy
     PublicConfig:
       type: object
       properties:
@@ -3247,6 +3499,16 @@ components:
           type: [string, "null"]
         editorial:
           $ref: "#/components/schemas/PublicEditorialContent"
+        announcementText:
+          type: [string, "null"]
+        contact:
+          $ref: "#/components/schemas/ContactInfo"
+        faq:
+          type: array
+          items:
+            $ref: "#/components/schemas/FaqEntry"
+        returnsPolicy:
+          type: [string, "null"]
       required:
         - deliveryFee
         - freeShippingThreshold
@@ -3256,6 +3518,10 @@ components:
         - hero
         - promoText
         - editorial
+        - announcementText
+        - contact
+        - faq
+        - returnsPolicy
     UpdateConfigInput:
       type: object
       properties:
@@ -3277,6 +3543,41 @@ components:
           type: [string, "null"]
         editorial:
           $ref: "#/components/schemas/EditorialContent"
+        announcementText:
+          type: [string, "null"]
+        contact:
+          $ref: "#/components/schemas/ContactInfo"
+        faq:
+          type: array
+          items:
+            $ref: "#/components/schemas/FaqEntry"
+        returnsPolicy:
+          type: [string, "null"]
+    ContactInfo:
+      type: object
+      description: Store contact channels; null/empty link hides that channel in the UI
+      properties:
+        whatsappNumber:
+          type: [string, "null"]
+          description: Digits only, international format without "+" (e.g. "51999999999")
+        instagramUrl:
+          type: [string, "null"]
+        tiktokUrl:
+          type: [string, "null"]
+      required:
+        - whatsappNumber
+        - instagramUrl
+        - tiktokUrl
+    FaqEntry:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+      required:
+        - question
+        - answer
     TopProduct:
       type: object
       properties:

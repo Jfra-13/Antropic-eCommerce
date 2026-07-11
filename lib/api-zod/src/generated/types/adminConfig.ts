@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Banner } from './banner';
+import type { ContactInfo } from './contactInfo';
 import type { EditorialContent } from './editorialContent';
+import type { FaqEntry } from './faqEntry';
 import type { HeroText } from './heroText';
 
 export interface AdminConfig {
@@ -32,4 +34,17 @@ export interface AdminConfig {
      */
   promoText: string | null;
   editorial: EditorialContent;
+  /**
+     * Top navbar announcement banner; null hides the banner
+     * @nullable
+     */
+  announcementText: string | null;
+  contact: ContactInfo;
+  /** FAQ entries in render order; empty = store shows its defaults */
+  faq: FaqEntry[];
+  /**
+     * Returns-policy page text; null = store shows its default
+     * @nullable
+     */
+  returnsPolicy: string | null;
 }

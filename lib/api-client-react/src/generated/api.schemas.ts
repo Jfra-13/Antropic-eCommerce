@@ -387,6 +387,138 @@ export interface OrderList {
   limit: number;
 }
 
+export type AdminOrderListItemDeliveryMethod = typeof AdminOrderListItemDeliveryMethod[keyof typeof AdminOrderListItemDeliveryMethod];
+
+
+export const AdminOrderListItemDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export type AdminOrderListItemPaymentStatus = typeof AdminOrderListItemPaymentStatus[keyof typeof AdminOrderListItemPaymentStatus];
+
+
+export const AdminOrderListItemPaymentStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AdminOrderListItemFulfillmentStatus = typeof AdminOrderListItemFulfillmentStatus[keyof typeof AdminOrderListItemFulfillmentStatus] | null;
+
+
+export const AdminOrderListItemFulfillmentStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export interface AdminOrderListItem {
+  id: string;
+  orderNumber: number;
+  referenceCode: string;
+  customerEmail: string;
+  /** @nullable */
+  customerName: string | null;
+  deliveryMethod: AdminOrderListItemDeliveryMethod;
+  paymentStatus: AdminOrderListItemPaymentStatus;
+  /** @nullable */
+  fulfillmentStatus: AdminOrderListItemFulfillmentStatus;
+  total: string;
+  createdAt: string;
+}
+
+export interface AdminOrderList {
+  items: AdminOrderListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type AdminOrderDetailPaymentStatus = typeof AdminOrderDetailPaymentStatus[keyof typeof AdminOrderDetailPaymentStatus];
+
+
+export const AdminOrderDetailPaymentStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AdminOrderDetailFulfillmentStatus = typeof AdminOrderDetailFulfillmentStatus[keyof typeof AdminOrderDetailFulfillmentStatus] | null;
+
+
+export const AdminOrderDetailFulfillmentStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
+export type AdminOrderDetailDeliveryMethod = typeof AdminOrderDetailDeliveryMethod[keyof typeof AdminOrderDetailDeliveryMethod];
+
+
+export const AdminOrderDetailDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+/**
+ * @nullable
+ */
+export type AdminOrderDetailPaymentProofStatus = typeof AdminOrderDetailPaymentProofStatus[keyof typeof AdminOrderDetailPaymentProofStatus] | null;
+
+
+export const AdminOrderDetailPaymentProofStatus = {
+  pendiente: 'pendiente',
+  aprobado: 'aprobado',
+  rechazado: 'rechazado',
+} as const;
+
+export interface AdminOrderDetail {
+  id: string;
+  orderNumber: number;
+  referenceCode: string;
+  customerEmail: string;
+  /** @nullable */
+  customerName: string | null;
+  /** @nullable */
+  customerPhone: string | null;
+  paymentStatus: AdminOrderDetailPaymentStatus;
+  /** @nullable */
+  fulfillmentStatus: AdminOrderDetailFulfillmentStatus;
+  deliveryMethod: AdminOrderDetailDeliveryMethod;
+  /** @nullable */
+  pickupPointId: string | null;
+  /** @nullable */
+  pickupPointName: string | null;
+  /** @nullable */
+  shippingAddress: string | null;
+  subtotal: string;
+  shippingCost: string;
+  discountAmount: string;
+  total: string;
+  /** @nullable */
+  couponCode: string | null;
+  /** @nullable */
+  paymentProofStatus: AdminOrderDetailPaymentProofStatus;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+}
+
 export interface PaymentProofUploadUrl {
   /** PUT the file to this URL (direct to private Storage) */
   uploadUrl: string;
@@ -959,6 +1091,26 @@ export interface PublicEditorialContent {
   imageUrl: string | null;
 }
 
+/**
+ * Store contact channels; null/empty link hides that channel in the UI
+ */
+export interface ContactInfo {
+  /**
+     * Digits only, international format without "+" (e.g. "51999999999")
+     * @nullable
+     */
+  whatsappNumber: string | null;
+  /** @nullable */
+  instagramUrl: string | null;
+  /** @nullable */
+  tiktokUrl: string | null;
+}
+
+export interface FaqEntry {
+  question: string;
+  answer: string;
+}
+
 export interface AdminConfig {
   /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
   deliveryFee: string;
@@ -982,6 +1134,19 @@ export interface AdminConfig {
      */
   promoText: string | null;
   editorial: EditorialContent;
+  /**
+     * Top navbar announcement banner; null hides the banner
+     * @nullable
+     */
+  announcementText: string | null;
+  contact: ContactInfo;
+  /** FAQ entries in render order; empty = store shows its defaults */
+  faq: FaqEntry[];
+  /**
+     * Returns-policy page text; null = store shows its default
+     * @nullable
+     */
+  returnsPolicy: string | null;
 }
 
 export interface PublicConfig {
@@ -1003,6 +1168,12 @@ export interface PublicConfig {
   /** @nullable */
   promoText: string | null;
   editorial: PublicEditorialContent;
+  /** @nullable */
+  announcementText: string | null;
+  contact: ContactInfo;
+  faq: FaqEntry[];
+  /** @nullable */
+  returnsPolicy: string | null;
 }
 
 export interface UpdateConfigInput {
@@ -1018,6 +1189,12 @@ export interface UpdateConfigInput {
   /** @nullable */
   promoText?: string | null;
   editorial?: EditorialContent;
+  /** @nullable */
+  announcementText?: string | null;
+  contact?: ContactInfo;
+  faq?: FaqEntry[];
+  /** @nullable */
+  returnsPolicy?: string | null;
 }
 
 export interface TopProduct {
@@ -1183,9 +1360,63 @@ page?: number;
 limit?: number;
 };
 
+export type ListAdminOrdersParams = {
+/**
+ * Matches order number, customer name or customer email
+ */
+q?: string;
+paymentStatus?: ListAdminOrdersPaymentStatus;
+fulfillmentStatus?: ListAdminOrdersFulfillmentStatus;
+userId?: string;
+/**
+ * Orders created on or after this date
+ */
+from?: string;
+/**
+ * Orders created on or before this date (inclusive, end of day)
+ */
+to?: string;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListAdminOrdersPaymentStatus = typeof ListAdminOrdersPaymentStatus[keyof typeof ListAdminOrdersPaymentStatus];
+
+
+export const ListAdminOrdersPaymentStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+} as const;
+
+export type ListAdminOrdersFulfillmentStatus = typeof ListAdminOrdersFulfillmentStatus[keyof typeof ListAdminOrdersFulfillmentStatus];
+
+
+export const ListAdminOrdersFulfillmentStatus = {
+  en_preparacion: 'en_preparacion',
+  enviado: 'enviado',
+  entregado: 'entregado',
+  recojo_pendiente: 'recojo_pendiente',
+  recogido: 'recogido',
+  cancelado: 'cancelado',
+} as const;
+
 export type ListShipmentsParams = {
 deliveryMethod?: ListShipmentsDeliveryMethod;
 status?: ListShipmentsStatus;
+/**
+ * When set, terminal statuses (entregado, recogido) only include orders updated in the last N days; active statuses are never filtered. Omitted = full history (current behaviour).
+ * @minimum 1
+ */
+recentTerminalDays?: number;
 /**
  * @minimum 1
  */

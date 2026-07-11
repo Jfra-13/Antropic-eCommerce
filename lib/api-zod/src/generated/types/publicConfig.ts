@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ContactInfo } from './contactInfo';
+import type { FaqEntry } from './faqEntry';
 import type { HeroText } from './heroText';
 import type { PublicBanner } from './publicBanner';
 import type { PublicEditorialContent } from './publicEditorialContent';
@@ -28,4 +30,10 @@ export interface PublicConfig {
   /** @nullable */
   promoText: string | null;
   editorial: PublicEditorialContent;
+  /** @nullable */
+  announcementText: string | null;
+  contact: ContactInfo;
+  faq: FaqEntry[];
+  /** @nullable */
+  returnsPolicy: string | null;
 }
