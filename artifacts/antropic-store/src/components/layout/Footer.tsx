@@ -12,7 +12,7 @@ export function Footer() {
         <div className="flex flex-col gap-3">
           <h4 className="font-sans font-bold text-sm uppercase tracking-wide text-background/90">Ayuda</h4>
           <a href="#" className="font-sans text-sm text-background/80 hover:text-background transition-colors">Cambios y devoluciones</a>
-          <a href="#" className="font-sans text-sm text-background/80 hover:text-background transition-colors">Envíos</a>
+          <Link href="/profile" className="font-sans text-sm text-background/80 hover:text-background transition-colors">Mis Envíos</Link>
           <a href="#" className="font-sans text-sm text-background/80 hover:text-background transition-colors">Preguntas frecuentes</a>
         </div>
 

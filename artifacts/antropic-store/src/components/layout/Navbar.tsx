@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useStore } from "../../context/StoreContext";
-import { useOccasions } from "../../lib/catalog";
+import { useCategories, useOccasions } from "../../lib/catalog";
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -14,13 +14,31 @@ import { SearchOverlay } from "../SearchOverlay";
 import modelo_01 from "../../assets/modelo_01.webp";
 import modelo_02 from "../../assets/modelo_02.webp";
 
-const ROPA_CATEGORIES = ["Tops", "Shorts", "Denim", "Active", "Swim"];
+// Categories the navbar promotes to top-level links (by slug). Everything else
+// goes under the "Ropa" dropdown. The public API returns active categories only,
+// so presence in the list is the visibility switch.
+const TOP_LEVEL_SLUGS = ["sale", "novedades", "accesorios"];
+
+const categoryHref = (name: string) => `/search?category=${encodeURIComponent(name)}`;
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { cart, favorites } = useStore();
   const { occasions } = useOccasions();
+  const { categories, isLoading: categoriesLoading } = useCategories();
+
+  // While the catalog loads, keep the default nav structure to avoid a flash
+  // of an empty menu; once loaded, the DB decides what shows.
+  const bySlug = new Map(categories.map((c) => [c.slug, c]));
+  const topLevel = (slug: string, fallbackName: string) =>
+    bySlug.get(slug) ?? (categoriesLoading ? { slug, name: fallbackName } : undefined);
+  const sale = topLevel("sale", "Sale");
+  const novedades = topLevel("novedades", "Novedades");
+  const accesorios = topLevel("accesorios", "Accesorios");
+  const ropaCategories = categories
+    .filter((c) => !TOP_LEVEL_SLUGS.includes(c.slug))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const cartItemsCount = cart.reduce((acc, item) => acc + item.qty, 0);
 
@@ -67,21 +85,25 @@ export function Navbar() {
         <div className="hidden md:flex items-center">
           <NavigationMenu>
             <NavigationMenuList className="gap-2">
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link href="/search?category=Sale" className="inline-flex h-9 items-center px-3 text-sm font-sans font-semibold text-promo hover:bg-muted transition-colors cursor-pointer">
-                    Sale
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
+              {sale && (
+                <NavigationMenuItem>
+                  <NavigationMenuLink asChild>
+                    <Link href={categoryHref(sale.name)} className="inline-flex h-9 items-center px-3 text-sm font-sans font-semibold text-promo hover:bg-muted transition-colors cursor-pointer">
+                      {sale.name}
+                    </Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              )}
 
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link href="/search?category=Novedades" className="inline-flex h-9 items-center px-3 text-sm font-sans font-semibold text-foreground hover:bg-muted hover:text-primary transition-colors cursor-pointer">
-                    Novedades
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
+              {novedades && (
+                <NavigationMenuItem>
+                  <NavigationMenuLink asChild>
+                    <Link href={categoryHref(novedades.name)} className="inline-flex h-9 items-center px-3 text-sm font-sans font-semibold text-foreground hover:bg-muted hover:text-primary transition-colors cursor-pointer">
+                      {novedades.name}
+                    </Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              )}
 
               <NavigationMenuItem>
                 <NavigationMenuTrigger className="h-9 px-3 rounded-none text-sm font-sans font-semibold text-foreground bg-transparent hover:bg-muted hover:text-primary data-[state=open]:bg-muted data-[state=open]:text-primary [&>svg]:hidden">
@@ -91,9 +113,9 @@ export function Navbar() {
                   <div className="flex gap-10 p-8 w-[44rem]">
                     <div className="flex flex-col gap-2">
                       <span className="text-xs font-sans font-bold uppercase tracking-wider text-muted-foreground mb-1">Categorías</span>
-                      {ROPA_CATEGORIES.map((c) => (
-                        <NavigationMenuLink asChild key={c}>
-                          <Link href={`/search?category=${c}`} className="text-sm font-sans text-foreground hover:text-primary transition-colors cursor-pointer">{c}</Link>
+                      {ropaCategories.map((c) => (
+                        <NavigationMenuLink asChild key={c.slug}>
+                          <Link href={categoryHref(c.name)} className="text-sm font-sans text-foreground hover:text-primary transition-colors cursor-pointer">{c.name}</Link>
                         </NavigationMenuLink>
                       ))}
                     </div>
@@ -106,26 +128,32 @@ export function Navbar() {
                       ))}
                     </div>
                     <div className="flex-1 grid grid-cols-2 gap-3">
-                      <Link href="/search?category=Novedades" className="group relative aspect-[3/4] overflow-hidden bg-muted">
-                        <img src={modelo_01} alt="Novedades" className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" />
-                        <span className="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs font-sans font-bold px-2 py-1">Novedades</span>
-                      </Link>
-                      <Link href="/search?category=Sale" className="group relative aspect-[3/4] overflow-hidden bg-muted">
-                        <img src={modelo_02} alt="Sale" className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105" />
-                        <span className="absolute bottom-2 left-2 bg-promo text-promo-foreground text-xs font-sans font-bold px-2 py-1">Sale</span>
-                      </Link>
+                      {novedades && (
+                        <Link href={categoryHref(novedades.name)} className="group relative aspect-[3/4] overflow-hidden bg-muted">
+                          <img src={modelo_01} alt={novedades.name} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" />
+                          <span className="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs font-sans font-bold px-2 py-1">{novedades.name}</span>
+                        </Link>
+                      )}
+                      {sale && (
+                        <Link href={categoryHref(sale.name)} className="group relative aspect-[3/4] overflow-hidden bg-muted">
+                          <img src={modelo_02} alt={sale.name} className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105" />
+                          <span className="absolute bottom-2 left-2 bg-promo text-promo-foreground text-xs font-sans font-bold px-2 py-1">{sale.name}</span>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </NavigationMenuContent>
               </NavigationMenuItem>
 
-              <NavigationMenuItem>
-                <NavigationMenuLink asChild>
-                  <Link href="/search?category=Accesorios" className="inline-flex h-9 items-center px-3 text-sm font-sans font-semibold text-foreground hover:bg-muted hover:text-primary transition-colors cursor-pointer">
-                    Accesorios
-                  </Link>
-                </NavigationMenuLink>
-              </NavigationMenuItem>
+              {accesorios && (
+                <NavigationMenuItem>
+                  <NavigationMenuLink asChild>
+                    <Link href={categoryHref(accesorios.name)} className="inline-flex h-9 items-center px-3 text-sm font-sans font-semibold text-foreground hover:bg-muted hover:text-primary transition-colors cursor-pointer">
+                      {accesorios.name}
+                    </Link>
+                  </NavigationMenuLink>
+                </NavigationMenuItem>
+              )}
             </NavigationMenuList>
           </NavigationMenu>
         </div>
@@ -160,10 +188,16 @@ export function Navbar() {
       {/* Mobile dropdown */}
       {isOpen && (
         <div className="md:hidden border-t border-border bg-background py-4 px-6 shadow-md absolute w-full font-sans font-semibold text-lg flex flex-col gap-4">
-          <Link href="/search?category=Sale" onClick={() => setIsOpen(false)} className="text-promo cursor-pointer">Sale</Link>
-          <Link href="/search?category=Novedades" onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">Novedades</Link>
+          {sale && (
+            <Link href={categoryHref(sale.name)} onClick={() => setIsOpen(false)} className="text-promo cursor-pointer">{sale.name}</Link>
+          )}
+          {novedades && (
+            <Link href={categoryHref(novedades.name)} onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">{novedades.name}</Link>
+          )}
           <Link href="/search" onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">Ropa</Link>
-          <Link href="/search?category=Accesorios" onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">Accesorios</Link>
+          {accesorios && (
+            <Link href={categoryHref(accesorios.name)} onClick={() => setIsOpen(false)} className="text-foreground cursor-pointer">{accesorios.name}</Link>
+          )}
           <div className="flex flex-wrap gap-2 pt-1">
             {occasions.map((o) => (
               <Link key={o.slug} href={`/search?occasion=${o.name}`} onClick={() => setIsOpen(false)} className="text-sm font-bold border border-border px-3 py-1.5 text-foreground cursor-pointer">{o.name}</Link>
