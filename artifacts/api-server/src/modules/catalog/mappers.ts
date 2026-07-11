@@ -12,11 +12,11 @@ import type {
 import type { ProductRelations, AdminProductRelations } from "./queries";
 
 export function toCategoryDto(c: DbCategory): CategoryDto {
-  return { id: c.id, slug: c.slug, name: c.name, sortOrder: c.sortOrder };
+  return { id: c.id, slug: c.slug, name: c.name, sortOrder: c.sortOrder, active: c.active };
 }
 
 export function toOccasionDto(o: DbOccasion): OccasionDto {
-  return { id: o.id, slug: o.slug, name: o.name, sortOrder: o.sortOrder };
+  return { id: o.id, slug: o.slug, name: o.name, sortOrder: o.sortOrder, active: o.active };
 }
 
 export function toProductDto(row: DbProduct, rel: ProductRelations): ProductDto {

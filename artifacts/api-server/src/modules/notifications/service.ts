@@ -80,6 +80,29 @@ export async function notifyOrderStatusChanged(order: Order): Promise<void> {
   }
 }
 
+// Customer-facing confirmation that their constancia arrived and is being reviewed.
+export async function notifyProofReceived(order: Order): Promise<void> {
+  try {
+    const to = await getProfileEmail(order.userId);
+    if (!to) return;
+    const ref = referenceCode(order.orderNumber);
+    const items = await getOrderItems(order.id);
+    await sendEmail({
+      to,
+      subject: `Recibimos tu constancia — pedido ${ref}`,
+      html: orderEmailHtml({
+        heading: "Recibimos tu constancia de pago",
+        message:
+          "Tu pago está en verificación. Te confirmaremos por este medio apenas nuestro equipo lo revise — normalmente toma unas horas.",
+        order,
+        items,
+      }),
+    });
+  } catch (err) {
+    logger.warn({ err, orderId: order.id }, "notifyProofReceived failed");
+  }
+}
+
 export async function notifyAdminNewProof(order: Order): Promise<void> {
   try {
     const to = adminNotificationEmail();

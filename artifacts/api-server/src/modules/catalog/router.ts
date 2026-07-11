@@ -3,6 +3,7 @@ import {
   ListCategoriesResponse,
   ListCategoriesQueryParams,
   ListOccasionsResponse,
+  ListOccasionsQueryParams,
   ListProductsResponse,
   ListProductsQueryParams,
   GetProductResponse,
@@ -19,7 +20,11 @@ router.get("/categories", async (req, res) => {
     res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
     return;
   }
-  res.json(ListCategoriesResponse.parse(await service.getCategories(query.data.includeEmpty)));
+  res.json(
+    ListCategoriesResponse.parse(
+      await service.getCategories(query.data.includeEmpty, query.data.includeInactive),
+    ),
+  );
 });
 
 // "Avísame cuando haya stock": guests subscribe with an explicit email; authenticated
@@ -47,8 +52,13 @@ router.post("/stock-alerts", optionalAuth, async (req, res) => {
   res.status(201).send();
 });
 
-router.get("/occasions", async (_req, res) => {
-  res.json(ListOccasionsResponse.parse(await service.getOccasions()));
+router.get("/occasions", async (req, res) => {
+  const query = ListOccasionsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
+    return;
+  }
+  res.json(ListOccasionsResponse.parse(await service.getOccasions(query.data.includeInactive)));
 });
 
 router.get("/products", async (req, res) => {

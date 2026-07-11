@@ -2,16 +2,30 @@ import Papa from "papaparse";
 import type {
   AdminProduct as AdminProductDto,
   AdminProductList as AdminProductListDto,
+  Category as CategoryDto,
+  Occasion as OccasionDto,
   CreateProductInput,
   UpdateProductInput,
   CreateVariantInput,
   UpdateVariantInput,
+  CreateCategoryInput,
+  UpdateCategoryInput,
+  CreateOccasionInput,
+  UpdateOccasionInput,
   AttachProductMediaInput,
   ProductImportResult as ProductImportResultDto,
 } from "@workspace/api-zod";
 import {
   selectCategories,
   selectOccasions,
+  insertCategory,
+  updateCategoryRow,
+  categoryHasProducts,
+  deleteCategoryRow,
+  insertOccasion,
+  updateOccasionRow,
+  occasionHasProducts,
+  deleteOccasionRow,
   selectProducts,
   selectProductBySlug,
   loadRelations,
@@ -39,12 +53,12 @@ import * as notifications from "../notifications/service";
 import { deletePublicMediaObjects } from "../../lib/storage";
 import { logger } from "../../lib/logger";
 
-export async function getCategories(includeEmpty = false) {
-  return (await selectCategories(includeEmpty)).map(toCategoryDto);
+export async function getCategories(includeEmpty = false, includeInactive = false) {
+  return (await selectCategories(includeEmpty, includeInactive)).map(toCategoryDto);
 }
 
-export async function getOccasions() {
-  return (await selectOccasions()).map(toOccasionDto);
+export async function getOccasions(includeInactive = false) {
+  return (await selectOccasions(includeInactive)).map(toOccasionDto);
 }
 
 export async function getProducts(filters: ProductFilters) {
@@ -247,6 +261,134 @@ export async function subscribeStockAlert(
     return { ok: false, status: 409, code: "IN_STOCK", message: "Variant currently has stock" };
   }
   await insertStockAlert(variantId, email, userId);
+  return { ok: true };
+}
+
+// --- Category / occasion management (round 4) ---
+
+export type CategoryResult =
+  | { ok: true; status: number; category: CategoryDto }
+  | { ok: false; status: number; code: string; message: string };
+
+export type OccasionResult =
+  | { ok: true; status: number; occasion: OccasionDto }
+  | { ok: false; status: number; code: string; message: string };
+
+export type DeleteTermResult =
+  | { ok: true }
+  | { ok: false; status: number; code: string; message: string };
+
+export async function createCategory(input: CreateCategoryInput): Promise<CategoryResult> {
+  try {
+    const row = await insertCategory({
+      name: input.name,
+      slug: input.slug ?? slugify(input.name),
+      active: input.active ?? true,
+      sortOrder: input.sortOrder ?? 0,
+    });
+    return { ok: true, status: 201, category: toCategoryDto(row) };
+  } catch (e) {
+    if (pgErrorCode(e) === "23505") {
+      return { ok: false, status: 409, code: "DUPLICATE", message: "Category slug already exists" };
+    }
+    throw e;
+  }
+}
+
+export async function updateCategory(
+  id: string,
+  input: UpdateCategoryInput,
+): Promise<CategoryResult> {
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) patch["name"] = input.name;
+  if (input.slug !== undefined) patch["slug"] = input.slug;
+  if (input.active !== undefined) patch["active"] = input.active;
+  if (input.sortOrder !== undefined) patch["sortOrder"] = input.sortOrder;
+
+  try {
+    const row =
+      Object.keys(patch).length === 0
+        ? (await selectCategories(true, true)).find((c) => c.id === id)
+        : await updateCategoryRow(id, patch);
+    if (!row) return { ok: false, status: 404, code: "NOT_FOUND", message: "Category not found" };
+    return { ok: true, status: 200, category: toCategoryDto(row) };
+  } catch (e) {
+    if (pgErrorCode(e) === "23505") {
+      return { ok: false, status: 409, code: "DUPLICATE", message: "Category slug already exists" };
+    }
+    throw e;
+  }
+}
+
+// Categories with products keep their row (products.category_id is NOT NULL); offer
+// deactivation instead — same policy as sold products.
+export async function deleteCategory(id: string): Promise<DeleteTermResult> {
+  if (await categoryHasProducts(id)) {
+    return {
+      ok: false,
+      status: 409,
+      code: "REFERENCED",
+      message: "Category has products; deactivate it instead of deleting",
+    };
+  }
+  const deleted = await deleteCategoryRow(id);
+  if (!deleted) return { ok: false, status: 404, code: "NOT_FOUND", message: "Category not found" };
+  return { ok: true };
+}
+
+export async function createOccasion(input: CreateOccasionInput): Promise<OccasionResult> {
+  try {
+    const row = await insertOccasion({
+      name: input.name,
+      slug: input.slug ?? slugify(input.name),
+      active: input.active ?? true,
+      sortOrder: input.sortOrder ?? 0,
+    });
+    return { ok: true, status: 201, occasion: toOccasionDto(row) };
+  } catch (e) {
+    if (pgErrorCode(e) === "23505") {
+      return { ok: false, status: 409, code: "DUPLICATE", message: "Occasion slug already exists" };
+    }
+    throw e;
+  }
+}
+
+export async function updateOccasion(
+  id: string,
+  input: UpdateOccasionInput,
+): Promise<OccasionResult> {
+  const patch: Record<string, unknown> = {};
+  if (input.name !== undefined) patch["name"] = input.name;
+  if (input.slug !== undefined) patch["slug"] = input.slug;
+  if (input.active !== undefined) patch["active"] = input.active;
+  if (input.sortOrder !== undefined) patch["sortOrder"] = input.sortOrder;
+
+  try {
+    const row =
+      Object.keys(patch).length === 0
+        ? (await selectOccasions(true)).find((o) => o.id === id)
+        : await updateOccasionRow(id, patch);
+    if (!row) return { ok: false, status: 404, code: "NOT_FOUND", message: "Occasion not found" };
+    return { ok: true, status: 200, occasion: toOccasionDto(row) };
+  } catch (e) {
+    if (pgErrorCode(e) === "23505") {
+      return { ok: false, status: 409, code: "DUPLICATE", message: "Occasion slug already exists" };
+    }
+    throw e;
+  }
+}
+
+export async function deleteOccasion(id: string): Promise<DeleteTermResult> {
+  if (await occasionHasProducts(id)) {
+    return {
+      ok: false,
+      status: 409,
+      code: "REFERENCED",
+      message: "Occasion is assigned to products; deactivate it instead of deleting",
+    };
+  }
+  const deleted = await deleteOccasionRow(id);
+  if (!deleted) return { ok: false, status: 404, code: "NOT_FOUND", message: "Occasion not found" };
   return { ok: true };
 }
 

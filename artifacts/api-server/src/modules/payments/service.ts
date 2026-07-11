@@ -54,8 +54,10 @@ export async function attachProof(
   }
 
   const updated = await attachProofAndVerify(orderId, path, amountReported);
-  // Best-effort: alert the backoffice that a constancia is awaiting verification.
+  // Best-effort: alert the backoffice that a constancia is awaiting verification,
+  // and confirm to the customer that it arrived.
   void notifications.notifyAdminNewProof(updated);
+  void notifications.notifyProofReceived(updated);
   return { ok: true, order: await buildOrderDto(updated) };
 }
 

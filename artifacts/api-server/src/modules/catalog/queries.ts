@@ -32,8 +32,10 @@ export type ProductFilters = {
 
 // Public default hides categories without active products (an orphan tile in the store's
 // search/pills is worse than a missing one); the admin passes includeEmpty to see all.
-export function selectCategories(includeEmpty: boolean): Promise<Category[]> {
-  const conds = [eq(categories.active, true)];
+// includeInactive lets the admin list (and reactivate) deactivated categories.
+export function selectCategories(includeEmpty: boolean, includeInactive = false): Promise<Category[]> {
+  const conds = [];
+  if (!includeInactive) conds.push(eq(categories.active, true));
   if (!includeEmpty) {
     conds.push(
       exists(
@@ -51,12 +53,78 @@ export function selectCategories(includeEmpty: boolean): Promise<Category[]> {
     .orderBy(asc(categories.sortOrder), asc(categories.name));
 }
 
-export function selectOccasions(): Promise<Occasion[]> {
+export function selectOccasions(includeInactive = false): Promise<Occasion[]> {
   return db
     .select()
     .from(occasions)
-    .where(eq(occasions.active, true))
+    .where(includeInactive ? undefined : eq(occasions.active, true))
     .orderBy(asc(occasions.sortOrder), asc(occasions.name));
+}
+
+// --- Category / occasion CRUD (round 4) ---
+
+export async function insertCategory(values: {
+  name: string;
+  slug: string;
+  active: boolean;
+  sortOrder: number;
+}): Promise<Category> {
+  const rows = await db.insert(categories).values(values).returning();
+  return rows[0]!;
+}
+
+export async function updateCategoryRow(
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<Category | undefined> {
+  const rows = await db.update(categories).set(patch).where(eq(categories.id, id)).returning();
+  return rows[0];
+}
+
+export async function categoryHasProducts(id: string): Promise<boolean> {
+  const rows = await db
+    .select({ one: sql`1` })
+    .from(products)
+    .where(eq(products.categoryId, id))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function deleteCategoryRow(id: string): Promise<boolean> {
+  const rows = await db.delete(categories).where(eq(categories.id, id)).returning({ id: categories.id });
+  return rows.length > 0;
+}
+
+export async function insertOccasion(values: {
+  name: string;
+  slug: string;
+  active: boolean;
+  sortOrder: number;
+}): Promise<Occasion> {
+  const rows = await db.insert(occasions).values(values).returning();
+  return rows[0]!;
+}
+
+export async function updateOccasionRow(
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<Occasion | undefined> {
+  const rows = await db.update(occasions).set(patch).where(eq(occasions.id, id)).returning();
+  return rows[0];
+}
+
+export async function occasionHasProducts(id: string): Promise<boolean> {
+  const rows = await db
+    .select({ one: sql`1` })
+    .from(productOccasions)
+    .where(eq(productOccasions.occasionId, id))
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function deleteOccasionRow(id: string): Promise<boolean> {
+  const rows = await db.delete(occasions).where(eq(occasions.id, id)).returning({ id: occasions.id });
+  return rows.length > 0;
 }
 
 // Resolve filter slugs to ids first (arrays only) so the main WHERE stays simple.

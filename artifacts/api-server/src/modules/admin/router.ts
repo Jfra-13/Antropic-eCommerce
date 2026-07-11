@@ -27,6 +27,18 @@ import {
   UpdateVariantResponse,
   ImportProductsBody,
   ImportProductsResponse,
+  CreateCategoryBody,
+  CreateCategoryResponse,
+  UpdateCategoryParams,
+  UpdateCategoryBody,
+  UpdateCategoryResponse,
+  DeleteCategoryParams,
+  CreateOccasionBody,
+  CreateOccasionResponse,
+  UpdateOccasionParams,
+  UpdateOccasionBody,
+  UpdateOccasionResponse,
+  DeleteOccasionParams,
   AttachProductMediaParams,
   AttachProductMediaBody,
   AttachProductMediaResponse,
@@ -280,6 +292,95 @@ router.patch("/admin/variants/:id", async (req, res) => {
     return;
   }
   res.json(UpdateVariantResponse.parse(result.product));
+});
+
+// --- Categorías y ocasiones (ronda 4) — mismo gating que productos:
+// crear/editar empleado+admin, borrado físico solo admin. ---
+
+router.post("/admin/categories", async (req, res) => {
+  const body = CreateCategoryBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: body.error.message });
+    return;
+  }
+  const result = await catalog.createCategory(body.data);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(result.status).json(CreateCategoryResponse.parse(result.category));
+});
+
+router.patch("/admin/categories/:id", async (req, res) => {
+  const params = UpdateCategoryParams.safeParse(req.params);
+  const body = UpdateCategoryBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: "Invalid category id or body" });
+    return;
+  }
+  const result = await catalog.updateCategory(params.data.id, body.data);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.json(UpdateCategoryResponse.parse(result.category));
+});
+
+router.delete("/admin/categories/:id", requireRole("admin"), async (req, res) => {
+  const params = DeleteCategoryParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAM", message: "Invalid category id" });
+    return;
+  }
+  const result = await catalog.deleteCategory(params.data.id);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(204).send();
+});
+
+router.post("/admin/occasions", async (req, res) => {
+  const body = CreateOccasionBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: body.error.message });
+    return;
+  }
+  const result = await catalog.createOccasion(body.data);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(result.status).json(CreateOccasionResponse.parse(result.occasion));
+});
+
+router.patch("/admin/occasions/:id", async (req, res) => {
+  const params = UpdateOccasionParams.safeParse(req.params);
+  const body = UpdateOccasionBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: "Invalid occasion id or body" });
+    return;
+  }
+  const result = await catalog.updateOccasion(params.data.id, body.data);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.json(UpdateOccasionResponse.parse(result.occasion));
+});
+
+router.delete("/admin/occasions/:id", requireRole("admin"), async (req, res) => {
+  const params = DeleteOccasionParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAM", message: "Invalid occasion id" });
+    return;
+  }
+  const result = await catalog.deleteOccasion(params.data.id);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(204).send();
 });
 
 // --- Cupones (requerimientos §6.6) — solo Admin. El gate global permite empleado+admin;
