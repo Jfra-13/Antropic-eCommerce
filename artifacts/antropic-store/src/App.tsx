@@ -17,6 +17,9 @@ import Checkout from "./pages/Checkout";
 import OrderDetail from "./pages/OrderDetail";
 import Login from "./pages/Login";
 import Profile from "./pages/Profile";
+import Faq from "./pages/Faq";
+import Returns from "./pages/Returns";
+import PickupPoints from "./pages/PickupPoints";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,9 @@ function Router() {
           <Route path="/orders/:id" component={OrderDetail} />
           <Route path="/login" component={Login} />
           <Route path="/profile" component={Profile} />
+          <Route path="/faq" component={Faq} />
+          <Route path="/devoluciones" component={Returns} />
+          <Route path="/recojo" component={PickupPoints} />
           <Route component={NotFound} />
         </Switch>
       </main>

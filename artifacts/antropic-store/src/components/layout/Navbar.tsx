@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useStore } from "../../context/StoreContext";
 import { useCategories, useOccasions } from "../../lib/catalog";
+import { useStoreConfig } from "../../lib/config";
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -27,6 +28,11 @@ export function Navbar() {
   const { cart, favorites } = useStore();
   const { occasions } = useOccasions();
   const { categories, isLoading: categoriesLoading } = useCategories();
+  const { config, isLoading: configLoading } = useStoreConfig();
+
+  // Admin-managed announcement strip: null hides it. While the config loads, an empty
+  // strip holds the height so the page doesn't jump when the text arrives.
+  const announcementText = config?.announcementText ?? null;
 
   // While the catalog loads, keep the default nav structure to avoid a flash
   // of an empty menu; once loaded, the DB decides what shows.
@@ -44,12 +50,14 @@ export function Navbar() {
 
   return (
     <div className="sticky top-0 z-50 bg-background border-b border-border">
-      {/* Promo banner — brand color is its role here (promotional). */}
-      <div className="bg-primary text-primary-foreground text-xs font-sans text-center py-2 px-4 whitespace-nowrap overflow-hidden">
-        <div className="animate-marquee md:animate-none inline-block">
-          🌸 Envío gratis en compras mayores a S/ 50 — ¡Descubre la nueva colección!
+      {/* Announcement banner — admin-managed; brand color is its role here (promotional). */}
+      {(configLoading || announcementText) && (
+        <div className="bg-primary text-primary-foreground text-xs font-sans text-center py-2 px-4 whitespace-nowrap overflow-hidden">
+          <div className="animate-marquee md:animate-none inline-block">
+            {announcementText ?? " "}
+          </div>
         </div>
-      </div>
+      )}
 
       <nav className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
         {/* Mobile menu toggle */}
