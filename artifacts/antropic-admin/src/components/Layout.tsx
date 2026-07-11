@@ -56,7 +56,7 @@ export default function Layout({
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <div className="flex">
         <aside
-          className={`${pinned ? "w-60" : "w-16"} shrink-0 border-r border-slate-200 bg-white min-h-screen flex flex-col transition-[width] duration-200`}
+          className={`${pinned ? "w-60" : "w-16"} sticky top-0 h-screen shrink-0 border-r border-slate-200 bg-white flex flex-col transition-[width] duration-200`}
         >
           <div className={`relative border-b border-slate-200 py-5 ${pinned ? "px-5" : "px-2 text-center"}`}>
             <div className="font-bold">{pinned ? "ANTROPIC" : "A"}</div>
@@ -72,7 +72,7 @@ export default function Layout({
               />
             </button>
           </div>
-          <nav className="flex-1 py-3">
+          <nav className="flex-1 overflow-y-auto py-3">
             {items.map((item) =>
               item.href ? (
                 <Link
