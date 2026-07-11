@@ -52,6 +52,7 @@ export interface Category {
   slug: string;
   name: string;
   sortOrder: number;
+  active: boolean;
 }
 
 export interface Occasion {
@@ -59,6 +60,41 @@ export interface Occasion {
   slug: string;
   name: string;
   sortOrder: number;
+  active: boolean;
+}
+
+export interface CreateCategoryInput {
+  /** @minLength 1 */
+  name: string;
+  /** URL-safe slug; generated from name when omitted */
+  slug?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateCategoryInput {
+  /** @minLength 1 */
+  name?: string;
+  slug?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface CreateOccasionInput {
+  /** @minLength 1 */
+  name: string;
+  /** URL-safe slug; generated from name when omitted */
+  slug?: string;
+  active?: boolean;
+  sortOrder?: number;
+}
+
+export interface UpdateOccasionInput {
+  /** @minLength 1 */
+  name?: string;
+  slug?: string;
+  active?: boolean;
+  sortOrder?: number;
 }
 
 export type ProductImageKind = typeof ProductImageKind[keyof typeof ProductImageKind];
@@ -899,6 +935,30 @@ export interface HeroText {
   subtitle: string | null;
 }
 
+export interface EditorialContent {
+  /** @nullable */
+  tag: string | null;
+  /** @nullable */
+  title: string | null;
+  /**
+     * Storage object path of the editorial image
+     * @nullable
+     */
+  imagePath: string | null;
+}
+
+export interface PublicEditorialContent {
+  /** @nullable */
+  tag: string | null;
+  /** @nullable */
+  title: string | null;
+  /**
+     * Public URL of the editorial image
+     * @nullable
+     */
+  imageUrl: string | null;
+}
+
 export interface AdminConfig {
   /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
   deliveryFee: string;
@@ -921,6 +981,7 @@ export interface AdminConfig {
      * @nullable
      */
   promoText: string | null;
+  editorial: EditorialContent;
 }
 
 export interface PublicConfig {
@@ -941,6 +1002,7 @@ export interface PublicConfig {
   hero: HeroText;
   /** @nullable */
   promoText: string | null;
+  editorial: PublicEditorialContent;
 }
 
 export interface UpdateConfigInput {
@@ -955,6 +1017,7 @@ export interface UpdateConfigInput {
   hero?: HeroText;
   /** @nullable */
   promoText?: string | null;
+  editorial?: EditorialContent;
 }
 
 export interface TopProduct {
@@ -1058,6 +1121,17 @@ export type ListCategoriesParams = {
  * When true, include categories without active products (admin views)
  */
 includeEmpty?: boolean;
+/**
+ * When true, include inactive categories (admin views)
+ */
+includeInactive?: boolean;
+};
+
+export type ListOccasionsParams = {
+/**
+ * When true, include inactive occasions (admin views)
+ */
+includeInactive?: boolean;
 };
 
 export type ListProductsParams = {

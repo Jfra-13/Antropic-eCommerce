@@ -11,4 +11,5 @@ export interface Category {
   slug: string;
   name: string;
   sortOrder: number;
+  active: boolean;
 }

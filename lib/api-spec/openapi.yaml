@@ -96,6 +96,13 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: includeInactive
+          in: query
+          required: false
+          description: When true, include inactive categories (admin views)
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
           description: Categories
@@ -109,7 +116,15 @@ paths:
     get:
       operationId: listOccasions
       tags: [catalog]
-      summary: List active occasions
+      summary: List occasions (active only by default)
+      parameters:
+        - name: includeInactive
+          in: query
+          required: false
+          description: When true, include inactive occasions (admin views)
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
           description: Occasions
@@ -992,6 +1007,180 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /admin/categories:
+    post:
+      operationId: createCategory
+      tags: [admin]
+      summary: Create a category (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryInput"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "409":
+          description: Category slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/categories/{id}:
+    patch:
+      operationId: updateCategory
+      tags: [admin]
+      summary: Update a category (partial); activate/deactivate via active
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryInput"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Category slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteCategory
+      tags: [admin]
+      summary: Delete a category (admin only); blocked when products reference it
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Category has products; deactivate it instead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/occasions:
+    post:
+      operationId: createOccasion
+      tags: [admin]
+      summary: Create an occasion (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOccasionInput"
+      responses:
+        "201":
+          description: Created occasion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Occasion"
+        "409":
+          description: Occasion slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/occasions/{id}:
+    patch:
+      operationId: updateOccasion
+      tags: [admin]
+      summary: Update an occasion (partial); activate/deactivate via active
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOccasionInput"
+      responses:
+        "200":
+          description: Updated occasion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Occasion"
+        "404":
+          description: Occasion not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Occasion slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      operationId: deleteOccasion
+      tags: [admin]
+      summary: Delete an occasion (admin only); blocked when products reference it
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Occasion not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Occasion is assigned to products; deactivate it instead
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /admin/dashboard:
     get:
       operationId: getDashboard
@@ -1637,11 +1826,14 @@ components:
           type: string
         sortOrder:
           type: integer
+        active:
+          type: boolean
       required:
         - id
         - slug
         - name
         - sortOrder
+        - active
     Occasion:
       type: object
       properties:
@@ -1654,11 +1846,72 @@ components:
           type: string
         sortOrder:
           type: integer
+        active:
+          type: boolean
       required:
         - id
         - slug
         - name
         - sortOrder
+        - active
+    CreateCategoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          description: URL-safe slug; generated from name when omitted
+        active:
+          type: boolean
+          default: true
+        sortOrder:
+          type: integer
+          default: 0
+      required:
+        - name
+    UpdateCategoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
+    CreateOccasionInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          description: URL-safe slug; generated from name when omitted
+        active:
+          type: boolean
+          default: true
+        sortOrder:
+          type: integer
+          default: 0
+      required:
+        - name
+    UpdateOccasionInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+        active:
+          type: boolean
+        sortOrder:
+          type: integer
     ProductImage:
       type: object
       properties:
@@ -2909,6 +3162,34 @@ components:
       required:
         - title
         - subtitle
+    EditorialContent:
+      type: object
+      properties:
+        tag:
+          type: [string, "null"]
+        title:
+          type: [string, "null"]
+        imagePath:
+          type: [string, "null"]
+          description: Storage object path of the editorial image
+      required:
+        - tag
+        - title
+        - imagePath
+    PublicEditorialContent:
+      type: object
+      properties:
+        tag:
+          type: [string, "null"]
+        title:
+          type: [string, "null"]
+        imageUrl:
+          type: [string, "null"]
+          description: Public URL of the editorial image
+      required:
+        - tag
+        - title
+        - imageUrl
     AdminConfig:
       type: object
       properties:
@@ -2932,6 +3213,8 @@ components:
         promoText:
           type: [string, "null"]
           description: Promo strip text shown under the hero; null hides nothing (store falls back)
+        editorial:
+          $ref: "#/components/schemas/EditorialContent"
       required:
         - deliveryFee
         - freeShippingThreshold
@@ -2940,6 +3223,7 @@ components:
         - banners
         - hero
         - promoText
+        - editorial
     PublicConfig:
       type: object
       properties:
@@ -2961,6 +3245,8 @@ components:
           $ref: "#/components/schemas/HeroText"
         promoText:
           type: [string, "null"]
+        editorial:
+          $ref: "#/components/schemas/PublicEditorialContent"
       required:
         - deliveryFee
         - freeShippingThreshold
@@ -2969,6 +3255,7 @@ components:
         - banners
         - hero
         - promoText
+        - editorial
     UpdateConfigInput:
       type: object
       properties:
@@ -2988,6 +3275,8 @@ components:
           $ref: "#/components/schemas/HeroText"
         promoText:
           type: [string, "null"]
+        editorial:
+          $ref: "#/components/schemas/EditorialContent"
     TopProduct:
       type: object
       properties:

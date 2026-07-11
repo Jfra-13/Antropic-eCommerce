@@ -61,28 +61,38 @@ export const UpdateMeResponse = zod.object({
  * @summary List categories (by default only those with at least one active product)
  */
 export const listCategoriesQueryIncludeEmptyDefault = false;
+export const listCategoriesQueryIncludeInactiveDefault = false;
 
 export const ListCategoriesQueryParams = zod.object({
-  "includeEmpty": zod.coerce.boolean().default(listCategoriesQueryIncludeEmptyDefault).describe('When true, include categories without active products (admin views)')
+  "includeEmpty": zod.coerce.boolean().default(listCategoriesQueryIncludeEmptyDefault).describe('When true, include categories without active products (admin views)'),
+  "includeInactive": zod.coerce.boolean().default(listCategoriesQueryIncludeInactiveDefault).describe('When true, include inactive categories (admin views)')
 })
 
 export const ListCategoriesResponseItem = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })
 export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 
 
 /**
- * @summary List active occasions
+ * @summary List occasions (active only by default)
  */
+export const listOccasionsQueryIncludeInactiveDefault = false;
+
+export const ListOccasionsQueryParams = zod.object({
+  "includeInactive": zod.coerce.boolean().default(listOccasionsQueryIncludeInactiveDefault).describe('When true, include inactive occasions (admin views)')
+})
+
 export const ListOccasionsResponseItem = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })
 export const ListOccasionsResponse = zod.array(ListOccasionsResponseItem)
 
@@ -120,13 +130,15 @@ export const ListProductsResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 }),
   "occasions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "images": zod.array(zod.object({
   "kind": zod.enum(['image', 'video']),
@@ -168,13 +180,15 @@ export const GetProductResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 }),
   "occasions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "images": zod.array(zod.object({
   "kind": zod.enum(['image', 'video']),
@@ -344,13 +358,15 @@ export const GetWishlistResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 }),
   "occasions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "images": zod.array(zod.object({
   "kind": zod.enum(['image', 'video']),
@@ -390,13 +406,15 @@ export const AddWishlistItemResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 }),
   "occasions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "images": zod.array(zod.object({
   "kind": zod.enum(['image', 'video']),
@@ -436,13 +454,15 @@ export const RemoveWishlistItemResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 }),
   "occasions": zod.array(zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "images": zod.array(zod.object({
   "kind": zod.enum(['image', 'video']),
@@ -860,7 +880,8 @@ export const ListAdminProductsResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "stockTotal": zod.number(),
   "variants": zod.array(zod.object({
@@ -934,7 +955,8 @@ export const CreateProductResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "stockTotal": zod.number(),
   "variants": zod.array(zod.object({
@@ -994,7 +1016,8 @@ export const UpdateProductResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "stockTotal": zod.number(),
   "variants": zod.array(zod.object({
@@ -1068,7 +1091,8 @@ export const CreateVariantResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "stockTotal": zod.number(),
   "variants": zod.array(zod.object({
@@ -1121,7 +1145,8 @@ export const AttachProductMediaResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "stockTotal": zod.number(),
   "variants": zod.array(zod.object({
@@ -1215,7 +1240,8 @@ export const UpdateVariantResponse = zod.object({
   "id": zod.string().uuid(),
   "slug": zod.string(),
   "name": zod.string(),
-  "sortOrder": zod.number()
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
 })),
   "stockTotal": zod.number(),
   "variants": zod.array(zod.object({
@@ -1235,6 +1261,124 @@ export const UpdateVariantResponse = zod.object({
   "sortOrder": zod.number()
 }))
 })
+
+
+/**
+ * @summary Create a category (admin only)
+ */
+
+export const createCategoryBodyActiveDefault = true;
+export const createCategoryBodySortOrderDefault = 0;
+
+export const CreateCategoryBody = zod.object({
+  "name": zod.string().min(1),
+  "slug": zod.string().optional().describe('URL-safe slug; generated from name when omitted'),
+  "active": zod.boolean().default(createCategoryBodyActiveDefault),
+  "sortOrder": zod.number().default(createCategoryBodySortOrderDefault)
+})
+
+export const CreateCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Update a category (partial); activate/deactivate via active
+ */
+export const UpdateCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateCategoryBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "slug": zod.string().optional(),
+  "active": zod.boolean().optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateCategoryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Delete a category (admin only); blocked when products reference it
+ */
+export const DeleteCategoryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteCategoryResponse = zod.void()
+
+
+/**
+ * @summary Create an occasion (admin only)
+ */
+
+export const createOccasionBodyActiveDefault = true;
+export const createOccasionBodySortOrderDefault = 0;
+
+export const CreateOccasionBody = zod.object({
+  "name": zod.string().min(1),
+  "slug": zod.string().optional().describe('URL-safe slug; generated from name when omitted'),
+  "active": zod.boolean().default(createOccasionBodyActiveDefault),
+  "sortOrder": zod.number().default(createOccasionBodySortOrderDefault)
+})
+
+export const CreateOccasionResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Update an occasion (partial); activate/deactivate via active
+ */
+export const UpdateOccasionParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+
+
+
+export const UpdateOccasionBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "slug": zod.string().optional(),
+  "active": zod.boolean().optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateOccasionResponse = zod.object({
+  "id": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "sortOrder": zod.number(),
+  "active": zod.boolean()
+})
+
+
+/**
+ * @summary Delete an occasion (admin only); blocked when products reference it
+ */
+export const DeleteOccasionParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteOccasionResponse = zod.void()
 
 
 /**
@@ -1635,7 +1779,12 @@ export const GetPublicConfigResponse = zod.object({
   "title": zod.string().nullable(),
   "subtitle": zod.string().nullable()
 }),
-  "promoText": zod.string().nullable()
+  "promoText": zod.string().nullable(),
+  "editorial": zod.object({
+  "tag": zod.string().nullable(),
+  "title": zod.string().nullable(),
+  "imageUrl": zod.string().nullable().describe('Public URL of the editorial image')
+})
 })
 
 
@@ -1669,7 +1818,12 @@ export const GetAdminConfigResponse = zod.object({
   "title": zod.string().nullable(),
   "subtitle": zod.string().nullable()
 }),
-  "promoText": zod.string().nullable().describe('Promo strip text shown under the hero; null hides nothing (store falls back)')
+  "promoText": zod.string().nullable().describe('Promo strip text shown under the hero; null hides nothing (store falls back)'),
+  "editorial": zod.object({
+  "tag": zod.string().nullable(),
+  "title": zod.string().nullable(),
+  "imagePath": zod.string().nullable().describe('Storage object path of the editorial image')
+})
 })
 
 
@@ -1689,7 +1843,12 @@ export const UpdateAdminConfigBody = zod.object({
   "title": zod.string().nullable(),
   "subtitle": zod.string().nullable()
 }).optional(),
-  "promoText": zod.string().nullish()
+  "promoText": zod.string().nullish(),
+  "editorial": zod.object({
+  "tag": zod.string().nullable(),
+  "title": zod.string().nullable(),
+  "imagePath": zod.string().nullable().describe('Storage object path of the editorial image')
+}).optional()
 })
 
 export const UpdateAdminConfigResponse = zod.object({
@@ -1705,7 +1864,12 @@ export const UpdateAdminConfigResponse = zod.object({
   "title": zod.string().nullable(),
   "subtitle": zod.string().nullable()
 }),
-  "promoText": zod.string().nullable().describe('Promo strip text shown under the hero; null hides nothing (store falls back)')
+  "promoText": zod.string().nullable().describe('Promo strip text shown under the hero; null hides nothing (store falls back)'),
+  "editorial": zod.object({
+  "tag": zod.string().nullable(),
+  "title": zod.string().nullable(),
+  "imagePath": zod.string().nullable().describe('Storage object path of the editorial image')
+})
 })
 
 

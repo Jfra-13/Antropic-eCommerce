@@ -7,6 +7,7 @@
  */
 import type { HeroText } from './heroText';
 import type { PublicBanner } from './publicBanner';
+import type { PublicEditorialContent } from './publicEditorialContent';
 
 export interface PublicConfig {
   deliveryFee: string;
@@ -26,4 +27,5 @@ export interface PublicConfig {
   hero: HeroText;
   /** @nullable */
   promoText: string | null;
+  editorial: PublicEditorialContent;
 }

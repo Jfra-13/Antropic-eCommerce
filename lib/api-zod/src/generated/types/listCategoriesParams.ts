@@ -11,4 +11,8 @@ export type ListCategoriesParams = {
  * When true, include categories without active products (admin views)
  */
 includeEmpty?: boolean;
+/**
+ * When true, include inactive categories (admin views)
+ */
+includeInactive?: boolean;
 };

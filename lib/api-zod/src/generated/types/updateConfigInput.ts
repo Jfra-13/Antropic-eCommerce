@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Banner } from './banner';
+import type { EditorialContent } from './editorialContent';
 import type { HeroText } from './heroText';
 
 export interface UpdateConfigInput {
@@ -20,4 +21,5 @@ export interface UpdateConfigInput {
   hero?: HeroText;
   /** @nullable */
   promoText?: string | null;
+  editorial?: EditorialContent;
 }

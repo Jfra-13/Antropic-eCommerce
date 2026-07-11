@@ -11,4 +11,5 @@ export interface Occasion {
   slug: string;
   name: string;
   sortOrder: number;
+  active: boolean;
 }

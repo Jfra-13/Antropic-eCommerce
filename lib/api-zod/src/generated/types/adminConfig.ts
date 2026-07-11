@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Banner } from './banner';
+import type { EditorialContent } from './editorialContent';
 import type { HeroText } from './heroText';
 
 export interface AdminConfig {
@@ -30,4 +31,5 @@ export interface AdminConfig {
      * @nullable
      */
   promoText: string | null;
+  editorial: EditorialContent;
 }

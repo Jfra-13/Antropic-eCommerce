@@ -41,8 +41,10 @@ import type {
   ConfigMediaUploadUrl,
   Coupon,
   CouponList,
+  CreateCategoryInput,
   CreateCouponInput,
   CreateEmployeeInput,
+  CreateOccasionInput,
   CreateOrderInput,
   CreatePickupPointInput,
   CreateProductInput,
@@ -57,6 +59,7 @@ import type {
   ListCategoriesParams,
   ListCouponsParams,
   ListMyReturnsParams,
+  ListOccasionsParams,
   ListOrdersParams,
   ListPaymentVerificationQueueParams,
   ListProductsParams,
@@ -79,9 +82,11 @@ import type {
   ReturnTicket,
   SalesReport,
   ShipmentList,
+  UpdateCategoryInput,
   UpdateConfigInput,
   UpdateCouponInput,
   UpdateMeInput,
+  UpdateOccasionInput,
   UpdatePickupPointInput,
   UpdateProductInput,
   UpdateReturnStatusInput,
@@ -427,20 +432,27 @@ export function useListCategories<TData = Awaited<ReturnType<typeof listCategori
 
 
 
-export const getListOccasionsUrl = () => {
+export const getListOccasionsUrl = (params?: ListOccasionsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/occasions`
+  return stringifiedParams.length > 0 ? `/api/occasions?${stringifiedParams}` : `/api/occasions`
 }
 
 /**
- * @summary List active occasions
+ * @summary List occasions (active only by default)
  */
-export const listOccasions = async ( options?: RequestInit): Promise<Occasion[]> => {
+export const listOccasions = async (params?: ListOccasionsParams, options?: RequestInit): Promise<Occasion[]> => {
 
-  return customFetch<Occasion[]>(getListOccasionsUrl(),
+  return customFetch<Occasion[]>(getListOccasionsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -453,23 +465,23 @@ export const listOccasions = async ( options?: RequestInit): Promise<Occasion[]>
 
 
 
-export const getListOccasionsQueryKey = () => {
+export const getListOccasionsQueryKey = (params?: ListOccasionsParams,) => {
     return [
-    `/api/occasions`
+    `/api/occasions`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListOccasionsQueryOptions = <TData = Awaited<ReturnType<typeof listOccasions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOccasions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListOccasionsQueryOptions = <TData = Awaited<ReturnType<typeof listOccasions>>, TError = ErrorType<unknown>>(params?: ListOccasionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOccasions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListOccasionsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListOccasionsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOccasions>>> = ({ signal }) => listOccasions({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOccasions>>> = ({ signal }) => listOccasions(params, { signal, ...requestOptions });
 
 
 
@@ -483,15 +495,15 @@ export type ListOccasionsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List active occasions
+ * @summary List occasions (active only by default)
  */
 
 export function useListOccasions<TData = Awaited<ReturnType<typeof listOccasions>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOccasions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListOccasionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOccasions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListOccasionsQueryOptions(options)
+  const queryOptions = getListOccasionsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -2708,6 +2720,428 @@ export const useUpdateVariant = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateVariantMutationOptions(options));
+    }
+
+export const getCreateCategoryUrl = () => {
+
+
+
+
+  return `/api/admin/categories`
+}
+
+/**
+ * @summary Create a category (admin only)
+ */
+export const createCategory = async (createCategoryInput: CreateCategoryInput, options?: RequestInit): Promise<Category> => {
+
+  return customFetch<Category>(getCreateCategoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createCategoryInput)
+  }
+);}
+
+
+
+
+export const getCreateCategoryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<CreateCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<CreateCategoryInput>}, TContext> => {
+
+const mutationKey = ['createCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCategory>>, {data: BodyType<CreateCategoryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCategory(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof createCategory>>>
+    export type CreateCategoryMutationBody = BodyType<CreateCategoryInput>
+    export type CreateCategoryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create a category (admin only)
+ */
+export const useCreateCategory = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCategory>>, TError,{data: BodyType<CreateCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCategory>>,
+        TError,
+        {data: BodyType<CreateCategoryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCategoryMutationOptions(options));
+    }
+
+export const getUpdateCategoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/categories/${id}`
+}
+
+/**
+ * @summary Update a category (partial); activate/deactivate via active
+ */
+export const updateCategory = async (id: string,
+    updateCategoryInput: UpdateCategoryInput, options?: RequestInit): Promise<Category> => {
+
+  return customFetch<Category>(getUpdateCategoryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateCategoryInput)
+  }
+);}
+
+
+
+
+export const getUpdateCategoryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: string;data: BodyType<UpdateCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: string;data: BodyType<UpdateCategoryInput>}, TContext> => {
+
+const mutationKey = ['updateCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCategory>>, {id: string;data: BodyType<UpdateCategoryInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCategory(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof updateCategory>>>
+    export type UpdateCategoryMutationBody = BodyType<UpdateCategoryInput>
+    export type UpdateCategoryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update a category (partial); activate/deactivate via active
+ */
+export const useUpdateCategory = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCategory>>, TError,{id: string;data: BodyType<UpdateCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCategory>>,
+        TError,
+        {id: string;data: BodyType<UpdateCategoryInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCategoryMutationOptions(options));
+    }
+
+export const getDeleteCategoryUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/categories/${id}`
+}
+
+/**
+ * @summary Delete a category (admin only); blocked when products reference it
+ */
+export const deleteCategory = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCategoryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteCategoryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCategory>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCategory>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCategory>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCategory(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCategory>>>
+
+    export type DeleteCategoryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete a category (admin only); blocked when products reference it
+ */
+export const useDeleteCategory = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCategory>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCategory>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteCategoryMutationOptions(options));
+    }
+
+export const getCreateOccasionUrl = () => {
+
+
+
+
+  return `/api/admin/occasions`
+}
+
+/**
+ * @summary Create an occasion (admin only)
+ */
+export const createOccasion = async (createOccasionInput: CreateOccasionInput, options?: RequestInit): Promise<Occasion> => {
+
+  return customFetch<Occasion>(getCreateOccasionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createOccasionInput)
+  }
+);}
+
+
+
+
+export const getCreateOccasionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOccasion>>, TError,{data: BodyType<CreateOccasionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOccasion>>, TError,{data: BodyType<CreateOccasionInput>}, TContext> => {
+
+const mutationKey = ['createOccasion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOccasion>>, {data: BodyType<CreateOccasionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createOccasion(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOccasionMutationResult = NonNullable<Awaited<ReturnType<typeof createOccasion>>>
+    export type CreateOccasionMutationBody = BodyType<CreateOccasionInput>
+    export type CreateOccasionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Create an occasion (admin only)
+ */
+export const useCreateOccasion = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOccasion>>, TError,{data: BodyType<CreateOccasionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOccasion>>,
+        TError,
+        {data: BodyType<CreateOccasionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateOccasionMutationOptions(options));
+    }
+
+export const getUpdateOccasionUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/occasions/${id}`
+}
+
+/**
+ * @summary Update an occasion (partial); activate/deactivate via active
+ */
+export const updateOccasion = async (id: string,
+    updateOccasionInput: UpdateOccasionInput, options?: RequestInit): Promise<Occasion> => {
+
+  return customFetch<Occasion>(getUpdateOccasionUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateOccasionInput)
+  }
+);}
+
+
+
+
+export const getUpdateOccasionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOccasion>>, TError,{id: string;data: BodyType<UpdateOccasionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOccasion>>, TError,{id: string;data: BodyType<UpdateOccasionInput>}, TContext> => {
+
+const mutationKey = ['updateOccasion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOccasion>>, {id: string;data: BodyType<UpdateOccasionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateOccasion(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOccasionMutationResult = NonNullable<Awaited<ReturnType<typeof updateOccasion>>>
+    export type UpdateOccasionMutationBody = BodyType<UpdateOccasionInput>
+    export type UpdateOccasionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Update an occasion (partial); activate/deactivate via active
+ */
+export const useUpdateOccasion = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOccasion>>, TError,{id: string;data: BodyType<UpdateOccasionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOccasion>>,
+        TError,
+        {id: string;data: BodyType<UpdateOccasionInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateOccasionMutationOptions(options));
+    }
+
+export const getDeleteOccasionUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/occasions/${id}`
+}
+
+/**
+ * @summary Delete an occasion (admin only); blocked when products reference it
+ */
+export const deleteOccasion = async (id: string, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteOccasionUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteOccasionMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOccasion>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOccasion>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteOccasion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOccasion>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteOccasion(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOccasionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOccasion>>>
+
+    export type DeleteOccasionMutationError = ErrorType<Error>
+
+    /**
+ * @summary Delete an occasion (admin only); blocked when products reference it
+ */
+export const useDeleteOccasion = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOccasion>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOccasion>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteOccasionMutationOptions(options));
     }
 
 export const getGetDashboardUrl = () => {
