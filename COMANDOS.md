@@ -8,7 +8,7 @@ Referencia operativa del monorepo. Windows 11 (PowerShell o Git Bash).
 
 ---
 
-## 1. Setup inicial
+## 1. Setup inicial (una sola vez)
 
 ### 1.1. `.env` de la raíz (gitignored)
 
@@ -22,7 +22,21 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...           # solo si usás el admin. NUNCA en el
 
 `PORT` y `BASE_PATH` se pasan por línea de comando, no van en `.env`.
 
-### 1.2. Instalar
+### 1.2. `.env` del admin (`artifacts/antropic-admin/.env`)
+
+Lo lee Vite en el navegador:
+
+```
+VITE_SUPABASE_URL=https://<ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...             # anon/public key, NO la service_role
+VITE_API_URL=http://localhost:3000        # puerto del API
+```
+
+> **Por qué dos claves Supabase:** el navegador es público → front usa `anon` key (permisos limitados). El backend usa `service_role` (poderes de admin), que jamás sale del server.
+>
+> Dónde sacarlas — Supabase dashboard → **Project Settings → API**: Project URL (`SUPABASE_URL`), key `anon`/`public` (`VITE_SUPABASE_ANON_KEY`), key `service_role` (`SUPABASE_SERVICE_ROLE_KEY`), Settings → Database → Connection string URI (`DATABASE_URL`).
+
+### 1.3. Instalar
 
 ```bash
 pnpm install
@@ -30,9 +44,29 @@ pnpm install
 
 Lockfile congelado en CI/post-merge. Guard de supply-chain: `minimumReleaseAge: 1440` (1 día), no bajarlo sin razón fuerte.
 
+### 1.4. Primer admin
+
+Auth por Supabase (magic link / Google OAuth); el rol sale de `profiles.role` (default `customer`). No hay usuario/contraseña. Solo un admin promueve a otros, pero al inicio no existe ninguno → el primero se setea a mano.
+
+1. Levantá API + admin (sección 4) y abrí `http://localhost:5174`.
+2. Login con **magic link**: meté tu correo → "enviar link" → revisá la casilla (mirá spam) → clic. Esto crea tu `auth user` + `profile` con `role='customer'`.
+3. Promoveté — Supabase dashboard → **SQL Editor → New query**:
+
+   ```sql
+   UPDATE profiles SET role = 'admin' WHERE email = 'TU_CORREO';
+   ```
+
+4. Refrescá `http://localhost:5174` → entrás como admin.
+
+De acá en más, los demás empleados se crean desde la UI de **Usuarios** del panel.
+
+> Google OAuth falla con `provider is not enabled` si no lo activaste (Authentication → Providers → Google). No hace falta para el primer admin. El email default de Supabase tiene rate limit bajo (~3-4/hora).
+
 ---
 
 ## 2. Base de datos (Drizzle + Supabase)
+
+Solo la primera vez o cuando cambie el schema/catálogo.
 
 ```bash
 # Aplicar schema (dev). Push-based, sin migraciones versionadas.
@@ -62,13 +96,17 @@ pnpm --filter @workspace/api-spec run codegen
 
 ---
 
-## 4. Desarrollo — levantar la app
+## 4. Levantar la app (día a día)
 
-Necesitás **dos terminales**: API + front (storefront o admin).
+**4 comandos, una terminal por app, dejalas abiertas.** El API son 2 comandos (build + start); storefront y admin, 1 cada uno.
 
-> El script `dev` del API usa `export` (sintaxis bash) y rompe en PowerShell. Por eso corremos `build` + `start`, que hace lo mismo.
+### Regla de oro — el orden NO se puede cruzar
 
-### 4.1. API (`api-server`)
+**El API (back) va SIEMPRE primero. El front y el admin le pegan por HTTP.** Arrancá el front antes de que el back diga `Server listening` y vas a ver pantallas vacías.
+
+> El script `dev` del API usa `export` (sintaxis bash) y rompe en PowerShell. Por eso corremos `build` + `start`, que hace lo mismo. `start` corre lo que haya en `dist/` — **si tocaste código del API, el `build` es obligatorio antes del `start`**, si no servís código viejo.
+
+### Terminal A — API (primero, siempre)
 
 **PowerShell:**
 
@@ -85,9 +123,11 @@ pnpm --filter @workspace/api-server run build
 PORT=3000 pnpm --filter @workspace/api-server run start
 ```
 
-Esperá `Server listening ... port:3000`. `start` lee el `.env` de la raíz para `DATABASE_URL` + `SUPABASE_*`.
+`start` lee el `.env` de la raíz para `DATABASE_URL` + `SUPABASE_*`. **Esperá `Server listening ... port:3000` antes de seguir.**
 
-### 4.2. Storefront (`antropic-store`) — puerto 5173
+Chequeo rápido (otra terminal): `curl http://localhost:3000/api/healthz` → `{"status":"ok"}`.
+
+### Terminal B — Storefront (`http://localhost:5173`)
 
 **PowerShell:**
 
@@ -103,18 +143,12 @@ MSYS_NO_PATHCONV=1 PORT=5173 BASE_PATH=/ VITE_API_URL=http://localhost:3000 \
   pnpm --filter @workspace/antropic-store run dev
 ```
 
-- **`VITE_API_URL` es obligatorio en dev.** Sin eso el front pega a su propio puerto → productos vacíos + error de fetch en consola. El puerto debe coincidir con el del API.
+- **`VITE_API_URL` es obligatorio en dev.** Sin eso el front pega a su propio puerto → productos vacíos + error de fetch en consola.
 - Sin `MSYS_NO_PATHCONV=1`, Git Bash convierte `/` en la ruta de instalación de Git y Vite sirve en base incorrecta.
 
-### 4.3. Admin (`antropic-admin`) — puerto 5174
+### Terminal C — Admin (`http://localhost:5174`)
 
-Necesita su propio `.env` en `artifacts/antropic-admin/.env` (lo lee Vite en el navegador):
-
-```
-VITE_SUPABASE_URL=https://<ref>.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJ...             # anon/public key, NO la service_role
-VITE_API_URL=http://localhost:3000
-```
+Requiere el `.env` de la sección 1.2.
 
 **PowerShell:**
 
@@ -123,36 +157,27 @@ $env:PORT=5174; $env:BASE_PATH="/"
 pnpm --filter @workspace/antropic-admin run dev
 ```
 
+**Git Bash:**
+
+```bash
+MSYS_NO_PATHCONV=1 PORT=5174 BASE_PATH=/ pnpm --filter @workspace/antropic-admin run dev
+```
+
 - `PORT` y `BASE_PATH` los exige el `vite.config.ts`. Para dev local, `BASE_PATH="/"`.
-- El `.env` del front lo carga Vite **al arrancar** — si lo editás, reiniciá el server.
+- Su `VITE_API_URL` sale de `artifacts/antropic-admin/.env` y tiene que apuntar al puerto de la Terminal A.
 
-> **Por qué dos claves Supabase:** el navegador es público → front usa `anon` key (permisos limitados). El backend usa `service_role` (poderes de admin), que jamás sale del server.
->
-> Dónde sacarlas — Supabase dashboard → **Project Settings → API**: Project URL (`SUPABASE_URL`), key `anon`/`public` (`VITE_SUPABASE_ANON_KEY`), key `service_role` (`SUPABASE_SERVICE_ROLE_KEY`), Settings → Database → Connection string URI (`DATABASE_URL`).
+### Síntomas frecuentes
 
----
-
-## 5. Primer admin (una sola vez)
-
-Auth por Supabase (magic link / Google OAuth); el rol sale de `profiles.role` (default `customer`). No hay usuario/contraseña. Solo un admin promueve a otros, pero al inicio no existe ninguno → el primero se setea a mano.
-
-1. Abrí `http://localhost:5174`.
-2. Login con **magic link**: meté tu correo → "enviar link" → revisá la casilla (mirá spam) → clic. Esto crea tu `auth user` + `profile` con `role='customer'`.
-3. Promoveté — Supabase dashboard → **SQL Editor → New query**:
-
-   ```sql
-   UPDATE profiles SET role = 'admin' WHERE email = 'TU_CORREO';
-   ```
-
-4. Refrescá `http://localhost:5174` → entrás como admin.
-
-De acá en más, los demás empleados se crean desde la UI de **Usuarios** del panel.
-
-> Google OAuth falla con `provider is not enabled` si no lo activaste (Authentication → Providers → Google). No hace falta para el primer admin. El email default de Supabase tiene rate limit bajo (~3-4/hora).
+| Síntoma | Causa | Arreglo |
+|---|---|---|
+| Storefront en blanco / productos vacíos | API no está arriba, o `VITE_API_URL` no apunta al puerto del API | Arrancá el API primero. Verificá que `VITE_API_URL` = puerto del API |
+| Admin: "no se conecta al servidor" | Igual: API caído o `VITE_API_URL` mal en `artifacts/antropic-admin/.env` | Arrancá el API. Revisá el `.env` del admin y reiniciá su server |
+| Cambié código del API y no toma | `start` sirve el `dist/` viejo | Ctrl+C, `build` de nuevo, `start` |
+| Cambié un `.env` y no toma | Vite lee el `.env` al arrancar | Reiniciá el server de esa app |
 
 ---
 
-## 6. Verificación / smoke test
+## 5. Verificación / smoke test
 
 ```bash
 # API vivo
@@ -168,7 +193,7 @@ En el navegador: DevTools → Network → filtro `api`. Al cargar Home deben ver
 
 ---
 
-## 7. Calidad (gates)
+## 6. Calidad (gates)
 
 No hay test runner todavía. Los únicos gates son typecheck y build.
 
@@ -187,7 +212,9 @@ MSYS_NO_PATHCONV=1 PORT=5173 BASE_PATH=/ \
 
 ---
 
-## 8. Cheat sheet
+## 7. Cheat sheet
+
+Arranque diario → **sección 4** (no se repite acá para no desincronizarse).
 
 | Necesito… | Comando |
 |---|---|
@@ -195,65 +222,6 @@ MSYS_NO_PATHCONV=1 PORT=5173 BASE_PATH=/ \
 | Push schema | `pnpm --filter @workspace/db run push-force` |
 | Seed catálogo | `pnpm --filter @workspace/scripts run seed` |
 | Regenerar API client | `pnpm --filter @workspace/api-spec run codegen` |
-| API en dev (PowerShell) | `pnpm --filter @workspace/api-server run build; $env:PORT=3000; pnpm --filter @workspace/api-server run start` |
-| API en dev (Git Bash) | `pnpm --filter @workspace/api-server run build && PORT=3000 pnpm --filter @workspace/api-server run start` |
-| Store en dev | `MSYS_NO_PATHCONV=1 PORT=5173 BASE_PATH=/ VITE_API_URL=http://localhost:3000 pnpm --filter @workspace/antropic-store run dev` |
-| Admin en dev (PowerShell) | `$env:PORT=5174; $env:BASE_PATH="/"; pnpm --filter @workspace/antropic-admin run dev` |
 | Promover primer admin | `UPDATE profiles SET role = 'admin' WHERE email = 'TU_CORREO';` (Supabase SQL Editor) |
 | Typecheck todo | `pnpm run typecheck` |
 | Build todo | `pnpm run build` |
-
----
-
-## 9. Arranque rápido (día a día)
-
-Con el `.env` ya configurado y el schema ya pusheado.
-
-### Regla de oro — el orden NO se puede cruzar
-
-**El API (back) va SIEMPRE primero. El front y el admin le pegan por HTTP.**
-
-1. **Back primero.** El storefront y el admin hacen fetch al API. Si arrancan sin el API arriba → el back todavía no responde.
-2. **Front/admin después,** una vez que el back diga `Server listening`.
-
-Cada app va en su **propia terminal, dejala abierta**. El back es un proceso que se queda escuchando; si cerrás esa terminal, se cae y el front/admin dejan de responder.
-
-| Síntoma | Causa | Arreglo |
-|---|---|---|
-| Storefront en blanco / productos vacíos | API no está arriba, o `VITE_API_URL` no apunta al puerto del API | Arrancá el API primero. Verificá que `VITE_API_URL` = puerto del API |
-| Admin: "no se conecta al servidor" | Igual: API caído o `VITE_API_URL` mal en `artifacts/antropic-admin/.env` | Arrancá el API. Revisá el `.env` del admin y reiniciá su server |
-| Cambié un `.env` y no toma | Vite lee el `.env` al arrancar | Reiniciá el server de esa app |
-
-### Paso 1 — Terminal A: API (back) — **primero, siempre**
-
-```powershell
-pnpm --filter @workspace/api-server run build
-$env:PORT=3000
-pnpm --filter @workspace/api-server run start
-```
-
-**Esperá `Server listening ... port:3000` antes de seguir.** Hasta que no aparezca, no arranques el front ni el admin.
-
-Chequeo rápido (otra terminal): `curl http://localhost:3000/api/healthz` → `{"status":"ok"}`.
-
-### Paso 2 — Terminal B: elegí UNA
-
-Storefront **o** admin. Si querés las dos, abrí una tercera terminal (cada una en puerto distinto). El back de la Terminal A sirve a las dos.
-
-**Opción A — Storefront** (`http://localhost:5173`):
-
-```powershell
-$env:PORT=5173; $env:BASE_PATH="/"; $env:VITE_API_URL="http://localhost:3000"
-pnpm --filter @workspace/antropic-store run dev
-```
-
-**Opción B — Admin** (`http://localhost:5174`):
-
-```powershell
-$env:PORT=5174; $env:BASE_PATH="/"
-pnpm --filter @workspace/antropic-admin run dev
-```
-
-> El admin además necesita `artifacts/antropic-admin/.env` (ver 4.3). `VITE_API_URL` ahí adentro tiene que ser el puerto del API de la Terminal A.
-
-> Solo la primera vez / cuando cambie el schema o el catálogo: `pnpm --filter @workspace/db run push-force` y `pnpm --filter @workspace/scripts run seed`.

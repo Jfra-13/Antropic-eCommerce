@@ -1,6 +1,6 @@
 # Plan ronda 4 — verificado contra el código, no contra suposiciones
 
-> Estado: **ejecutado (fases 1-5)**. La **Fase 0 (diagnóstico de emails) quedó diferida** por decisión del 2026-07-10: correrla antes de los ítems de email del checklist E2E de `PRE-DEPLOY.md`.
+> Estado: **ejecutado (fases 0-5)**. La Fase 0 (diagnóstico de emails) se ejecutó el 2026-07-11 — ver causa raíz al final de esa sección.
 > Regla de ejecución (igual que ronda 3): cada fase cierra con `pnpm run typecheck` verde, build verde y su propio commit convencional. No se avanza de fase con el árbol sucio.
 
 ---
@@ -37,6 +37,8 @@ Los emails de estado ya existen; primero se confirma por qué no llegan.
 4. Prueba controlada: aprobar un pago → observar log + bandeja.
 
 **Salida**: causa raíz documentada en este archivo. Si es entorno/dominio, se resuelve sin tocar código y la Fase 2.3 solo agrega el email faltante de "en verificación".
+
+**Resultado (2026-07-11)**: causa raíz confirmada — entorno, no código. Faltaban `RESEND_API_KEY` y `RESEND_FROM` en el `.env` de la raíz (el api-server lo carga vía `--env-file-if-exists=../../.env` al arrancar; requiere reinicio tras editarlo). Se configuró Resend en modo sandbox (`onboarding@resend.dev`) y los emails de todo el flujo (constancia recibida, pago aprobado, cambios de estado) se enviaron correctamente. Pendiente antes de deploy: (1) verificar dominio propio en Resend — el sandbox solo entrega al email del dueño de la cuenta; (2) cargar los secrets de Resend en la plataforma de deploy, ya que `artifact.toml` solo define `PORT` y `NODE_ENV`.
 
 ## Fase 1 — Contrato (un solo codegen)
 
