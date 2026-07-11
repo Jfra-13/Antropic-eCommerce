@@ -5,6 +5,7 @@ import Login from "@/pages/Login";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import PaymentVerification from "@/pages/PaymentVerification";
+import Orders from "@/pages/Orders";
 import Shipments from "@/pages/Shipments";
 import Inventory from "@/pages/Inventory";
 import Coupons from "@/pages/Coupons";
@@ -51,6 +52,7 @@ export default function App() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/payments" component={PaymentVerification} />
+        <Route path="/orders" component={Orders} />
         <Route path="/shipments" component={Shipments} />
         <Route path="/inventory" component={Inventory} />
         <Route path="/coupons" component={Coupons} />

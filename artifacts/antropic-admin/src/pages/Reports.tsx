@@ -127,19 +127,85 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 // Minimal inline bar chart — no chart dependency for a simple daily series.
+// Y axis with 0 / mid / max marks, first/last date on the X axis, an average
+// reference line, and a real tooltip (date + revenue + orders) on hover.
 function SalesBars({ series }: { series: SalesByDay[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+
+  if (series.length === 0) {
+    return <p className="text-sm text-slate-400">Sin ventas en el período.</p>;
+  }
+
   const values = series.map((d) => Number(d.revenue));
   const max = Math.max(1, ...values);
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+
+  const compact = (v: number) =>
+    `S/ ${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : Math.round(v)}`;
+  const dia = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString("es-PE", { day: "2-digit", month: "short" });
+
+  const ticks = [max, max / 2, 0];
+  const hovered = hover !== null ? series[hover] : undefined;
+
   return (
-    <div className="flex h-32 items-end gap-0.5 overflow-x-auto">
-      {series.map((d) => (
-        <div
-          key={d.date}
-          className="min-w-[4px] flex-1 rounded-t bg-slate-800/80 hover:bg-slate-900"
-          style={{ height: `${(Number(d.revenue) / max) * 100}%` }}
-          title={`${d.date}: ${soles(d.revenue)} · ${d.orders} pedidos`}
-        />
-      ))}
+    <div>
+      <div className="flex gap-2">
+        {/* Y axis */}
+        <div className="flex h-36 w-12 shrink-0 flex-col justify-between text-right text-[10px] text-slate-400">
+          {ticks.map((t, i) => (
+            <span key={i}>{compact(t)}</span>
+          ))}
+        </div>
+
+        <div className="relative h-36 flex-1">
+          {/* Gridlines at the tick marks + dashed average line */}
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-x-0 top-0 border-t border-slate-100" />
+            <div className="absolute inset-x-0 top-1/2 border-t border-slate-100" />
+            <div className="absolute inset-x-0 bottom-0 border-t border-slate-200" />
+            <div
+              className="absolute inset-x-0 border-t border-dashed border-amber-500/70"
+              style={{ bottom: `${(avg / max) * 100}%` }}
+            />
+          </div>
+
+          <div className="flex h-full items-end gap-0.5" onMouseLeave={() => setHover(null)}>
+            {series.map((d, i) => (
+              <div
+                key={d.date}
+                onMouseEnter={() => setHover(i)}
+                className="flex h-full min-w-[4px] flex-1 items-end"
+              >
+                <div
+                  className={`w-full rounded-t ${hover === i ? "bg-slate-900" : "bg-slate-800/70"}`}
+                  style={{ height: `${(Number(d.revenue) / max) * 100}%` }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {hovered && hover !== null && (
+            <div
+              className="pointer-events-none absolute -top-2 z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow"
+              style={{ left: `${((hover + 0.5) / series.length) * 100}%` }}
+            >
+              <div className="font-medium">{dia(hovered.date)}</div>
+              <div>{soles(hovered.revenue)} · {hovered.orders} pedido{hovered.orders === 1 ? "" : "s"}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* X axis: period bounds + average legend */}
+      <div className="ml-14 mt-1 flex items-center justify-between text-[10px] text-slate-400">
+        <span>{dia(series[0]!.date)}</span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-4 border-t border-dashed border-amber-500/70" />
+          Promedio: {soles(avg.toFixed(2))}
+        </span>
+        <span>{dia(series[series.length - 1]!.date)}</span>
+      </div>
     </div>
   );
 }

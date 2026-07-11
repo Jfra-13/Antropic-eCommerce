@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Plus, Ban, CheckCircle2 } from "lucide-react";
+import { RefreshCw, Plus, Ban, CheckCircle2, ShoppingBag } from "lucide-react";
 import {
   useListUsers,
   useCreateEmployee,
@@ -11,6 +12,7 @@ import {
 } from "@workspace/api-client-react";
 import { useSession } from "@/lib/session";
 import { errorMessage } from "@/lib/format";
+import { Pagination } from "@/components/Pagination";
 
 const ROLE_LABEL: Record<AdminUser["role"], string> = {
   customer: "Cliente",
@@ -22,11 +24,16 @@ export default function Users() {
   const queryClient = useQueryClient();
   const { session } = useSession();
   const currentUserId = session?.user.id ?? "";
-  const [tab, setTab] = useState<ListUsersRole>("customer");
-  const [q, setQ] = useState("");
+  const [tab, setTabState] = useState<ListUsersRole>("customer");
+  const [q, setQState] = useState("");
+  const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
 
-  const params = { role: tab, q: q || undefined, page: 1, limit: 50 };
+  // Changing tab or search resets to the first page.
+  const setTab = (t: ListUsersRole) => { setTabState(t); setPage(1); };
+  const setQ = (value: string) => { setQState(value); setPage(1); };
+
+  const params = { role: tab, q: q || undefined, page, limit: 50 };
   const { data, isLoading, isError, error, refetch, isFetching } = useListUsers(params);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
@@ -121,6 +128,9 @@ export default function Users() {
           </table>
         </div>
       )}
+      {data && (
+        <Pagination page={data.page} limit={data.limit} total={data.total} onPageChange={setPage} />
+      )}
     </div>
   );
 }
@@ -167,6 +177,15 @@ function UserRow({
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-3">
+          {user.role === "customer" && (
+            <Link
+              href={`/orders?userId=${user.id}`}
+              className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
+              title="Ver historial de pedidos"
+            >
+              <ShoppingBag size={15} /> Ver pedidos
+            </Link>
+          )}
           {isSelf ? (
             <span className="text-xs text-slate-400">Tú</span>
           ) : user.blocked ? (

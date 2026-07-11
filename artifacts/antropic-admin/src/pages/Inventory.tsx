@@ -35,6 +35,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { soles, errorMessage, errorCode } from "@/lib/format";
 import CatalogTerms from "@/components/CatalogTerms";
+import { Pagination } from "@/components/Pagination";
 
 const MEDIA_BUCKET = "public-media";
 function publicUrl(path: string): string {
@@ -82,8 +83,11 @@ function TabButton({
 
 function ProductsPanel() {
   const queryClient = useQueryClient();
-  const [q, setQ] = useState("");
-  const params = { q: q || undefined, page: 1, limit: 50 };
+  const [q, setQState] = useState("");
+  const [page, setPage] = useState(1);
+  // A new search resets to the first page.
+  const setQ = (value: string) => { setQState(value); setPage(1); };
+  const params = { q: q || undefined, page, limit: 50 };
   const { data, isLoading, isError, error, refetch, isFetching } = useListAdminProducts(params);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -167,6 +171,9 @@ function ProductsPanel() {
             </tbody>
           </table>
         </div>
+      )}
+      {data && (
+        <Pagination page={data.page} limit={data.limit} total={data.total} onPageChange={setPage} />
       )}
     </div>
   );

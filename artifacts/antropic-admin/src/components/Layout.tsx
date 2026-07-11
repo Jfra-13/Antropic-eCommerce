@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, CreditCard, Truck, Package, Ticket, Undo2, BarChart3, Users as UsersIcon, Settings, LogOut, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, CreditCard, ShoppingBag, Truck, Package, Ticket, Undo2, BarChart3, Users as UsersIcon, Settings, LogOut, ChevronLeft } from "lucide-react";
 import type { StaffRole } from "@/lib/session";
 
 // Backoffice module map (requerimientos §6.0). `adminOnly` mirrors the role matrix — those
@@ -10,7 +10,7 @@ type NavItem = { label: string; href?: string; adminOnly?: boolean; icon?: typeo
 const NAV: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Verificación de pagos", href: "/payments", icon: CreditCard },
-  { label: "Pedidos" },
+  { label: "Pedidos", href: "/orders", icon: ShoppingBag },
   { label: "Envíos / Logística", href: "/shipments", icon: Truck },
   { label: "Catálogo & Inventario", href: "/inventory", icon: Package },
   { label: "Cupones", href: "/coupons", adminOnly: true, icon: Ticket },

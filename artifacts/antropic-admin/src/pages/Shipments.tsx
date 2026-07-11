@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import {
@@ -33,12 +34,21 @@ const NEXT: Partial<Record<FulfillmentStatus, { to: FulfillmentStatus; label: st
   recojo_pendiente: { to: "recogido", label: "Marcar recogido" },
 };
 
+// Terminal columns show only this window; the full history lives in the Orders module.
+const TERMINAL: FulfillmentStatus[] = ["entregado", "recogido"];
+const RECENT_TERMINAL_DAYS = 7;
+
 export default function Shipments() {
   const queryClient = useQueryClient();
   const [method, setMethod] = useState<Method>("delivery");
-  // ponytail: one page of up to 100 covers a local store's active board; add pagination if the
-  // delivered/recogido columns ever outgrow it (they accumulate).
-  const params = { deliveryMethod: method, page: 1, limit: 100 };
+  // ponytail: one page of up to 100 covers a local store's active board — terminal columns are
+  // capped to the recent window, so the board no longer accumulates without bound.
+  const params = {
+    deliveryMethod: method,
+    recentTerminalDays: RECENT_TERMINAL_DAYS,
+    page: 1,
+    limit: 100,
+  };
   const { data, isLoading, isError, error, refetch, isFetching } = useListShipments(params);
 
   const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
@@ -96,9 +106,26 @@ export default function Shipments() {
             const cards = byStatus(col.key);
             return (
               <div key={col.key} className="rounded-lg bg-slate-50 border border-slate-200">
-                <div className="px-3 py-2 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500 flex justify-between">
-                  <span>{col.title}</span>
-                  <span>{cards.length}</span>
+                <div className="px-3 py-2 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500 flex justify-between items-center">
+                  <span>
+                    {col.title}
+                    {TERMINAL.includes(col.key) && (
+                      <span className="ml-1 font-normal normal-case text-slate-400">
+                        · últimos {RECENT_TERMINAL_DAYS} días
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {TERMINAL.includes(col.key) && (
+                      <Link
+                        href={`/orders?fulfillmentStatus=${col.key}`}
+                        className="font-normal normal-case text-slate-500 underline hover:text-slate-900"
+                      >
+                        Ver historial
+                      </Link>
+                    )}
+                    {cards.length}
+                  </span>
                 </div>
                 <div className="p-2 flex flex-col gap-2 min-h-16">
                   {cards.map((item) => {

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import {
   useGetAdminConfig,
   useUpdateAdminConfig,
@@ -13,6 +13,7 @@ import {
   getListAdminPickupPointsQueryKey,
   type AdminConfig,
   type Banner,
+  type FaqEntry,
   type PickupPoint,
 } from "@workspace/api-client-react";
 import { supabase } from "@/lib/supabase";
@@ -23,12 +24,14 @@ function publicUrl(path: string): string {
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-type ConfigTab = "pagos" | "envio" | "contenido" | "recojo";
+type ConfigTab = "pagos" | "envio" | "contenido" | "contacto" | "faq" | "recojo";
 
 const TABS: { id: ConfigTab; label: string }[] = [
   { id: "pagos", label: "Pagos" },
   { id: "envio", label: "Envío" },
   { id: "contenido", label: "Contenido" },
+  { id: "contacto", label: "Contacto" },
+  { id: "faq", label: "FAQ" },
   { id: "recojo", label: "Puntos de recojo" },
 ];
 
@@ -97,6 +100,12 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
   const [editorialTag, setEditorialTag] = useState(initial.editorial.tag ?? "");
   const [editorialTitle, setEditorialTitle] = useState(initial.editorial.title ?? "");
   const [editorialImagePath, setEditorialImagePath] = useState(initial.editorial.imagePath);
+  const [announcementText, setAnnouncementText] = useState(initial.announcementText ?? "");
+  const [returnsPolicy, setReturnsPolicy] = useState(initial.returnsPolicy ?? "");
+  const [whatsappNumber, setWhatsappNumber] = useState(initial.contact.whatsappNumber ?? "");
+  const [instagramUrl, setInstagramUrl] = useState(initial.contact.instagramUrl ?? "");
+  const [tiktokUrl, setTiktokUrl] = useState(initial.contact.tiktokUrl ?? "");
+  const [faq, setFaq] = useState<FaqEntry[]>(initial.faq);
 
   const save = useUpdateAdminConfig({
     mutation: {
@@ -119,6 +128,14 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
           title: editorialTitle.trim() || null,
           imagePath: editorialImagePath,
         },
+        announcementText: announcementText.trim() || null,
+        returnsPolicy: returnsPolicy.trim() || null,
+        contact: {
+          whatsappNumber: whatsappNumber.trim() || null,
+          instagramUrl: instagramUrl.trim() || null,
+          tiktokUrl: tiktokUrl.trim() || null,
+        },
+        faq: faq.filter((f) => f.question.trim() && f.answer.trim()),
       },
     });
   }
@@ -160,6 +177,15 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
 
       {tab === "contenido" && (
         <>
+          <Section title="Banner superior (anuncio)">
+            <Field
+              label="Texto del banner sobre el menú — vacío lo oculta"
+              value={announcementText}
+              onChange={setAnnouncementText}
+              placeholder="Envío gratis en compras mayores a S/ 50"
+            />
+          </Section>
+
           <Section title="Banners">
             <BannerList banners={banners} onChange={setBanners} />
           </Section>
@@ -213,7 +239,48 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
               />
             </div>
           </Section>
+
+          <Section title="Política de cambios y devoluciones">
+            <TextareaField
+              label="Texto de la página /devoluciones — vacío usa el texto por defecto"
+              value={returnsPolicy}
+              onChange={setReturnsPolicy}
+              placeholder="Aceptamos cambios dentro de los 7 días de recibido el pedido…"
+              rows={6}
+            />
+          </Section>
         </>
+      )}
+
+      {tab === "contacto" && (
+        <Section title="Canales de contacto (footer y página de devoluciones)">
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label="WhatsApp — solo dígitos con código de país (vacío oculta el ícono)"
+              value={whatsappNumber}
+              onChange={setWhatsappNumber}
+              placeholder="51999999999"
+            />
+            <Field
+              label="Instagram — URL completa (vacío oculta el ícono)"
+              value={instagramUrl}
+              onChange={setInstagramUrl}
+              placeholder="https://instagram.com/antropic"
+            />
+            <Field
+              label="TikTok — URL completa (vacío oculta el ícono)"
+              value={tiktokUrl}
+              onChange={setTiktokUrl}
+              placeholder="https://tiktok.com/@antropic"
+            />
+          </div>
+        </Section>
+      )}
+
+      {tab === "faq" && (
+        <Section title="Preguntas frecuentes (el orden es el orden de la página)">
+          <FaqList faq={faq} onChange={setFaq} />
+        </Section>
       )}
 
       <div className="flex items-center gap-3">
@@ -272,6 +339,68 @@ function BannerList({
         label="Agregar banner"
         onUploaded={(path) => onChange([...banners, { path, active: true }])}
       />
+    </div>
+  );
+}
+
+function FaqList({ faq, onChange }: { faq: FaqEntry[]; onChange: (f: FaqEntry[]) => void }) {
+  const setEntry = (i: number, patch: Partial<FaqEntry>) =>
+    onChange(faq.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= faq.length) return;
+    const next = [...faq];
+    [next[i], next[j]] = [next[j]!, next[i]!];
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-3">
+      {faq.length === 0 && (
+        <p className="text-sm text-slate-400">
+          Sin preguntas configuradas — la tienda muestra sus preguntas por defecto.
+        </p>
+      )}
+      {faq.map((entry, i) => (
+        <div key={i} className="rounded-lg border border-slate-200 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400">#{i + 1}</span>
+            <div className="flex items-center gap-2 text-slate-500">
+              <button onClick={() => move(i, -1)} disabled={i === 0} className="hover:text-slate-900 disabled:opacity-30" title="Subir">
+                <ArrowUp size={14} />
+              </button>
+              <button onClick={() => move(i, 1)} disabled={i === faq.length - 1} className="hover:text-slate-900 disabled:opacity-30" title="Bajar">
+                <ArrowDown size={14} />
+              </button>
+              <button onClick={() => onChange(faq.filter((_, j) => j !== i))} className="hover:text-red-600" title="Quitar">
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          <Field
+            label="Pregunta"
+            value={entry.question}
+            onChange={(v) => setEntry(i, { question: v })}
+            placeholder="¿Cuánto demora el envío?"
+          />
+          <div className="mt-2">
+            <TextareaField
+              label="Respuesta"
+              value={entry.answer}
+              onChange={(v) => setEntry(i, { answer: v })}
+              placeholder="Los pedidos en La Molina llegan en 24-48 horas."
+              rows={3}
+            />
+          </div>
+        </div>
+      ))}
+      <button
+        onClick={() => onChange([...faq, { question: "", answer: "" }])}
+        className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+      >
+        <Plus size={14} /> Agregar pregunta
+      </button>
     </div>
   );
 }
@@ -422,6 +551,33 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-900 focus:outline-none"
+      />
+    </div>
+  );
+}
+
+function TextareaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  rows = 4,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-slate-500">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
         className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:border-slate-900 focus:outline-none"
       />
     </div>
