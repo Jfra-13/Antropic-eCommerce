@@ -59,6 +59,19 @@ Checklist de pendientes previos al despliegue a producción.
 - [ ] Producto sin stock → "Avísame cuando haya stock" (logueada e invitada con email) → reponer stock en admin → email de reposición.
 - [ ] `STORE_URL` seteado en el api-server para que el botón "Ver mi pedido" de los emails apunte al dominio real.
 
+### Checklist E2E ronda 4 (requiere api-server + store + admin corriendo, Resend configurado)
+
+> Fase 0 del plan (diagnóstico de emails de estado) quedó diferida a propósito: correrla antes de los ítems de email de esta lista (env vars `RESEND_API_KEY`/`RESEND_FROM`/`ADMIN_NOTIFICATION_EMAIL`, logs pino `email skipped`/`email send threw`, dominio verificado en Resend).
+
+- [ ] Crear categoría en admin (Inventario → "Categorías y ocasiones") → aparece en el select de producto; al asignarle producto activo aparece en el store.
+- [ ] Renombrar / desactivar / eliminar categoría (con productos → 409 y el diálogo ofrece desactivar; sin productos → borrado real).
+- [ ] Ídem ocasiones.
+- [ ] Subir constancia → email al cliente "Recibimos tu constancia" + email al backoffice.
+- [ ] Aprobar pago → email; marcar enviado → email; entregado → email; el bloque de estado de OrderDetail cambia en cada transición.
+- [ ] Editar editorial (etiqueta/título/imagen) en Config → Contenido → el Home lo refleja.
+- [ ] Editar hero en Config → Contenido → el Home lo refleja (ya existía; confirmar tras el rediseño con tabs).
+- [ ] Sidebar del admin: anclar/desanclar persiste tras recargar; en pantallas `< md` arranca colapsada; admin usable en tablet y celular.
+
 ## 4. Diferido (documentado, no bloquea el core pero falta)
 
 - [ ] **Recordatorios automáticos de carrito abandonado** — requieren un scheduler (cron externo o n8n). Hoy la data se ve en dashboard/reportes, pero el envío automático no existe.
