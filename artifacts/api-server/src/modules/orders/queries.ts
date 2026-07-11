@@ -16,7 +16,7 @@ import {
   type InsertOrderItem,
   type PaymentProof,
 } from "@workspace/db";
-import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, isNotNull, lt, notInArray, or, sql } from "drizzle-orm";
 import type { Tx } from "../../lib/tx";
 import { canTransitionFulfillment } from "../../lib/order-state";
 
@@ -181,13 +181,29 @@ export type ShipmentRow = {
 // Paid orders in fulfilment (the logistics board), optionally filtered by method/status.
 // Oldest first — logistics works the oldest order first.
 export async function listShipments(
-  filters: { deliveryMethod?: Order["deliveryMethod"]; status?: FulfillmentStatus },
+  filters: {
+    deliveryMethod?: Order["deliveryMethod"];
+    status?: FulfillmentStatus;
+    recentTerminalDays?: number;
+  },
   page: number,
   limit: number,
 ): Promise<{ rows: ShipmentRow[]; total: number }> {
   const conds = [eq(orders.paymentStatus, "pagado"), isNotNull(orders.fulfillmentStatus)];
   if (filters.deliveryMethod) conds.push(eq(orders.deliveryMethod, filters.deliveryMethod));
   if (filters.status) conds.push(eq(orders.fulfillmentStatus, filters.status));
+  // Keep the terminal columns bounded: delivered/picked-up orders older than the window are
+  // hidden from the board (never deleted — the orders module keeps the full history).
+  // updatedAt auto-bumps on the status change, so it marks when the order became terminal.
+  if (filters.recentTerminalDays) {
+    const cutoff = new Date(Date.now() - filters.recentTerminalDays * 24 * 60 * 60 * 1000);
+    conds.push(
+      or(
+        notInArray(orders.fulfillmentStatus, ["entregado", "recogido"]),
+        gte(orders.updatedAt, cutoff),
+      )!,
+    );
+  }
   const where = and(...conds);
   const offset = (page - 1) * limit;
 
@@ -211,6 +227,90 @@ export async function listShipments(
     .where(where);
 
   return { rows, total: counted[0]?.count ?? 0 };
+}
+
+export type AdminOrderRow = {
+  order: Order;
+  customerEmail: string;
+  customerName: string | null;
+};
+
+export type AdminOrderFilters = {
+  q?: string;
+  paymentStatus?: Order["paymentStatus"];
+  fulfillmentStatus?: FulfillmentStatus;
+  userId?: string;
+  // Inclusive date bounds on createdAt (zod coerces the YYYY-MM-DD params to Date).
+  from?: Date;
+  to?: Date;
+};
+
+// Full order listing for the back office (any payment/fulfilment state), newest first.
+export async function listAdminOrders(
+  filters: AdminOrderFilters,
+  page: number,
+  limit: number,
+): Promise<{ rows: AdminOrderRow[]; total: number }> {
+  const conds = [];
+  if (filters.paymentStatus) conds.push(eq(orders.paymentStatus, filters.paymentStatus));
+  if (filters.fulfillmentStatus) conds.push(eq(orders.fulfillmentStatus, filters.fulfillmentStatus));
+  if (filters.userId) conds.push(eq(orders.userId, filters.userId));
+  if (filters.from) conds.push(gte(orders.createdAt, filters.from));
+  // Inclusive end date: strictly before the start of the following day.
+  if (filters.to) conds.push(lt(orders.createdAt, new Date(filters.to.getTime() + 24 * 60 * 60 * 1000)));
+  if (filters.q) {
+    const term = `%${filters.q.trim()}%`;
+    const qConds = [ilike(profiles.fullName, term), ilike(profiles.email, term)];
+    // "123" or "ANT-123" also matches the order number exactly.
+    const num = Number.parseInt(filters.q.trim().replace(/^ANT-?/i, ""), 10);
+    if (Number.isInteger(num)) qConds.push(eq(orders.orderNumber, num));
+    conds.push(or(...qConds)!);
+  }
+  const where = conds.length > 0 ? and(...conds) : undefined;
+  const offset = (page - 1) * limit;
+
+  const rows = await db
+    .select({
+      order: orders,
+      customerEmail: profiles.email,
+      customerName: profiles.fullName,
+    })
+    .from(orders)
+    .innerJoin(profiles, eq(orders.userId, profiles.id))
+    .where(where)
+    .orderBy(desc(orders.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(orders)
+    .innerJoin(profiles, eq(orders.userId, profiles.id))
+    .where(where);
+
+  return { rows, total: counted[0]?.count ?? 0 };
+}
+
+export type AdminOrderDetailRow = AdminOrderRow & {
+  customerPhone: string | null;
+  pickupPointName: string | null;
+};
+
+export async function getAdminOrderRow(orderId: string): Promise<AdminOrderDetailRow | undefined> {
+  const rows = await db
+    .select({
+      order: orders,
+      customerEmail: profiles.email,
+      customerName: profiles.fullName,
+      customerPhone: profiles.phone,
+      pickupPointName: pickupPoints.name,
+    })
+    .from(orders)
+    .innerJoin(profiles, eq(orders.userId, profiles.id))
+    .leftJoin(pickupPoints, eq(orders.pickupPointId, pickupPoints.id))
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  return rows[0];
 }
 
 export type AdvanceResult =

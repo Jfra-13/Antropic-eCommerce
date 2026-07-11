@@ -8,6 +8,10 @@ import {
   RejectOrderPaymentResponse,
   ListShipmentsQueryParams,
   ListShipmentsResponse,
+  ListAdminOrdersQueryParams,
+  ListAdminOrdersResponse,
+  GetAdminOrderParams,
+  GetAdminOrderResponse,
   AdvanceFulfillmentParams,
   AdvanceFulfillmentBody,
   AdvanceFulfillmentResponse,
@@ -143,9 +147,39 @@ router.get("/admin/shipments", async (req, res) => {
     res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
     return;
   }
-  const { deliveryMethod, status, page, limit } = query.data;
-  const list = await orders.getShipments({ deliveryMethod, status }, page, limit);
+  const { deliveryMethod, status, recentTerminalDays, page, limit } = query.data;
+  const list = await orders.getShipments({ deliveryMethod, status, recentTerminalDays }, page, limit);
   res.json(ListShipmentsResponse.parse(list));
+});
+
+// Full orders module (ronda 5): every order regardless of state, searchable. Employee + admin.
+router.get("/admin/orders", async (req, res) => {
+  const query = ListAdminOrdersQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
+    return;
+  }
+  const { q, paymentStatus, fulfillmentStatus, userId, from, to, page, limit } = query.data;
+  const list = await orders.getAdminOrders(
+    { q, paymentStatus, fulfillmentStatus, userId, from, to },
+    page,
+    limit,
+  );
+  res.json(ListAdminOrdersResponse.parse(list));
+});
+
+router.get("/admin/orders/:id", async (req, res) => {
+  const params = GetAdminOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAM", message: "Invalid order id" });
+    return;
+  }
+  const detail = await orders.getAdminOrderDetail(params.data.id);
+  if (!detail) {
+    res.status(404).json({ code: "NOT_FOUND", message: "Order not found" });
+    return;
+  }
+  res.json(GetAdminOrderResponse.parse(detail));
 });
 
 // Advance an order's fulfilment status (validated state transition).

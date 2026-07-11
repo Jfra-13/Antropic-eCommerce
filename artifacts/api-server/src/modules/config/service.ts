@@ -3,6 +3,8 @@ import type {
   AdminConfig,
   PublicConfig,
   Banner,
+  ContactInfo,
+  FaqEntry,
   UpdateConfigInput,
   PickupPoint as PickupPointDto,
   PickupPointList,
@@ -30,6 +32,10 @@ const KEY_BANNERS = "banners";
 const KEY_HERO = "hero";
 const KEY_PROMO_TEXT = "promo_text";
 const KEY_EDITORIAL = "editorial";
+const KEY_ANNOUNCEMENT = "announcement_text";
+const KEY_CONTACT = "contact";
+const KEY_FAQ = "faq";
+const KEY_RETURNS_POLICY = "returns_policy";
 
 type YapeSetting = { number: string | null; qrPath: string | null };
 type HeroSetting = { title: string | null; subtitle: string | null };
@@ -43,19 +49,25 @@ function moneyOrNull(value: unknown): string | null {
 
 // Reads the config settings and normalizes them into the admin shape (paths, not URLs).
 async function readConfig(): Promise<AdminConfig> {
-  const [fee, threshold, yape, banners, hero, promoText, editorial] = await Promise.all([
-    getSetting(KEY_DELIVERY_FEE),
-    getSetting(KEY_FREE_SHIPPING_THRESHOLD),
-    getSetting(KEY_YAPE),
-    getSetting(KEY_BANNERS),
-    getSetting(KEY_HERO),
-    getSetting(KEY_PROMO_TEXT),
-    getSetting(KEY_EDITORIAL),
-  ]);
+  const [fee, threshold, yape, banners, hero, promoText, editorial, announcement, contact, faq, returnsPolicy] =
+    await Promise.all([
+      getSetting(KEY_DELIVERY_FEE),
+      getSetting(KEY_FREE_SHIPPING_THRESHOLD),
+      getSetting(KEY_YAPE),
+      getSetting(KEY_BANNERS),
+      getSetting(KEY_HERO),
+      getSetting(KEY_PROMO_TEXT),
+      getSetting(KEY_EDITORIAL),
+      getSetting(KEY_ANNOUNCEMENT),
+      getSetting(KEY_CONTACT),
+      getSetting(KEY_FAQ),
+      getSetting(KEY_RETURNS_POLICY),
+    ]);
 
   const y = (yape ?? {}) as Partial<YapeSetting>;
   const h = (hero ?? {}) as Partial<HeroSetting>;
   const e = (editorial ?? {}) as Partial<EditorialSetting>;
+  const ct = (contact ?? {}) as Partial<ContactInfo>;
   const bannerList = Array.isArray(banners) ? (banners as Banner[]) : [];
 
   return {
@@ -67,6 +79,14 @@ async function readConfig(): Promise<AdminConfig> {
     hero: { title: h.title ?? null, subtitle: h.subtitle ?? null },
     promoText: typeof promoText === "string" && promoText.trim() !== "" ? promoText : null,
     editorial: { tag: e.tag ?? null, title: e.title ?? null, imagePath: e.imagePath ?? null },
+    announcementText: typeof announcement === "string" && announcement.trim() !== "" ? announcement : null,
+    contact: {
+      whatsappNumber: ct.whatsappNumber ?? null,
+      instagramUrl: ct.instagramUrl ?? null,
+      tiktokUrl: ct.tiktokUrl ?? null,
+    },
+    faq: Array.isArray(faq) ? (faq as FaqEntry[]) : [],
+    returnsPolicy: typeof returnsPolicy === "string" && returnsPolicy.trim() !== "" ? returnsPolicy : null,
   };
 }
 
@@ -90,6 +110,10 @@ export async function getPublicConfig(): Promise<PublicConfig> {
       title: c.editorial.title,
       imageUrl: c.editorial.imagePath ? publicMediaUrl(c.editorial.imagePath) : null,
     },
+    announcementText: c.announcementText,
+    contact: c.contact,
+    faq: c.faq,
+    returnsPolicy: c.returnsPolicy,
   };
 }
 
@@ -120,6 +144,19 @@ export async function updateConfig(input: UpdateConfigInput): Promise<AdminConfi
   }
   if (input.editorial !== undefined) {
     await setSetting(KEY_EDITORIAL, input.editorial);
+  }
+  if (input.announcementText !== undefined) {
+    await setSetting(KEY_ANNOUNCEMENT, input.announcementText);
+  }
+  if (input.contact !== undefined) {
+    await setSetting(KEY_CONTACT, input.contact);
+  }
+  if (input.faq !== undefined) {
+    // An empty FAQ list means "use store defaults" — same as no setting at all.
+    await setSetting(KEY_FAQ, input.faq.length > 0 ? input.faq : null);
+  }
+  if (input.returnsPolicy !== undefined) {
+    await setSetting(KEY_RETURNS_POLICY, input.returnsPolicy);
   }
   return readConfig();
 }

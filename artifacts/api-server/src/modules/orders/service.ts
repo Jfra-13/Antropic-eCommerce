@@ -5,6 +5,8 @@ import type {
   CreateOrderInput,
   ShipmentList as ShipmentListDto,
   AdvanceFulfillmentInput,
+  AdminOrderList as AdminOrderListDto,
+  AdminOrderDetail as AdminOrderDetailDto,
 } from "@workspace/api-zod";
 import { toCents, fromCents } from "../../lib/money";
 import * as notifications from "../notifications/service";
@@ -25,9 +27,12 @@ import {
   listOrdersForUser,
   latestProofStatus,
   listShipments,
+  listAdminOrders,
+  getAdminOrderRow,
   advanceFulfillmentTx,
+  type AdminOrderFilters,
 } from "./queries";
-import { toOrderDto, toOrderListItemDto, referenceCode } from "./mappers";
+import { toOrderDto, toOrderItemDto, toOrderListItemDto, referenceCode } from "./mappers";
 
 export type OrderResult =
   | { ok: true; status: number; order: OrderDto }
@@ -201,7 +206,11 @@ export async function listOrders(
 // --- Backoffice: shipments / logistics (planeación §5.1; requerimientos §6.4) ---
 
 export async function getShipments(
-  filters: { deliveryMethod?: Order["deliveryMethod"]; status?: NonNullable<Order["fulfillmentStatus"]> },
+  filters: {
+    deliveryMethod?: Order["deliveryMethod"];
+    status?: NonNullable<Order["fulfillmentStatus"]>;
+    recentTerminalDays?: number;
+  },
   page: number,
   limit: number,
 ): Promise<ShipmentListDto> {
@@ -221,6 +230,61 @@ export async function getShipments(
     createdAt: r.order.createdAt,
   }));
   return { items, total, page, limit };
+}
+
+// --- Backoffice: full orders module (ronda 5) — employee + admin ---
+
+export async function getAdminOrders(
+  filters: AdminOrderFilters,
+  page: number,
+  limit: number,
+): Promise<AdminOrderListDto> {
+  const { rows, total } = await listAdminOrders(filters, page, limit);
+  const items = rows.map((r) => ({
+    id: r.order.id,
+    orderNumber: r.order.orderNumber,
+    referenceCode: referenceCode(r.order.orderNumber),
+    customerEmail: r.customerEmail,
+    customerName: r.customerName,
+    deliveryMethod: r.order.deliveryMethod,
+    paymentStatus: r.order.paymentStatus,
+    fulfillmentStatus: r.order.fulfillmentStatus,
+    total: r.order.total,
+    createdAt: r.order.createdAt,
+  }));
+  return { items, total, page, limit };
+}
+
+export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDetailDto | null> {
+  const row = await getAdminOrderRow(orderId);
+  if (!row) return null;
+  const [items, proofStatus] = await Promise.all([
+    getOrderItems(row.order.id),
+    latestProofStatus(row.order.id),
+  ]);
+  return {
+    id: row.order.id,
+    orderNumber: row.order.orderNumber,
+    referenceCode: referenceCode(row.order.orderNumber),
+    customerEmail: row.customerEmail,
+    customerName: row.customerName,
+    customerPhone: row.customerPhone,
+    paymentStatus: row.order.paymentStatus,
+    fulfillmentStatus: row.order.fulfillmentStatus,
+    deliveryMethod: row.order.deliveryMethod,
+    pickupPointId: row.order.pickupPointId,
+    pickupPointName: row.pickupPointName,
+    shippingAddress: row.order.shippingAddress,
+    subtotal: row.order.subtotal,
+    shippingCost: row.order.shippingCost,
+    discountAmount: row.order.discountAmount,
+    total: row.order.total,
+    couponCode: row.order.couponCode,
+    paymentProofStatus: proofStatus,
+    createdAt: row.order.createdAt,
+    updatedAt: row.order.updatedAt,
+    items: items.map(toOrderItemDto),
+  };
 }
 
 export async function advanceFulfillment(
