@@ -25,6 +25,11 @@ export default function Home() {
   const heroSubtitle = config?.hero.subtitle ?? "Nueva colección";
   const promoText = config?.promoText ?? null;
 
+  // Editorial section is admin-configurable too; null falls back to the launch copy/art.
+  const editorialTag = config?.editorial.tag ?? "Editorial";
+  const editorialTitle = config?.editorial.title ?? "Estilo que habla por ti";
+  const editorialImage = config?.editorial.imageUrl ?? modelo_02;
+
   const mostWanted = products.slice(0, 8);
   const categoryPills = categories.map((c) => ({ label: c.name, value: c.name }));
 
@@ -76,12 +81,12 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row-reverse items-center gap-10">
           <div className="w-full md:w-1/2">
             <div className="aspect-[4/5] md:aspect-square overflow-hidden">
-              <img src={modelo_02} alt="Estilo único" className="w-full h-full object-cover object-center" />
+              <img src={editorialImage} alt={editorialTitle} className="w-full h-full object-cover object-center" />
             </div>
           </div>
           <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left text-foreground">
-            <span className="font-sans text-sm uppercase tracking-[0.25em] text-primary mb-4">Editorial</span>
-            <h2 className="font-sans font-bold text-4xl md:text-5xl uppercase leading-tight mb-4">Estilo que habla por ti</h2>
+            <span className="font-sans text-sm uppercase tracking-[0.25em] text-primary mb-4">{editorialTag}</span>
+            <h2 className="font-sans font-bold text-4xl md:text-5xl uppercase leading-tight mb-4">{editorialTitle}</h2>
             <p className="font-sans text-lg text-muted-foreground mb-8">Descubre piezas únicas diseñadas para ti.</p>
             <Link href="/search" className="inline-block bg-foreground text-background font-sans font-bold text-sm uppercase tracking-wider px-8 py-4 hover:bg-primary hover:text-primary-foreground transition-colors">
               Ver colección

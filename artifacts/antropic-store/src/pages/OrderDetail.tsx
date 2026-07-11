@@ -78,16 +78,7 @@ export default function OrderDetail() {
           </div>
         )}
 
-        {order.paymentStatus === "pagado" && (
-          <div className="border border-primary/40 bg-primary/5 p-6 text-center">
-            <p className="font-sans text-foreground font-bold mb-1">¡Pago confirmado! 🎉</p>
-            <p className="font-sans text-sm text-muted-foreground">
-              {order.deliveryMethod === "delivery"
-                ? "Estamos preparando tu pedido para el envío."
-                : "Te avisamos cuando esté listo para recoger."}
-            </p>
-          </div>
-        )}
+        {order.paymentStatus === "pagado" && <FulfillmentNotice order={order} />}
 
         <OrderSummary order={order} />
 
@@ -99,6 +90,55 @@ export default function OrderDetail() {
           ← Volver a mis pedidos
         </Link>
       </div>
+    </div>
+  );
+}
+
+type FulfillmentStatus = NonNullable<Order["fulfillmentStatus"]>;
+
+// Post-payment banner copy per fulfillment state, so "preparing your order" stops showing
+// on orders already shipped or delivered.
+const FULFILLMENT_NOTICES: Record<FulfillmentStatus, { title: string; message: string }> = {
+  en_preparacion: {
+    title: "¡Pago confirmado! 🎉",
+    message: "Estamos preparando tu pedido.",
+  },
+  enviado: {
+    title: "Tu pedido está en camino 🚚",
+    message: "Salió de nuestro local hacia la dirección que nos diste.",
+  },
+  entregado: {
+    title: "¡Gracias por tu compra! 💖",
+    message: "Tu pedido fue entregado. Esperamos que lo disfrutes.",
+  },
+  recojo_pendiente: {
+    title: "Listo para recoger 🛍️",
+    message: "Puedes pasar por el punto de recojo que elegiste.",
+  },
+  recogido: {
+    title: "¡Gracias por tu compra! 💖",
+    message: "Confirmamos el recojo de tu pedido. Esperamos que lo disfrutes.",
+  },
+  cancelado: {
+    title: "Pedido cancelado",
+    message: "Si crees que es un error, contáctanos y lo coordinamos.",
+  },
+};
+
+function FulfillmentNotice({ order }: { order: Order }) {
+  const notice = order.fulfillmentStatus
+    ? FULFILLMENT_NOTICES[order.fulfillmentStatus]
+    : { title: "¡Pago confirmado! 🎉", message: "Te avisaremos en cada paso de tu pedido." };
+  const celebratory = order.fulfillmentStatus !== "cancelado";
+
+  return (
+    <div
+      className={`border p-6 text-center ${
+        celebratory ? "border-primary/40 bg-primary/5" : "border-border"
+      }`}
+    >
+      <p className="font-sans text-foreground font-bold mb-1">{notice.title}</p>
+      <p className="font-sans text-sm text-muted-foreground">{notice.message}</p>
     </div>
   );
 }
