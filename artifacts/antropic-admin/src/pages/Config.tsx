@@ -23,15 +23,26 @@ function publicUrl(path: string): string {
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
+type ConfigTab = "pagos" | "envio" | "contenido" | "recojo";
+
+const TABS: { id: ConfigTab; label: string }[] = [
+  { id: "pagos", label: "Pagos" },
+  { id: "envio", label: "Envío" },
+  { id: "contenido", label: "Contenido" },
+  { id: "recojo", label: "Puntos de recojo" },
+];
+
 export default function Config() {
   const { data, isLoading, isError, error, refetch, isFetching } = useGetAdminConfig();
+  // Tab state lives here: ConfigForm remounts on every save (its key), the tab must survive.
+  const [tab, setTab] = useState<ConfigTab>("pagos");
 
   return (
     <div className="max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Configuración</h1>
-          <p className="text-sm text-slate-500">Pago Yape, delivery, puntos de recojo y banners.</p>
+          <p className="text-sm text-slate-500">Pago Yape, delivery, puntos de recojo y contenido.</p>
         </div>
         <button
           onClick={() => refetch()}
@@ -41,19 +52,37 @@ export default function Config() {
         </button>
       </div>
 
+      <div className="mb-4 flex w-fit items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              tab === t.id ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading && <p className="text-sm text-slate-500">Cargando…</p>}
       {isError && <p className="text-sm text-red-600">Error: {errorMessage(error)}</p>}
 
-      {data && <ConfigForm key={JSON.stringify(data)} initial={data} />}
-
-      <PickupPoints />
+      {tab === "recojo" ? (
+        <PickupPoints />
+      ) : (
+        data && <ConfigForm key={JSON.stringify(data)} initial={data} tab={tab} />
+      )}
     </div>
   );
 }
 
-// --- Settings form (delivery fee, Yape, banners) — saved together ---
+// --- Settings form (delivery fee, Yape, banners, content) — saved together ---
+// All settings state stays mounted regardless of the active tab; only the visible
+// sections change, so switching tabs never loses unsaved edits.
 
-function ConfigForm({ initial }: { initial: AdminConfig }) {
+function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) {
   const queryClient = useQueryClient();
   const [deliveryFee, setDeliveryFee] = useState(initial.deliveryFee);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(
@@ -65,6 +94,9 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
   const [heroTitle, setHeroTitle] = useState(initial.hero.title ?? "");
   const [heroSubtitle, setHeroSubtitle] = useState(initial.hero.subtitle ?? "");
   const [promoText, setPromoText] = useState(initial.promoText ?? "");
+  const [editorialTag, setEditorialTag] = useState(initial.editorial.tag ?? "");
+  const [editorialTitle, setEditorialTitle] = useState(initial.editorial.title ?? "");
+  const [editorialImagePath, setEditorialImagePath] = useState(initial.editorial.imagePath);
 
   const save = useUpdateAdminConfig({
     mutation: {
@@ -82,69 +114,107 @@ function ConfigForm({ initial }: { initial: AdminConfig }) {
         banners,
         hero: { title: heroTitle.trim() || null, subtitle: heroSubtitle.trim() || null },
         promoText: promoText.trim() || null,
+        editorial: {
+          tag: editorialTag.trim() || null,
+          title: editorialTitle.trim() || null,
+          imagePath: editorialImagePath,
+        },
       },
     });
   }
 
   return (
     <div className="space-y-6">
-      <Section title="Pagos (Yape / Plin)">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Número Yape" value={yapeNumber} onChange={setYapeNumber} placeholder="+51 9xx xxx xxx" />
-          <ImageField
-            label="QR Yape"
-            path={yapeQrPath}
-            onUploaded={setYapeQrPath}
-            onRemove={() => setYapeQrPath(null)}
-          />
-        </div>
-      </Section>
+      {tab === "pagos" && (
+        <Section title="Pagos (Yape / Plin)">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Número Yape" value={yapeNumber} onChange={setYapeNumber} placeholder="+51 9xx xxx xxx" />
+            <ImageField
+              label="QR Yape"
+              path={yapeQrPath}
+              onUploaded={setYapeQrPath}
+              onRemove={() => setYapeQrPath(null)}
+            />
+          </div>
+        </Section>
+      )}
 
-      <Section title="Envío (delivery La Molina)">
-        <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="Tarifa de delivery (S/)"
-            value={deliveryFee}
-            onChange={setDeliveryFee}
-            placeholder="12.00"
-          />
-          <Field
-            label="Envío gratis desde (S/) — vacío para desactivar"
-            value={freeShippingThreshold}
-            onChange={setFreeShippingThreshold}
-            placeholder="150.00"
-          />
-        </div>
-      </Section>
+      {tab === "envio" && (
+        <Section title="Envío (delivery La Molina)">
+          <div className="grid grid-cols-2 gap-4">
+            <Field
+              label="Tarifa de delivery (S/)"
+              value={deliveryFee}
+              onChange={setDeliveryFee}
+              placeholder="12.00"
+            />
+            <Field
+              label="Envío gratis desde (S/) — vacío para desactivar"
+              value={freeShippingThreshold}
+              onChange={setFreeShippingThreshold}
+              placeholder="150.00"
+            />
+          </div>
+        </Section>
+      )}
 
-      <Section title="Banners">
-        <BannerList banners={banners} onChange={setBanners} />
-      </Section>
+      {tab === "contenido" && (
+        <>
+          <Section title="Banners">
+            <BannerList banners={banners} onChange={setBanners} />
+          </Section>
 
-      <Section title="Textos de la tienda">
-        <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="Hero — título (vacío usa el texto por defecto)"
-            value={heroTitle}
-            onChange={setHeroTitle}
-            placeholder="Verano 2025"
-          />
-          <Field
-            label="Hero — subtítulo"
-            value={heroSubtitle}
-            onChange={setHeroSubtitle}
-            placeholder="Nueva colección disponible"
-          />
-        </div>
-        <div className="mt-3">
-          <Field
-            label="Franja promocional (texto bajo el hero)"
-            value={promoText}
-            onChange={setPromoText}
-            placeholder="Envíos a toda La Molina · Pagos con Yape"
-          />
-        </div>
-      </Section>
+          <Section title="Textos de la tienda">
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label="Hero — título (vacío usa el texto por defecto)"
+                value={heroTitle}
+                onChange={setHeroTitle}
+                placeholder="Verano 2025"
+              />
+              <Field
+                label="Hero — subtítulo"
+                value={heroSubtitle}
+                onChange={setHeroSubtitle}
+                placeholder="Nueva colección disponible"
+              />
+            </div>
+            <div className="mt-3">
+              <Field
+                label="Franja promocional (texto bajo el hero)"
+                value={promoText}
+                onChange={setPromoText}
+                placeholder="Envíos a toda La Molina · Pagos con Yape"
+              />
+            </div>
+          </Section>
+
+          <Section title="Sección editorial (Home)">
+            <div className="grid grid-cols-2 gap-4">
+              <Field
+                label="Etiqueta (vacío usa el texto por defecto)"
+                value={editorialTag}
+                onChange={setEditorialTag}
+                placeholder="Editorial"
+              />
+              <Field
+                label="Título"
+                value={editorialTitle}
+                onChange={setEditorialTitle}
+                placeholder="Estilo que habla por ti"
+              />
+            </div>
+            <div className="mt-3">
+              <ImageField
+                label="Imagen (vacío usa la imagen por defecto)"
+                path={editorialImagePath}
+                onUploaded={setEditorialImagePath}
+                onRemove={() => setEditorialImagePath(null)}
+              />
+            </div>
+          </Section>
+        </>
+      )}
 
       <div className="flex items-center gap-3">
         <button

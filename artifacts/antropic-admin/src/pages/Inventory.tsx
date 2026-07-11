@@ -34,6 +34,7 @@ import {
 } from "@workspace/api-client-react";
 import { supabase } from "@/lib/supabase";
 import { soles, errorMessage, errorCode } from "@/lib/format";
+import CatalogTerms from "@/components/CatalogTerms";
 
 const MEDIA_BUCKET = "public-media";
 function publicUrl(path: string): string {
@@ -41,6 +42,45 @@ function publicUrl(path: string): string {
 }
 
 export default function Inventory() {
+  const [tab, setTab] = useState<"products" | "terms">("products");
+
+  return (
+    <div className="max-w-5xl">
+      <div className="mb-4 flex w-fit items-center gap-1 rounded-lg border border-slate-200 bg-white p-1">
+        <TabButton active={tab === "products"} onClick={() => setTab("products")}>
+          Productos
+        </TabButton>
+        <TabButton active={tab === "terms"} onClick={() => setTab("terms")}>
+          Categorías y ocasiones
+        </TabButton>
+      </div>
+      {tab === "products" ? <ProductsPanel /> : <CatalogTerms />}
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+        active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ProductsPanel() {
   const queryClient = useQueryClient();
   const [q, setQ] = useState("");
   const params = { q: q || undefined, page: 1, limit: 50 };
@@ -60,7 +100,7 @@ export default function Inventory() {
     });
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold">Catálogo & Inventario</h1>
