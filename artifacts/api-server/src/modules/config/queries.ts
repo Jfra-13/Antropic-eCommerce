@@ -20,6 +20,13 @@ export async function getSetting(key: string): Promise<unknown> {
 }
 
 export async function setSetting(key: string, value: unknown): Promise<void> {
+  // The config contract uses null to mean "clear this setting", but the value
+  // column is NOT NULL — a cleared setting is represented by deleting its row
+  // (getSetting already reads a missing row as undefined/null).
+  if (value == null) {
+    await db.delete(settings).where(eq(settings.key, key));
+    return;
+  }
   await db
     .insert(settings)
     .values({ key, value })
