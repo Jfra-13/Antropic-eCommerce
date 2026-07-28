@@ -53,8 +53,11 @@ Thumbs.db
 
 # AI me
 .agents/
-CLAUDE.md
 skills-lock.json
 
+# Debug captures — HAR files record request headers, cookies and bearer tokens
+*.har
+outputs.txt
 
+# Secrets
 .env
