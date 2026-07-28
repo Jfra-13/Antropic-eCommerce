@@ -1,50 +1,43 @@
 # Antropic Store
 
-Customer-facing storefront (Vite + React + Tailwind + shadcn/ui). Currently
-frontend-only: cart, favorites and auth are mocked in
-`src/context/StoreContext.tsx` (persisted to `localStorage`), backed by static
-data in `src/data/mockData.ts`. Not yet wired to `api-server` /
-`api-client-react`.
+Customer-facing storefront (Vite + React + Tailwind + shadcn/ui). Wired to
+`api-server` through the generated `api-client-react` hooks, with Supabase for
+auth (magic link + Google OAuth).
 
 ## Dev
 
 ```
-pnpm --filter @workspace/antropic-store run dev        # requires PORT
+pnpm --filter @workspace/antropic-store run dev        # requires PORT, BASE_PATH, VITE_API_URL
 pnpm --filter @workspace/antropic-store run typecheck
 ```
+
+`VITE_API_URL` must point at the running API. Vite reads it only at startup, so
+changing it means restarting the server. Full startup order in
+`docs/COMANDOS.md` §4 — the API always goes up first.
+
+## State model
+
+`src/context/StoreContext.tsx` runs in two modes:
+
+- **Logged out** — cart lines (variant-keyed) and favorites (product ids) live
+  in `localStorage` under guest keys, hydrated against the catalog on load.
+- **Logged in** — cart and wishlist live server-side; the guest copies are
+  merged in on login and then cleared. Supabase keeps the session in
+  `localStorage` and refreshes it.
 
 ## Brand colors gotcha
 
 Brand colors live in two places that must change together:
+
 - HSL tokens in `src/index.css` (consumed by shadcn via `hsl(var(--primary))`).
 - Any remaining hardcoded hex arbitrary values in pages/components.
 
-Exception: the garment swatch color map in `src/data/mockData.ts` (Rosa, Coral,
-Dorado…) represents physical product colors, not brand identity — never swap it
-in a brand-palette change.
-
-## Done (design pass FRON-01 → FRON-04)
-
-- Extended data model: `Product.images[]`, `variants[]` with per-size stock,
-  `occasion[]`, `badge?`.
-- Migrated ~180 hardcoded hex values to semantic design tokens in `index.css`.
-  Palette: white page background, brand pink `#EA4C75` as `--primary` only,
-  `--promo` token for promo accents.
-- `ProductCard` with `compact` / `showPrice` props.
-- Product detail page with image gallery.
-- Navbar mega-menu.
-- New components: `ProductCarousel` (desktop arrows), `Breadcrumb`,
-  `SearchOverlay`, `CategoryPills`.
-- Search only via navbar magnifier (`?q=` still supported); removed the long
-  inline search input from `/search`.
+Garment swatch colors (Rosa, Coral, Dorado…) come from the database and
+represent physical product colors, not brand identity — never swap them in a
+brand-palette change.
 
 ## Pending
 
-- [ ] Wire state to `api-server` via `api-client-react` (replace mocked
-      `StoreContext` + static `mockData`).
-- [ ] Real auth (login is currently mocked).
-- [ ] Checkout / payments flow (see `detalles_negocio/Antropic-Requerimientos.md`,
-      payments section still open).
-- [ ] Product data from DB (`lib/db` schema is currently empty).
-- [ ] Admin / employee views (out of scope for this storefront package).
+- [ ] Payments flow (see `docs/negocio/Antropic-Requerimientos.md`, payments
+      section still open).
 - [ ] Replace placeholder product imagery with final assets.
