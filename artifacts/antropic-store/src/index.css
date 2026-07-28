@@ -111,7 +111,7 @@
   --elevate-2: rgba(0,0,0, .08);
 
   /*
-   * Brand color rules (see detalles_negocio/guia-estilos):
+   * Brand color rules (see docs/negocio/guia-estilos):
    * - Page backgrounds stay neutral (white); brand pink is reserved for
    *   identity, active states, and promotional highlights.
    * - `primary` = brand pink (logo, active states, badges).
