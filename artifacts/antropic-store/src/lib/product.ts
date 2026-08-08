@@ -27,7 +27,12 @@ const BUNDLED_ASSETS: Record<string, string> = { corcet_blanco, modelo_01, model
 const MEDIA_BUCKET = "public-media";
 
 export function mediaUrl(path: string): string {
-  if (/^https?:\/\//.test(path)) return path; // already a resolved URL
+  // Idempotent: a value that is already a URL comes back untouched. `toProduct` resolves
+  // product images through here, and the guest cart stores one of those resolved values
+  // as its line image (StoreContext), which Cart.tsx then resolves again. Bundled assets
+  // resolve to a bundler URL ("/assets/…png", or a data: URI in the static demo build),
+  // so matching only https?:// sent those back through Storage and produced a dead link.
+  if (/^(https?:|data:|blob:|\/)/.test(path)) return path;
   const bundled = BUNDLED_ASSETS[path];
   if (bundled) return bundled;
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
