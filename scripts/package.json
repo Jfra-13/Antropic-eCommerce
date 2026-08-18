@@ -7,7 +7,8 @@
     "hello": "tsx ./src/hello.ts",
     "seed": "tsx --env-file=../.env ./src/seed-catalog.ts",
     "backfill-colors": "tsx --env-file=../.env ./src/backfill-variant-colors.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "verify-rls": "tsx --env-file=../.env ./src/verify-rls.ts"
   },
   "dependencies": {
     "@workspace/db": "workspace:*"

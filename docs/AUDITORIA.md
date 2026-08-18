@@ -196,20 +196,39 @@ incluyen IGV (y solo falta desagregarlo en el comprobante) o si no lo contemplan
 
 ### 3.1 🔴 BLOQUEANTE — Superficie de la API
 
-Estos son huecos de bajo costo y alto riesgo. Son la primera fase de trabajo.
+**Cerrado en la Fase 1** salvo los dos últimos ítems. Cada punto se verificó ejecutando el servidor,
+no solo compilándolo; la evidencia está en §11.1.
 
-- [ ] **CORS abierto a cualquier origen** — `app.ts:34` es `cors()` sin opciones. Necesita allowlist
-      de orígenes por entorno
-- [ ] **Sin cabeceras de seguridad**: falta `Content-Security-Policy`, `Strict-Transport-Security`,
-      `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (no hay helmet)
-- [ ] **Sin rate limiting** en ningún endpoint: ni login, ni checkout, ni búsqueda, ni subida de
-      constancias
-- [ ] **Variables de entorno sin validación centralizada al arranque**: `process.env` se lee disperso
-      en `lib/auth.ts`, `lib/auth-admin.ts`, `lib/storage.ts`, `lib/notify.ts`, `index.ts`. Algunas
-      fallan al arrancar (`auth.ts:15`), otras solo al usarse (`notify.ts:13`) — una var faltante
-      puede reventar a mitad de un checkout
+- [x] **Allowlist de CORS** por entorno vía `CORS_ORIGINS` — `app.ts`. Producción falla al arrancar
+      si la lista no está puesta: un origen sin declarar es un error de configuración, no permiso
+      para aceptar a todo el mundo. Desarrollo acepta cualquier puerto de localhost porque los
+      servidores de dev reciben el puerto por línea de comandos. `credentials` queda en `false`:
+      la autenticación es bearer en cabecera, nunca cookie, así que no hay autoridad ambiental que
+      otro origen pueda aprovechar
+- [x] **Cabeceras de seguridad** con helmet — `app.ts`. Verificadas en respuesta real:
+      `Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`,
+      `Referrer-Policy`, `Cross-Origin-Opener-Policy`, `X-Frame-Options`, y `X-Powered-By`
+      eliminado. Se sobrescribe un solo default: `crossOriginResourcePolicy` pasa a `cross-origin`
+      porque `same-origin` (el default de helmet) impide a la tienda y al backoffice leer las
+      respuestas al correr en otro origen
+- [x] **Rate limiting en tres niveles** — `lib/rate-limit.ts`. Techo global de 600/5 min; 30/5 min
+      en mutaciones de cliente (`/orders`, `/checkout`, `/returns`, `/stock-alerts`); 15/15 min en
+      la creación de URLs firmadas, que es la que quema cuota de Supabase Storage. `/healthz` queda
+      exento para no estrangular a los monitores de uptime. Las rutas de `/admin` se excluyen a
+      propósito: el backoffice hace trabajo masivo legítimo y ya está detrás de un rol verificado
+- [x] **Contrato de entorno único y validado al arranque** — `lib/env.ts`. Es el único módulo del
+      servidor que lee `process.env`; los demás importan de él. Reporta **todos** los problemas de
+      una vez en lugar de uno por reinicio. `SUPABASE_SERVICE_ROLE_KEY` pasa a ser obligatorio al
+      arrancar: descubrir que falta cuando un admin pulsa "subir" es estrictamente peor que
+      descubrirlo al iniciar
+- [x] `TRUST_PROXY` explícito y documentado. Sin esto el rate limiting detrás de un proxy mete a
+      todos los visitantes en un mismo cubo y un solo cliente ruidoso bloquea a todos; con `true`
+      a ciegas, un atacante forja `X-Forwarded-For` y estrena cubo en cada petición
 - [ ] Captcha o equivalente en formularios públicos
 - [ ] Endpoints revisados uno por uno para IDOR
+
+**Hallazgo lateral de la Fase 1:** `STORE_URL` se usaba en `modules/notifications/templates.ts` sin
+estar documentada en ningún `.env.example`. Ya está en el contrato como opcional.
 
 ### 3.2 🔴 BLOQUEANTE — Supabase RLS
 
@@ -218,7 +237,12 @@ y la anon key es pública por diseño. Sin RLS, cualquiera puede leer las tablas
 pasar por el Express.
 
 - [ ] RLS habilitado en todas las tablas, verificado tabla por tabla
-- [ ] Probado con la anon key desde fuera de la app (curl/Postman) que no se puede leer nada
+- [~] Probado con la anon key desde fuera de la app. **La sonda está escrita y sin ejecutar**:
+      `pnpm --filter @workspace/scripts run verify-rls` interroga a PostgREST para saber qué tablas
+      expone (en vez de partir de una lista fija, que se queda obsoleta en cuanto se añade una) y
+      prueba cada una con la anon key. Sale con código 1 si alguna devuelve filas. Requiere
+      credenciales del proyecto real, que no están disponibles en el entorno de desarrollo; hay que
+      correrla contra Supabase y guardar la salida como evidencia
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` nunca en el bundle del cliente — verificar en el build de store y
       admin, no solo en el código fuente
 - [ ] Vistas y funciones RPC revisadas
@@ -514,6 +538,32 @@ veces.
 ---
 
 ## 11. Evidencia entregable
+
+### 11.1 Recogida en la Fase 1
+
+Verificación de comportamiento en ejecución, no de compilación:
+
+| Comprobación | Resultado |
+|---|---|
+| Entorno incompleto | Los 5 problemas reportados juntos; el proceso no arranca |
+| Cabeceras de helmet | Presentes; `Cross-Origin-Resource-Policy: cross-origin`; sin `X-Powered-By` |
+| CORS, origen permitido | `Access-Control-Allow-Origin` devuelto |
+| CORS, origen ajeno | Sin `ACAO` (el navegador bloquea la lectura), respuesta 200 y no un 500 opaco |
+| CORS, preflight | 204 con `Authorization` permitido y caché de 24 h |
+| CORS en desarrollo | Cualquier puerto de localhost permitido; `https://atacante.com` bloqueado |
+| Límite de escritura | Primer 429 en la petición 31 de 30 permitidas |
+| Límite de URL firmada | Primer 429 en la petición 16 de 15 permitidas |
+| Forma del 429 | `{"code":"RATE_LIMITED","message":"…"}`, igual que el resto de errores |
+| `/healthz` exento | 700 peticiones seguidas, todas 200, pese al techo global de 600 |
+| `TRUST_PROXY=1` | Cliente A agotado (429) sin afectar al cliente B en otra IP |
+| Sin regresión | `/healthz` y el 404 estructurado responden igual que antes |
+| Puertas de calidad | `typecheck` y `build` en verde |
+
+> Durante esta fase el `skip` de `/healthz` no funcionaba: montado a nivel de app, `req.path` vale
+> `/api/healthz` y la comparación era contra `/healthz`. Compilaba y pasaba typecheck; solo lo
+> delató ejecutar el servidor. Es el argumento entero a favor de §9.2.
+
+### 11.2 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**, y la mayor parte está bloqueada por §9.2 (no hay tests).

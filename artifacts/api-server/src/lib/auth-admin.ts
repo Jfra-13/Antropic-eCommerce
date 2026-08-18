@@ -1,14 +1,11 @@
 // Supabase Auth Admin (server-side, service-role). Provisions auth users so an admin can
 // create an employee. Hits the GoTrue Admin REST endpoint directly with the service-role key
 // — same approach as storage.ts, no @supabase/supabase-js dependency for one call.
-const SUPABASE_URL = process.env["SUPABASE_URL"];
+import { env } from "./env";
 
-function serviceRoleKey(): string {
-  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  if (!SUPABASE_URL) throw new Error("SUPABASE_URL must be set to manage auth users.");
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY must be set to manage auth users.");
-  return key;
-}
+// Presence is guaranteed by lib/env at startup, so there is no lazy check here any more.
+const SUPABASE_URL = env.SUPABASE_URL;
+const serviceRoleKey = (): string => env.SUPABASE_SERVICE_ROLE_KEY;
 
 export type CreateAuthUserResult =
   | { ok: true; id: string; email: string }

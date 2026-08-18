@@ -1,4 +1,5 @@
 import { logger } from "./logger";
+import { env } from "./env";
 
 // Best-effort transactional email via the Resend REST API (no SDK dep — same fetch pattern as
 // storage.ts). Email is NEVER allowed to break a business flow: every failure is logged and
@@ -10,8 +11,8 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 export type Email = { to: string; subject: string; html: string };
 
 export async function sendEmail(email: Email): Promise<void> {
-  const key = process.env["RESEND_API_KEY"];
-  const from = process.env["RESEND_FROM"];
+  const key = env.RESEND_API_KEY;
+  const from = env.RESEND_FROM;
 
   if (!key || !from) {
     logger.info({ to: email.to, subject: email.subject }, "email skipped (RESEND not configured)");
@@ -41,5 +42,5 @@ export async function sendEmail(email: Email): Promise<void> {
 
 // The address that receives backoffice alerts (new proof, new return). Optional.
 export function adminNotificationEmail(): string | undefined {
-  return process.env["ADMIN_NOTIFICATION_EMAIL"] || undefined;
+  return env.ADMIN_NOTIFICATION_EMAIL;
 }

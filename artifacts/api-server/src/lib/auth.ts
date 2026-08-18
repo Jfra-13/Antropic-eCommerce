@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { eq } from "drizzle-orm";
 import { db, profiles, type Profile } from "@workspace/db";
+import { env } from "./env";
 
 // Supabase issues JWTs to the frontend (Google OAuth / Magic Link). The API verifies
 // the signature server-side against Supabase's JWKS. createRemoteJWKSet caches the key
@@ -11,17 +12,10 @@ import { db, profiles, type Profile } from "@workspace/db";
 // JWKS endpoint only serves keys in that mode). Enable it in the dashboard:
 // Authentication -> JWT Keys -> migrate to asymmetric. Legacy HS256 shared-secret
 // projects will fail verification here.
-const SUPABASE_URL = process.env["SUPABASE_URL"];
-if (!SUPABASE_URL) {
-  throw new Error(
-    "SUPABASE_URL must be set for JWT verification (e.g. https://<ref>.supabase.co).",
-  );
-}
-
 const JWKS = createRemoteJWKSet(
-  new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
+  new URL(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
 );
-const ISSUER = `${SUPABASE_URL}/auth/v1`;
+const ISSUER = `${env.SUPABASE_URL}/auth/v1`;
 
 export type Role = Profile["role"];
 export type AuthUser = {

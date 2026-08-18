@@ -1,5 +1,6 @@
 import type { Order, OrderItem } from "@workspace/db";
 import { referenceCode } from "../orders/mappers";
+import { env } from "../../lib/env";
 
 // Branded transactional email layout. Inline styles only — email clients ignore
 // stylesheets. Money values are the order's fixed-point strings, never re-computed here.
@@ -9,7 +10,7 @@ const STORE_NAME = "Antropic";
 
 // Public storefront URL for the "ver mi pedido" link; unset (dev) drops the button.
 function storeBaseUrl(): string | undefined {
-  return process.env["STORE_URL"] || undefined;
+  return env.STORE_URL;
 }
 
 function escapeHtml(s: string): string {
