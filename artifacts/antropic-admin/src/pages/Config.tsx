@@ -24,7 +24,7 @@ function publicUrl(path: string): string {
   return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-type ConfigTab = "pagos" | "envio" | "contenido" | "contacto" | "faq" | "recojo";
+type ConfigTab = "pagos" | "envio" | "contenido" | "contacto" | "faq" | "recojo" | "legal";
 
 const TABS: { id: ConfigTab; label: string }[] = [
   { id: "pagos", label: "Pagos" },
@@ -33,6 +33,7 @@ const TABS: { id: ConfigTab; label: string }[] = [
   { id: "contacto", label: "Contacto" },
   { id: "faq", label: "FAQ" },
   { id: "recojo", label: "Puntos de recojo" },
+  { id: "legal", label: "Legal" },
 ];
 
 export default function Config() {
@@ -106,6 +107,16 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
   const [instagramUrl, setInstagramUrl] = useState(initial.contact.instagramUrl ?? "");
   const [tiktokUrl, setTiktokUrl] = useState(initial.contact.tiktokUrl ?? "");
   const [faq, setFaq] = useState<FaqEntry[]>(initial.faq);
+  // Legal identity + texts. Configuration rather than code so a lawyer's wording can be
+  // published without a deploy, and so the second brand is a settings change.
+  const [legalName, setLegalName] = useState(initial.business.legalName ?? "");
+  const [tradeName, setTradeName] = useState(initial.business.tradeName ?? "");
+  const [ruc, setRuc] = useState(initial.business.ruc ?? "");
+  const [fiscalAddress, setFiscalAddress] = useState(initial.business.fiscalAddress ?? "");
+  const [privacyPolicy, setPrivacyPolicy] = useState(initial.legal.privacyPolicy ?? "");
+  const [termsOfService, setTermsOfService] = useState(initial.legal.termsOfService ?? "");
+  const [cookiePolicy, setCookiePolicy] = useState(initial.legal.cookiePolicy ?? "");
+  const [policyVersion, setPolicyVersion] = useState(initial.legal.policyVersion);
 
   const save = useUpdateAdminConfig({
     mutation: {
@@ -136,6 +147,18 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
           tiktokUrl: tiktokUrl.trim() || null,
         },
         faq: faq.filter((f) => f.question.trim() && f.answer.trim()),
+        business: {
+          legalName: legalName.trim() || null,
+          tradeName: tradeName.trim() || null,
+          ruc: ruc.trim() || null,
+          fiscalAddress: fiscalAddress.trim() || null,
+        },
+        legal: {
+          privacyPolicy: privacyPolicy.trim() || null,
+          termsOfService: termsOfService.trim() || null,
+          cookiePolicy: cookiePolicy.trim() || null,
+          policyVersion: policyVersion.trim() || "v1",
+        },
       },
     });
   }
@@ -281,6 +304,57 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
         <Section title="Preguntas frecuentes (el orden es el orden de la página)">
           <FaqList faq={faq} onChange={setFaq} />
         </Section>
+      )}
+
+      {tab === "legal" && (
+        <>
+          <Section title="Identificación del proveedor">
+            <p className="mb-3 text-xs text-slate-500">
+              Estos datos deben ser visibles para el consumidor y se imprimen en cada Hoja de
+              Reclamación como identificación del proveedor.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Razón social" value={legalName} onChange={setLegalName} placeholder="Comercial Ejemplo S.A.C." />
+              <Field label="Nombre comercial" value={tradeName} onChange={setTradeName} placeholder="Antropic" />
+              <Field label="RUC" value={ruc} onChange={setRuc} placeholder="20123456789" />
+              <Field label="Domicilio fiscal" value={fiscalAddress} onChange={setFiscalAddress} placeholder="Av. Ejemplo 123, La Molina, Lima" />
+            </div>
+          </Section>
+
+          <Section title="Textos legales">
+            <p className="mb-3 text-xs text-slate-500">
+              Publica aquí los textos revisados por tu abogado. Mientras estén vacíos, la tienda
+              indica que el documento no ha sido publicado — no inventa un texto.
+            </p>
+            <TextareaField
+              label="Política de privacidad — página /privacidad"
+              value={privacyPolicy}
+              onChange={setPrivacyPolicy}
+              placeholder="Finalidad del tratamiento, datos recogidos, plazo de conservación, derechos ARCOP…"
+              rows={8}
+            />
+            <TextareaField
+              label="Términos y condiciones — página /terminos"
+              value={termsOfService}
+              onChange={setTermsOfService}
+              placeholder="Condiciones de venta, plazos de entrega, garantías…"
+              rows={8}
+            />
+            <TextareaField
+              label="Política de cookies — página /cookies"
+              value={cookiePolicy}
+              onChange={setCookiePolicy}
+              placeholder="Qué cookies se usan, con qué finalidad y cómo revocar el consentimiento…"
+              rows={8}
+            />
+            <Field
+              label="Versión de los textos — súbela al cambiar el contenido: vuelve a pedir el consentimiento de cookies y queda registrada en cada consentimiento"
+              value={policyVersion}
+              onChange={setPolicyVersion}
+              placeholder="v1"
+            />
+          </Section>
+        </>
       )}
 
       <div className="flex items-center gap-3">

@@ -28,6 +28,10 @@ export * from "./wishlists";
 export * from "./stock-alerts";
 export * from "./return-tickets";
 
+// Legal (Libro de Reclamaciones, consent ledger)
+export * from "./complaints";
+export * from "./consents";
+
 // Logistics + config
 export * from "./pickup-points";
 export * from "./settings";

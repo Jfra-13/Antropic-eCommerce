@@ -1,9 +1,11 @@
-import type { Order, ReturnTicket } from "@workspace/db";
+import type { Order, ReturnTicket, Complaint } from "@workspace/db";
 import { logger } from "../../lib/logger";
 import { sendEmail, adminNotificationEmail } from "../../lib/notify";
 import { referenceCode } from "../orders/mappers";
 import { getOrderItems } from "../orders/queries";
-import { orderEmailHtml } from "./templates";
+import { orderEmailHtml, complaintEmailHtml } from "./templates";
+import { complaintCode } from "../complaints/mappers";
+import { getBusinessIdentity } from "../config/service";
 import { getProfileEmail, pendingStockAlerts, markStockAlertsNotified } from "./queries";
 
 // Every function here is fire-and-forget from the caller's view: wrapped so a notification
@@ -152,5 +154,79 @@ export async function notifyStockAvailable(variantId: string): Promise<void> {
     await markStockAlertsNotified(variantId);
   } catch (err) {
     logger.warn({ err, variantId }, "notifyStockAvailable failed");
+  }
+}
+
+// --- Libro de Reclamaciones ---------------------------------------------------
+
+// Sends the consumer their Hoja de Reclamación. The reglamento requires them to be left with a
+// constancia of the filing, so this is the legally meaningful half of the flow — but it stays
+// best-effort like every other notification: the complaint is already recorded, and a mail
+// outage must never be able to undo that.
+export async function notifyComplaintFiled(complaint: Complaint): Promise<void> {
+  try {
+    const business = await getBusinessIdentity();
+    const code = complaintCode(complaint.complaintNumber);
+    await sendEmail({
+      to: complaint.consumerEmail,
+      subject: `Registramos tu ${complaint.type} — ${code}`,
+      html: complaintEmailHtml({
+        heading: "Recibimos tu registro en el Libro de Reclamaciones",
+        message:
+          "Este correo es tu constancia. Guarda el código para cualquier seguimiento; te responderemos dentro del plazo legal.",
+        code,
+        complaint,
+        business,
+      }),
+    });
+  } catch (err) {
+    logger.warn({ err, complaintId: complaint.id }, "notifyComplaintFiled failed");
+  }
+}
+
+// Alerts the backoffice. A complaint nobody sees is a fine waiting to happen: the clock on the
+// 30-day legal deadline starts whether or not anyone opened the panel.
+export async function notifyAdminNewComplaint(complaint: Complaint): Promise<void> {
+  try {
+    const to = adminNotificationEmail();
+    if (!to) return;
+    const business = await getBusinessIdentity();
+    const code = complaintCode(complaint.complaintNumber);
+    await sendEmail({
+      to,
+      subject: `Nuevo ${complaint.type} en el Libro de Reclamaciones — ${code}`,
+      html: complaintEmailHtml({
+        heading: `Nuevo ${complaint.type} registrado`,
+        message: "Tienes 30 días calendario desde la fecha de registro para responder.",
+        code,
+        complaint,
+        business,
+      }),
+    });
+  } catch (err) {
+    logger.warn({ err, complaintId: complaint.id }, "notifyAdminNewComplaint failed");
+  }
+}
+
+// Sends the provider's answer to the consumer. The response text is part of the legal record,
+// so the mail reproduces the whole Hoja with the "acciones adoptadas" section filled in rather
+// than just quoting the reply on its own.
+export async function notifyComplaintAnswered(complaint: Complaint): Promise<void> {
+  try {
+    const business = await getBusinessIdentity();
+    const code = complaintCode(complaint.complaintNumber);
+    await sendEmail({
+      to: complaint.consumerEmail,
+      subject: `Respuesta a tu ${complaint.type} — ${code}`,
+      html: complaintEmailHtml({
+        heading: "Respondimos tu registro en el Libro de Reclamaciones",
+        message: "Esta es la respuesta de nuestra parte. Si no resuelve tu caso, puedes responder este correo.",
+        code,
+        complaint,
+        business,
+      }),
+    });
+  } catch (err) {
+    logger.warn({ err, complaintId: complaint.id }, "notifyComplaintAnswered failed");
   }
 }

@@ -1111,6 +1111,43 @@ export interface FaqEntry {
   answer: string;
 }
 
+/**
+ * Editable legal copy. Kept as configuration so a rebrand is not a code change.
+ */
+export interface LegalTexts {
+  /** @nullable */
+  privacyPolicy: string | null;
+  /** @nullable */
+  termsOfService: string | null;
+  /** @nullable */
+  cookiePolicy: string | null;
+  /** Bumped whenever the texts change; stamped onto every consent record */
+  policyVersion: string;
+}
+
+/**
+ * Provider identity. Required to be visible to consumers, and stamped onto every Hoja de Reclamación as the "identificación del proveedor".
+ */
+export interface BusinessIdentity {
+  /**
+     * Razón social
+     * @nullable
+     */
+  legalName: string | null;
+  /**
+     * Nombre comercial
+     * @nullable
+     */
+  tradeName: string | null;
+  /** @nullable */
+  ruc: string | null;
+  /**
+     * Domicilio fiscal
+     * @nullable
+     */
+  fiscalAddress: string | null;
+}
+
 export interface AdminConfig {
   /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
   deliveryFee: string;
@@ -1147,6 +1184,8 @@ export interface AdminConfig {
      * @nullable
      */
   returnsPolicy: string | null;
+  legal: LegalTexts;
+  business: BusinessIdentity;
 }
 
 export interface PublicConfig {
@@ -1174,6 +1213,8 @@ export interface PublicConfig {
   faq: FaqEntry[];
   /** @nullable */
   returnsPolicy: string | null;
+  legal: LegalTexts;
+  business: BusinessIdentity;
 }
 
 export interface UpdateConfigInput {
@@ -1195,6 +1236,236 @@ export interface UpdateConfigInput {
   faq?: FaqEntry[];
   /** @nullable */
   returnsPolicy?: string | null;
+  legal?: LegalTexts;
+  business?: BusinessIdentity;
+}
+
+/**
+ * reclamo = disputes the product/service; queja = about how the customer was treated
+ */
+export type CreateComplaintInputType = typeof CreateComplaintInputType[keyof typeof CreateComplaintInputType];
+
+
+export const CreateComplaintInputType = {
+  reclamo: 'reclamo',
+  queja: 'queja',
+} as const;
+
+export type CreateComplaintInputConsumerDocumentType = typeof CreateComplaintInputConsumerDocumentType[keyof typeof CreateComplaintInputConsumerDocumentType];
+
+
+export const CreateComplaintInputConsumerDocumentType = {
+  dni: 'dni',
+  ce: 'ce',
+  pasaporte: 'pasaporte',
+  ruc: 'ruc',
+} as const;
+
+export type CreateComplaintInputItemType = typeof CreateComplaintInputItemType[keyof typeof CreateComplaintInputItemType];
+
+
+export const CreateComplaintInputItemType = {
+  producto: 'producto',
+  servicio: 'servicio',
+} as const;
+
+/**
+ * Fields required on a Hoja de Reclamación by D.S. 011-2011-PCM.
+ */
+export interface CreateComplaintInput {
+  /** reclamo = disputes the product/service; queja = about how the customer was treated */
+  type: CreateComplaintInputType;
+  /** @minLength 1 */
+  consumerName: string;
+  consumerDocumentType: CreateComplaintInputConsumerDocumentType;
+  /** @minLength 1 */
+  consumerDocumentNumber: string;
+  consumerEmail: string;
+  /** @nullable */
+  consumerPhone?: string | null;
+  /** @nullable */
+  consumerAddress?: string | null;
+  isMinor?: boolean;
+  /**
+     * Required when isMinor is true — a minor cannot file on their own behalf
+     * @nullable
+     */
+  guardianName?: string | null;
+  itemType: CreateComplaintInputItemType;
+  /** @minLength 1 */
+  itemDescription: string;
+  /**
+     * Amount claimed, decimal string (e.g. "150.00")
+     * @nullable
+     */
+  itemAmount?: string | null;
+  /** @nullable */
+  orderId?: string | null;
+  /**
+     * Detalle de la reclamación
+     * @minLength 1
+     */
+  detail: string;
+  /**
+     * Pedido del consumidor — what they are asking the business to do
+     * @minLength 1
+     */
+  request: string;
+}
+
+export type ComplaintReceiptType = typeof ComplaintReceiptType[keyof typeof ComplaintReceiptType];
+
+
+export const ComplaintReceiptType = {
+  reclamo: 'reclamo',
+  queja: 'queja',
+} as const;
+
+export type ComplaintReceiptStatus = typeof ComplaintReceiptStatus[keyof typeof ComplaintReceiptStatus];
+
+
+export const ComplaintReceiptStatus = {
+  pendiente: 'pendiente',
+  en_proceso: 'en_proceso',
+  resuelto: 'resuelto',
+  cerrado: 'cerrado',
+} as const;
+
+/**
+ * Proof of filing handed back to the consumer, with the legal deadline.
+ */
+export interface ComplaintReceipt {
+  id: string;
+  /** Human-facing correlativo, e.g. "LR-000001" */
+  code: string;
+  complaintNumber: number;
+  type: ComplaintReceiptType;
+  status: ComplaintReceiptStatus;
+  consumerEmail: string;
+  /** Legal deadline to respond (30 calendar days from filing) */
+  dueAt: string;
+  createdAt: string;
+}
+
+export type AdminComplaintType = typeof AdminComplaintType[keyof typeof AdminComplaintType];
+
+
+export const AdminComplaintType = {
+  reclamo: 'reclamo',
+  queja: 'queja',
+} as const;
+
+export type AdminComplaintConsumerDocumentType = typeof AdminComplaintConsumerDocumentType[keyof typeof AdminComplaintConsumerDocumentType];
+
+
+export const AdminComplaintConsumerDocumentType = {
+  dni: 'dni',
+  ce: 'ce',
+  pasaporte: 'pasaporte',
+  ruc: 'ruc',
+} as const;
+
+export type AdminComplaintItemType = typeof AdminComplaintItemType[keyof typeof AdminComplaintItemType];
+
+
+export const AdminComplaintItemType = {
+  producto: 'producto',
+  servicio: 'servicio',
+} as const;
+
+export type AdminComplaintStatus = typeof AdminComplaintStatus[keyof typeof AdminComplaintStatus];
+
+
+export const AdminComplaintStatus = {
+  pendiente: 'pendiente',
+  en_proceso: 'en_proceso',
+  resuelto: 'resuelto',
+  cerrado: 'cerrado',
+} as const;
+
+export interface AdminComplaint {
+  id: string;
+  code: string;
+  complaintNumber: number;
+  type: AdminComplaintType;
+  consumerName: string;
+  consumerDocumentType: AdminComplaintConsumerDocumentType;
+  consumerDocumentNumber: string;
+  consumerEmail: string;
+  /** @nullable */
+  consumerPhone: string | null;
+  /** @nullable */
+  consumerAddress: string | null;
+  isMinor: boolean;
+  /** @nullable */
+  guardianName: string | null;
+  itemType: AdminComplaintItemType;
+  itemDescription: string;
+  /** @nullable */
+  itemAmount: string | null;
+  /** @nullable */
+  orderId: string | null;
+  /** @nullable */
+  orderNumber: number | null;
+  detail: string;
+  request: string;
+  status: AdminComplaintStatus;
+  /** @nullable */
+  response: string | null;
+  /** @nullable */
+  respondedAt: string | null;
+  dueAt: string;
+  /** Calendar days left to answer; negative once the legal deadline has passed */
+  daysRemaining: number;
+  createdAt: string;
+}
+
+export interface AdminComplaintList {
+  items: AdminComplaint[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type UpdateComplaintInputStatus = typeof UpdateComplaintInputStatus[keyof typeof UpdateComplaintInputStatus];
+
+
+export const UpdateComplaintInputStatus = {
+  pendiente: 'pendiente',
+  en_proceso: 'en_proceso',
+  resuelto: 'resuelto',
+  cerrado: 'cerrado',
+} as const;
+
+export interface UpdateComplaintInput {
+  status: UpdateComplaintInputStatus;
+  /**
+     * Acciones adoptadas por el proveedor, sent to the consumer by email
+     * @nullable
+     */
+  response?: string | null;
+}
+
+export type RecordConsentInputPurpose = typeof RecordConsentInputPurpose[keyof typeof RecordConsentInputPurpose];
+
+
+export const RecordConsentInputPurpose = {
+  pedido: 'pedido',
+  marketing: 'marketing',
+  cookies_analytics: 'cookies_analytics',
+  cookies_marketing: 'cookies_marketing',
+} as const;
+
+export interface RecordConsentInput {
+  purpose: RecordConsentInputPurpose;
+  granted: boolean;
+  /**
+     * Which version of the text was shown; pins what was actually agreed to
+     * @minLength 1
+     */
+  policyVersion: string;
+  /** @nullable */
+  email?: string | null;
 }
 
 export interface TopProduct {
@@ -1535,5 +1806,37 @@ export const ListUsersRole = {
   customer: 'customer',
   employee: 'employee',
   admin: 'admin',
+} as const;
+
+export type ListComplaintsParams = {
+status?: ListComplaintsStatus;
+type?: ListComplaintsType;
+/**
+ * @minimum 1
+ */
+page?: number;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListComplaintsStatus = typeof ListComplaintsStatus[keyof typeof ListComplaintsStatus];
+
+
+export const ListComplaintsStatus = {
+  pendiente: 'pendiente',
+  en_proceso: 'en_proceso',
+  resuelto: 'resuelto',
+  cerrado: 'cerrado',
+} as const;
+
+export type ListComplaintsType = typeof ListComplaintsType[keyof typeof ListComplaintsType];
+
+
+export const ListComplaintsType = {
+  reclamo: 'reclamo',
+  queja: 'queja',
 } as const;
 

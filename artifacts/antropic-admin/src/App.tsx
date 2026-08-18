@@ -10,6 +10,7 @@ import Shipments from "@/pages/Shipments";
 import Inventory from "@/pages/Inventory";
 import Coupons from "@/pages/Coupons";
 import Returns from "@/pages/Returns";
+import Complaints from "@/pages/Complaints";
 import Reports from "@/pages/Reports";
 import Users from "@/pages/Users";
 import Config from "@/pages/Config";
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/inventory" component={Inventory} />
         <Route path="/coupons" component={Coupons} />
         <Route path="/returns" component={Returns} />
+        <Route path="/complaints" component={Complaints} />
         <Route path="/reports" component={Reports} />
         <Route path="/users" component={Users} />
         <Route path="/config" component={Config} />

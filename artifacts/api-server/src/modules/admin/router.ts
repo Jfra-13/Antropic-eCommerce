@@ -55,6 +55,11 @@ import {
   UpdateCouponBody,
   UpdateCouponResponse,
   DeleteCouponParams,
+  ListComplaintsQueryParams,
+  ListComplaintsResponse,
+  RespondComplaintParams,
+  RespondComplaintBody,
+  RespondComplaintResponse,
   ListReturnsQueryParams,
   ListReturnsResponse,
   UpdateReturnStatusParams,
@@ -89,6 +94,7 @@ import * as orders from "../orders/service";
 import * as catalog from "../catalog/service";
 import * as coupons from "../coupons/service";
 import * as returns from "../returns/service";
+import * as complaints from "../complaints/service";
 import * as users from "../users/service";
 import * as config from "../config/service";
 import * as reports from "../reports/service";
@@ -499,6 +505,46 @@ router.patch("/admin/returns/:id", async (req, res) => {
     return;
   }
   res.json(UpdateReturnStatusResponse.parse(result.ticket));
+});
+
+// --- Libro de Reclamaciones (Ley 29571, D.S. 011-2011-PCM) — empleado + admin. ---
+//
+// Note what is NOT here: there is no DELETE. Complaints are retained for two years, so the
+// backoffice can answer and close a file but never remove one.
+
+router.get("/admin/complaints", async (req, res) => {
+  const query = ListComplaintsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
+    return;
+  }
+  const list = await complaints.getComplaints(
+    query.data.status,
+    query.data.type,
+    query.data.page,
+    query.data.limit,
+  );
+  res.json(ListComplaintsResponse.parse(list));
+});
+
+router.patch("/admin/complaints/:id", async (req, res) => {
+  const params = RespondComplaintParams.safeParse(req.params);
+  const body = RespondComplaintBody.safeParse(req.body);
+  if (!params.success || !body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: "Invalid complaint id or body" });
+    return;
+  }
+  const result = await complaints.respond(
+    params.data.id,
+    body.data.status,
+    body.data.response ?? null,
+    req.user!.id,
+  );
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.json(RespondComplaintResponse.parse(result.complaint));
 });
 
 // --- Usuarios (requerimientos §6.9) — solo Admin. ---

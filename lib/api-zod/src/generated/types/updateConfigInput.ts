@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Banner } from './banner';
+import type { BusinessIdentity } from './businessIdentity';
 import type { ContactInfo } from './contactInfo';
 import type { EditorialContent } from './editorialContent';
 import type { FaqEntry } from './faqEntry';
 import type { HeroText } from './heroText';
+import type { LegalTexts } from './legalTexts';
 
 export interface UpdateConfigInput {
   deliveryFee?: string;
@@ -30,4 +32,6 @@ export interface UpdateConfigInput {
   faq?: FaqEntry[];
   /** @nullable */
   returnsPolicy?: string | null;
+  legal?: LegalTexts;
+  business?: BusinessIdentity;
 }
