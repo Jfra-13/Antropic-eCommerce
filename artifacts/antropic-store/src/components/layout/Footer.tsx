@@ -4,6 +4,7 @@ import { useStoreConfig } from "../../lib/config";
 export function Footer() {
   const { config } = useStoreConfig();
   const contact = config?.contact;
+  const business = config?.business;
   const whatsapp = contact?.whatsappNumber;
   const instagram = contact?.instagramUrl;
   const tiktok = contact?.tiktokUrl;
@@ -14,7 +15,7 @@ export function Footer() {
 
   return (
     <footer className="bg-foreground text-background pt-12 pb-6 px-6 mt-20">
-      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-10">
+      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-10">
         <div className="col-span-2 md:col-span-1 flex flex-col gap-2">
           <Link href="/" className="font-display text-3xl text-primary cursor-pointer">Antropic</Link>
           <p className="text-background/70 font-sans text-sm">Moda que te hace brillar.</p>
@@ -25,6 +26,23 @@ export function Footer() {
           <Link href="/devoluciones" className={linkClass}>Cambios y devoluciones</Link>
           <Link href="/profile" className={linkClass}>Mis Envíos</Link>
           <Link href="/faq" className={linkClass}>Preguntas frecuentes</Link>
+        </div>
+
+        {/* Legal. The link to the Libro de Reclamaciones must be permanently visible on every
+            page — it is the first thing INDECOPI checks on an online store, and burying it is
+            itself the infraction. Do not move it behind a menu. */}
+        <div className="flex flex-col gap-3">
+          <h4 className="font-sans font-bold text-sm uppercase tracking-wide text-background/90">Legal</h4>
+          <Link href="/libro-de-reclamaciones" className={`${linkClass} flex items-center gap-2`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            Libro de Reclamaciones
+          </Link>
+          <Link href="/terminos" className={linkClass}>Términos y condiciones</Link>
+          <Link href="/privacidad" className={linkClass}>Política de privacidad</Link>
+          <Link href="/cookies" className={linkClass}>Política de cookies</Link>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -87,6 +105,14 @@ export function Footer() {
         <p className="font-sans text-xs text-background/70">
           © {new Date().getFullYear()} Antropic. Todos los derechos reservados.
         </p>
+        {/* Razón social, RUC y domicilio fiscal deben ser visibles para el consumidor. */}
+        {(business?.legalName || business?.ruc || business?.fiscalAddress) && (
+          <p className="font-sans text-xs text-background/60 mt-1">
+            {[business.legalName, business.ruc && `RUC ${business.ruc}`, business.fiscalAddress]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
       </div>
     </footer>
   );

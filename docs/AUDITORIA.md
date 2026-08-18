@@ -89,7 +89,7 @@ Esta sección es la que determina si el clon es un cambio de configuración o un
 - [ ] `manifest.json` (no existe)
 - [ ] Plantillas de correo transaccional con identidad parametrizada
 - [ ] Remitente y firma de los correos
-- [ ] Textos legales (no existen todavía — ver §2)
+- [x] Textos legales: ya son configuración editable desde el panel, no JSX — listo para el clon
 - [ ] Metadatos del backoffice: título de pestaña y logo del login
 - [ ] Descriptor de estado de cuenta de tarjeta — pendiente hasta que haya pasarela
 
@@ -116,23 +116,41 @@ Esta sección es la que determina si el clon es un cambio de configuración o un
 
 ### 2.1 🔴 BLOQUEANTE — Libro de Reclamaciones Virtual
 
-**Estado: no existe.** Solo se menciona en `docs/negocio/FLUJOS-ROLES-Y-MEJORAS.md`. No hay tabla,
-ni endpoint, ni página, ni enlace en el footer.
+**Implementado en la Fase 2.** Módulo completo: tabla `complaints`, endpoint público, página en la
+tienda, correo de constancia y panel en el backoffice. Verificado en ejecución contra Postgres — la
+evidencia está en §11.2.
 
 Base normativa: Ley N° 29571 reglamentada por D.S. N° 011-2011-PCM, modificada por la Ley N° 32495
 (noviembre 2025) para incluir explícitamente a las plataformas digitales de comercio electrónico.
 
-- [ ] Enlace visible de forma permanente en el footer de todas las páginas
-- [ ] Formulario con datos mínimos: identificación del consumidor, identificación del proveedor,
-      detalle del bien o servicio, descripción del reclamo o queja, fecha y firma
-- [ ] Distinción entre **reclamo** (producto/servicio) y **queja** (atención)
-- [ ] Hoja de Reclamación imprimible y enviada automáticamente por correo, con constancia
-- [ ] Correlativo único por hoja
-- [ ] Conservación de registros por 2 años
-- [ ] Proceso interno para responder en 30 días calendario
-- [ ] Responsable asignado en el negocio
-- [ ] Los datos del reclamo **no** alimentan newsletter ni CRM
-- [ ] Panel en el backoffice con estado y plazo restante
+- [x] Enlace visible de forma permanente en el footer de todas las páginas, con su propia columna
+      "Legal" — `Footer.tsx`
+- [x] Formulario con los datos mínimos, en `/libro-de-reclamaciones`. Cada campo de la tabla existe
+      porque el reglamento lo exige, no por diseño de producto — `schema/complaints.ts`
+- [x] **Accesible sin cuenta.** El endpoint usa `optionalAuth`, no `requireAuth`: exigir registro
+      para reclamar sería en sí mismo una obstrucción del derecho a reclamar
+- [x] Distinción entre **reclamo** y **queja**, explicada en el formulario y separada en el enum de
+      la base, no como texto libre
+- [x] Identificación del proveedor (razón social, RUC, domicilio) impresa en cada hoja, tomada de
+      `settings` y no almacenada por fila, para que un cambio de domicilio no reescriba el historial
+- [x] Validación de menor de edad: declarar un menor sin nombrar al padre, madre o tutor devuelve
+      422 `GUARDIAN_REQUIRED`. Se valida en el servidor, porque una casilla de formulario no es un
+      control legal
+- [x] Hoja de Reclamación enviada automáticamente por correo como constancia, reproduciendo las
+      cuatro secciones del formato oficial — `notifications/templates.ts`. Se imprime desde el
+      cliente de correo; no se genera PDF
+- [x] Correlativo único por hoja (`LR-000001`), derivado de un `serial` para que la secuencia tenga
+      una sola fuente de verdad
+- [x] **No existe forma de borrar un reclamo.** No hay endpoint DELETE ni consulta de borrado en
+      todo el módulo, y así debe seguir: `cerrado` es como termina un expediente, no su eliminación.
+      La conservación efectiva a 2 años depende además de la política de respaldos (§3.5)
+- [x] Los datos del reclamo **no** alimentan newsletter ni CRM: viven en su propia tabla, sin
+      relación con la de consentimientos de marketing, y el formulario lo dice explícitamente
+- [x] Panel en el backoffice con estado y plazo restante, ordenado por urgencia legal: abiertos
+      primero, vencimiento más cercano arriba, vencidos marcados en rojo — `pages/Complaints.tsx`
+- [~] Proceso interno para responder en 30 días calendario: el sistema calcula, muestra y ordena por
+      el plazo, pero **el proceso y la persona que responde son decisión del negocio**
+- [ ] Responsable asignado en el negocio — trámite organizativo, no código
 
 Referencia de sanción: hasta 200 UIT por incumplir lo ofrecido en el reclamo; una denuncia formal
 puede ir de amonestación hasta 450 UIT.
@@ -142,17 +160,36 @@ puede ir de amonestación hasta 450 UIT.
 El reglamento vigente desde el 30 de marzo de 2025 refuerza consentimiento, cookies, notificación de
 brechas y obligaciones del DPO. Sanciones de 0.5 a 100 UIT.
 
-**Estado: nada implementado.** No hay política de privacidad, ni banner de cookies, ni registro de
-consentimiento, ni canal ARCOP.
+**Mecanismo implementado en la Fase 2; el contenido legal y los trámites siguen pendientes.**
+Existe el registro de consentimientos, el banner de cookies y las páginas legales. Lo que falta es
+lo que no puede escribir un programador: los textos revisados por abogado y la inscripción ante la
+ANPD.
 
+- [x] Consentimiento **separado** por finalidad — tabla `consents`, una fila por propósito. Procesar
+      el pedido y recibir marketing no comparten casilla ni registro
+- [x] Casilla de marketing en el checkout que **nace desmarcada** — `Checkout.tsx`. Una casilla
+      premarcada no es consentimiento bajo el reglamento, es una infracción
+- [x] Consentimiento demostrable: fecha, hora, IP, user-agent y versión del texto aceptado. **La IP
+      y el user-agent se toman de la petición, nunca del cuerpo** — verificado enviando una IP
+      falsa en el JSON y comprobando que se ignora (§11.2)
+- [x] Retirar el consentimiento escribe una fila nueva con `granted=false`; nunca un UPDATE. El
+      derecho a retirar no significa nada si al ejercerlo se borra la prueba de que existió
+- [x] La versión de los textos queda fijada en cada registro. Al publicar textos nuevos cambia la
+      versión, el banner vuelve a preguntar y los consentimientos viejos no se arrastran
+- [x] Banner de cookies con **rechazar tan visible como aceptar** — mismo tamaño, peso y jerarquía,
+      más un panel para elegir por finalidad. Degradarlo es una regresión de cumplimiento, no de
+      estilo — `components/CookieBanner.tsx`
+- [x] Página de política de cookies, privacidad y términos, con el texto editable desde el panel
+- [~] Scripts de terceros bloqueados hasta el consentimiento: **hoy no hay ninguno** (ni GA4 ni
+      píxeles). Existe la compuerta `hasConsent()` en `lib/consent.ts` que el primero que se añada
+      debe consultar antes de cargarse
+- [ ] **Textos legales redactados y revisados por abogado.** El mecanismo está; el contenido no.
+      Mientras estén vacíos la tienda dice que el documento no ha sido publicado — **a propósito**:
+      un texto inventado que parezca una política real es peor que un hueco visible, porque el
+      cliente confiaría en él y el negocio se creería cubierto
 - [ ] Banco de datos personales inscrito ante la ANPD (trámite, no código; infracción grave si falta)
 - [ ] Inscritos también los bancos internos: empleados, candidatos, proveedores
-- [ ] Política de privacidad publicada
-- [ ] Consentimiento previo, informado, expreso y libre — sin checkboxes premarcados
-- [ ] Consentimiento **separado** para procesar el pedido y para marketing
-- [ ] Consentimiento demostrable: fecha, hora, IP y versión del texto aceptado
-- [ ] Banner de cookies con rechazo tan visible como la aceptación
-- [ ] Scripts de terceros bloqueados hasta el consentimiento
+- [ ] Derechos ARCOP: canal de ejercicio y cumplimiento desde el backoffice
 - [ ] Derechos ARCOP: acceso, rectificación, cancelación, oposición, portabilidad
 - [ ] Procedimiento de notificación de brechas en 48 horas, documentado **antes** de lanzar
 - [ ] Evaluada la obligación de designar Oficial de Protección de Datos
@@ -166,8 +203,9 @@ consentimiento, ni canal ARCOP.
 - [x] Canales de atención publicados (WhatsApp, Instagram, TikTok) — `Footer.tsx`
 - [x] Precios en soles
 - [x] Costo de envío informado antes de cerrar la compra
-- [ ] Razón social completa, RUC y domicilio fiscal visibles
-- [ ] Términos y condiciones de venta publicados
+- [x] Razón social, RUC y domicilio fiscal visibles en el footer de todas las páginas, editables
+      desde el panel (pestaña Legal) — `Footer.tsx`, `pages/Config.tsx`
+- [~] Términos y condiciones de venta: la página `/terminos` existe y es editable; **falta el texto**
 - [ ] Plazo de entrega informado
 - [ ] Confirmado que los precios se muestran con IGV incluido (ver §2.4)
 
@@ -563,7 +601,39 @@ Verificación de comportamiento en ejecución, no de compilación:
 > `/api/healthz` y la comparación era contra `/healthz`. Compilaba y pasaba typecheck; solo lo
 > delató ejecutar el servidor. Es el argumento entero a favor de §9.2.
 
-### 11.2 Pendiente
+### 11.2 Recogida en la Fase 2
+
+Módulo legal verificado en ejecución contra un PostgreSQL real, no solo compilado:
+
+| Comprobación | Resultado |
+|---|---|
+| Presentar un reclamo sin cuenta | 201 con correlativo `LR-000001` y plazo a 30 días exactos |
+| Correlativo correlativo | Segundo registro → `LR-000002`, sin huecos |
+| Menor sin tutor | 422 `GUARDIAN_REQUIRED`; con tutor, 201 |
+| Campos obligatorios ausentes | 400 |
+| Plazo legal persistido | `due_at - created_at = 30 días` en la base |
+| Detección de vencimiento | Retrasando `due_at` 3 días → `daysRemaining = -3` |
+| Orden del panel | Tras responder uno, el abierto sube y el resuelto baja |
+| Respuesta del proveedor | Estado, `responded_at` y `responded_by` registrados |
+| Clave foránea de auditoría | Un `responded_by` inexistente es rechazado por la base |
+| Sin borrado | Cero rutas DELETE en el módulo; retención estructural |
+| Rutas de administración | 401 sin autenticación |
+| Hoja de Reclamación | Las 4 secciones del formato, con razón social, RUC y aviso INDECOPI |
+| Identidad del proveedor | Round-trip por `settings`; la config pública la refleja al instante |
+| Consentimiento demostrable | IP y user-agent tomados de la petición |
+| **IP falsificada en el cuerpo** | Se envió `"ipAddress":"1.2.3.4"`; se guardó `127.0.0.1` — ignorada |
+| Consentimiento append-only | Otorgar y retirar → dos filas; la primera intacta |
+| Casilla de marketing | Nace desmarcada (`useState(false)`) |
+| Límites por endpoint | Cubos independientes: agotar `/complaints` no afecta a `/orders`, `/consents` ni `/checkout` |
+| Puertas de calidad | `typecheck` y `build` en verde |
+
+> Durante esta fase el banco de pruebas destapó que `writeLimiter` era **una sola instancia**
+> montada en seis rutas, de modo que todas compartían un mismo cubo: agotar el formulario de
+> reclamaciones dejaba sin presupuesto al checkout y al consentimiento. Detrás de un NAT —habitual
+> en las redes móviles peruanas— eso significa que una persona podía bloquear la compra de otra sin
+> ninguna relación entre ambas. Cada grupo tiene ahora su propio limitador.
+
+### 11.3 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**, y la mayor parte está bloqueada por §9.2 (no hay tests).

@@ -1,6 +1,7 @@
 import express, {
   type Express,
   type Request,
+  type RequestHandler,
   type Response,
   type NextFunction,
 } from "express";
@@ -10,7 +11,14 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { env } from "./lib/env";
-import { globalLimiter, writeLimiter, uploadUrlLimiter } from "./lib/rate-limit";
+import {
+  globalLimiter,
+  writeLimiter,
+  complaintLimiter,
+  quoteLimiter,
+  consentLimiter,
+  uploadUrlLimiter,
+} from "./lib/rate-limit";
 
 const app: Express = express();
 
@@ -93,16 +101,27 @@ app.use(express.urlencoded({ extended: true }));
 // signed-URL route also sits under /api/orders. Admin routes are excluded on purpose: the
 // backoffice does legitimate bulk work and is already gated on a verified role.
 app.use("/api/orders/:id/payment-proof/upload-url", uploadUrlLimiter);
-for (const path of ["/api/orders", "/api/checkout", "/api/returns", "/api/stock-alerts"]) {
-  // Reads are covered by the global ceiling; only mutations get the tight budget.
-  app.use(path, (req: Request, res: Response, next: NextFunction) => {
+// Reads are covered by the global ceiling; only mutations get a tight budget.
+function limitMutations(limiter: RequestHandler) {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (req.method === "GET") {
       next();
       return;
     }
-    writeLimiter(req, res, next);
-  });
+    limiter(req, res, next);
+  };
 }
+
+// /complaints and /consents are public and unauthenticated by legal necessity, which also makes
+// them the easiest endpoints here to flood. Note each group gets its OWN limiter instance:
+// sharing one would put unrelated flows in the same bucket, so filing a complaint would spend
+// the allowance a shopper needs to check out.
+for (const path of ["/api/orders", "/api/returns", "/api/stock-alerts"]) {
+  app.use(path, limitMutations(writeLimiter));
+}
+app.use("/api/complaints", limitMutations(complaintLimiter));
+app.use("/api/checkout", limitMutations(quoteLimiter));
+app.use("/api/consents", limitMutations(consentLimiter));
 
 app.use("/api", router);
 

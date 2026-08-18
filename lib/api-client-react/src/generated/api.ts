@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminComplaint,
+  AdminComplaintList,
   AdminConfig,
   AdminOrderDetail,
   AdminOrderList,
@@ -39,11 +41,13 @@ import type {
   Category,
   CheckoutQuote,
   CheckoutQuoteInput,
+  ComplaintReceipt,
   ConfigMediaUploadInput,
   ConfigMediaUploadUrl,
   Coupon,
   CouponList,
   CreateCategoryInput,
+  CreateComplaintInput,
   CreateCouponInput,
   CreateEmployeeInput,
   CreateOccasionInput,
@@ -60,6 +64,7 @@ import type {
   ListAdminOrdersParams,
   ListAdminProductsParams,
   ListCategoriesParams,
+  ListComplaintsParams,
   ListCouponsParams,
   ListMyReturnsParams,
   ListOccasionsParams,
@@ -82,10 +87,12 @@ import type {
   ProductImportResult,
   ProductList,
   PublicConfig,
+  RecordConsentInput,
   ReturnTicket,
   SalesReport,
   ShipmentList,
   UpdateCategoryInput,
+  UpdateComplaintInput,
   UpdateConfigInput,
   UpdateCouponInput,
   UpdateMeInput,
@@ -4367,6 +4374,304 @@ export const useUpdateUser = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateUserMutationOptions(options));
+    }
+
+export const getCreateComplaintUrl = () => {
+
+
+
+
+  return `/api/complaints`
+}
+
+/**
+ * Public on purpose and NOT authenticated: requiring an account to complain would itself obstruct the right to complain. Returns the correlativo and the legal response deadline; the full Hoja de Reclamación is emailed to the consumer as the required constancia.
+ * @summary File a complaint in the Libro de Reclamaciones (Ley 29571, D.S. 011-2011-PCM)
+ */
+export const createComplaint = async (createComplaintInput: CreateComplaintInput, options?: RequestInit): Promise<ComplaintReceipt> => {
+
+  return customFetch<ComplaintReceipt>(getCreateComplaintUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createComplaintInput)
+  }
+);}
+
+
+
+
+export const getCreateComplaintMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createComplaint>>, TError,{data: BodyType<CreateComplaintInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createComplaint>>, TError,{data: BodyType<CreateComplaintInput>}, TContext> => {
+
+const mutationKey = ['createComplaint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createComplaint>>, {data: BodyType<CreateComplaintInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createComplaint(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateComplaintMutationResult = NonNullable<Awaited<ReturnType<typeof createComplaint>>>
+    export type CreateComplaintMutationBody = BodyType<CreateComplaintInput>
+    export type CreateComplaintMutationError = ErrorType<Error>
+
+    /**
+ * @summary File a complaint in the Libro de Reclamaciones (Ley 29571, D.S. 011-2011-PCM)
+ */
+export const useCreateComplaint = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createComplaint>>, TError,{data: BodyType<CreateComplaintInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createComplaint>>,
+        TError,
+        {data: BodyType<CreateComplaintInput>},
+        TContext
+      > => {
+      return useMutation(getCreateComplaintMutationOptions(options));
+    }
+
+export const getRecordConsentUrl = () => {
+
+
+
+
+  return `/api/consents`
+}
+
+/**
+ * Append-only. Withdrawing consent writes a new row with granted=false rather than updating the old one, because erasing the evidence would defeat demonstrability. The IP and user agent are taken from the request itself and are never accepted from the client, which would make the record forgeable and therefore worthless.
+ * @summary Record a grant or withdrawal of consent (Ley 29733, D.S. 016-2024-JUS)
+ */
+export const recordConsent = async (recordConsentInput: RecordConsentInput, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRecordConsentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recordConsentInput)
+  }
+);}
+
+
+
+
+export const getRecordConsentMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordConsent>>, TError,{data: BodyType<RecordConsentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordConsent>>, TError,{data: BodyType<RecordConsentInput>}, TContext> => {
+
+const mutationKey = ['recordConsent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordConsent>>, {data: BodyType<RecordConsentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordConsent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordConsentMutationResult = NonNullable<Awaited<ReturnType<typeof recordConsent>>>
+    export type RecordConsentMutationBody = BodyType<RecordConsentInput>
+    export type RecordConsentMutationError = ErrorType<Error>
+
+    /**
+ * @summary Record a grant or withdrawal of consent (Ley 29733, D.S. 016-2024-JUS)
+ */
+export const useRecordConsent = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordConsent>>, TError,{data: BodyType<RecordConsentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordConsent>>,
+        TError,
+        {data: BodyType<RecordConsentInput>},
+        TContext
+      > => {
+      return useMutation(getRecordConsentMutationOptions(options));
+    }
+
+export const getListComplaintsUrl = (params?: ListComplaintsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/complaints?${stringifiedParams}` : `/api/admin/complaints`
+}
+
+/**
+ * @summary List complaints for the backoffice, soonest legal deadline first
+ */
+export const listComplaints = async (params?: ListComplaintsParams, options?: RequestInit): Promise<AdminComplaintList> => {
+
+  return customFetch<AdminComplaintList>(getListComplaintsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListComplaintsQueryKey = (params?: ListComplaintsParams,) => {
+    return [
+    `/api/admin/complaints`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListComplaintsQueryOptions = <TData = Awaited<ReturnType<typeof listComplaints>>, TError = ErrorType<unknown>>(params?: ListComplaintsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listComplaints>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListComplaintsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listComplaints>>> = ({ signal }) => listComplaints(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listComplaints>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListComplaintsQueryResult = NonNullable<Awaited<ReturnType<typeof listComplaints>>>
+export type ListComplaintsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List complaints for the backoffice, soonest legal deadline first
+ */
+
+export function useListComplaints<TData = Awaited<ReturnType<typeof listComplaints>>, TError = ErrorType<unknown>>(
+ params?: ListComplaintsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listComplaints>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListComplaintsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRespondComplaintUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/complaints/${id}`
+}
+
+/**
+ * There is deliberately no DELETE for complaints anywhere in this API. Records are kept for two years; `cerrado` is how a file ends.
+ * @summary Record the provider's response to a complaint
+ */
+export const respondComplaint = async (id: string,
+    updateComplaintInput: UpdateComplaintInput, options?: RequestInit): Promise<AdminComplaint> => {
+
+  return customFetch<AdminComplaint>(getRespondComplaintUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateComplaintInput)
+  }
+);}
+
+
+
+
+export const getRespondComplaintMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondComplaint>>, TError,{id: string;data: BodyType<UpdateComplaintInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondComplaint>>, TError,{id: string;data: BodyType<UpdateComplaintInput>}, TContext> => {
+
+const mutationKey = ['respondComplaint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondComplaint>>, {id: string;data: BodyType<UpdateComplaintInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondComplaint(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondComplaintMutationResult = NonNullable<Awaited<ReturnType<typeof respondComplaint>>>
+    export type RespondComplaintMutationBody = BodyType<UpdateComplaintInput>
+    export type RespondComplaintMutationError = ErrorType<Error>
+
+    /**
+ * @summary Record the provider's response to a complaint
+ */
+export const useRespondComplaint = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondComplaint>>, TError,{id: string;data: BodyType<UpdateComplaintInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondComplaint>>,
+        TError,
+        {id: string;data: BodyType<UpdateComplaintInput>},
+        TContext
+      > => {
+      return useMutation(getRespondComplaintMutationOptions(options));
     }
 
 export const getGetPublicConfigUrl = () => {

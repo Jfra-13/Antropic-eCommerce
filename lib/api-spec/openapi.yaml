@@ -28,6 +28,8 @@ tags:
     description: Public store config (delivery fee, Yape, pickup points, banners)
   - name: auth
     description: Authenticated caller identity
+  - name: legal
+    description: Libro de Reclamaciones and consent ledger (Peruvian consumer + data-protection law)
 paths:
   /healthz:
     get:
@@ -1695,6 +1697,139 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /complaints:
+    post:
+      operationId: createComplaint
+      tags: [legal]
+      summary: File a complaint in the Libro de Reclamaciones (Ley 29571, D.S. 011-2011-PCM)
+      description: >
+        Public on purpose and NOT authenticated: requiring an account to complain would itself
+        obstruct the right to complain. Returns the correlativo and the legal response deadline;
+        the full Hoja de Reclamación is emailed to the consumer as the required constancia.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateComplaintInput"
+      responses:
+        "201":
+          description: Filed complaint receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplaintReceipt"
+        "400":
+          description: Invalid body (INVALID_BODY)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: A minor was declared without naming a guardian (GUARDIAN_REQUIRED)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /consents:
+    post:
+      operationId: recordConsent
+      tags: [legal]
+      summary: Record a grant or withdrawal of consent (Ley 29733, D.S. 016-2024-JUS)
+      description: >
+        Append-only. Withdrawing consent writes a new row with granted=false rather than
+        updating the old one, because erasing the evidence would defeat demonstrability.
+        The IP and user agent are taken from the request itself and are never accepted from
+        the client, which would make the record forgeable and therefore worthless.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordConsentInput"
+      responses:
+        "204":
+          description: Consent recorded
+        "400":
+          description: Invalid body (INVALID_BODY)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/complaints:
+    get:
+      operationId: listComplaints
+      tags: [admin]
+      summary: List complaints for the backoffice, soonest legal deadline first
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pendiente, en_proceso, resuelto, cerrado]
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [reclamo, queja]
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated complaints
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminComplaintList"
+  /admin/complaints/{id}:
+    patch:
+      operationId: respondComplaint
+      tags: [admin]
+      summary: Record the provider's response to a complaint
+      description: >
+        There is deliberately no DELETE for complaints anywhere in this API. Records are kept
+        for two years; `cerrado` is how a file ends.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateComplaintInput"
+      responses:
+        "200":
+          description: Updated complaint
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminComplaint"
+        "404":
+          description: Complaint not found
           content:
             application/json:
               schema:
@@ -3463,6 +3598,10 @@ components:
         returnsPolicy:
           type: [string, "null"]
           description: Returns-policy page text; null = store shows its default
+        legal:
+          $ref: "#/components/schemas/LegalTexts"
+        business:
+          $ref: "#/components/schemas/BusinessIdentity"
       required:
         - deliveryFee
         - freeShippingThreshold
@@ -3476,6 +3615,8 @@ components:
         - contact
         - faq
         - returnsPolicy
+        - legal
+        - business
     PublicConfig:
       type: object
       properties:
@@ -3509,6 +3650,10 @@ components:
             $ref: "#/components/schemas/FaqEntry"
         returnsPolicy:
           type: [string, "null"]
+        legal:
+          $ref: "#/components/schemas/LegalTexts"
+        business:
+          $ref: "#/components/schemas/BusinessIdentity"
       required:
         - deliveryFee
         - freeShippingThreshold
@@ -3522,6 +3667,8 @@ components:
         - contact
         - faq
         - returnsPolicy
+        - legal
+        - business
     UpdateConfigInput:
       type: object
       properties:
@@ -3553,6 +3700,281 @@ components:
             $ref: "#/components/schemas/FaqEntry"
         returnsPolicy:
           type: [string, "null"]
+        legal:
+          $ref: "#/components/schemas/LegalTexts"
+        business:
+          $ref: "#/components/schemas/BusinessIdentity"
+    CreateComplaintInput:
+      type: object
+      description: Fields required on a Hoja de Reclamación by D.S. 011-2011-PCM.
+      properties:
+        type:
+          type: string
+          enum: [reclamo, queja]
+          description: reclamo = disputes the product/service; queja = about how the customer was treated
+        consumerName:
+          type: string
+          minLength: 1
+        consumerDocumentType:
+          type: string
+          enum: [dni, ce, pasaporte, ruc]
+        consumerDocumentNumber:
+          type: string
+          minLength: 1
+        consumerEmail:
+          type: string
+          format: email
+        consumerPhone:
+          type: [string, "null"]
+        consumerAddress:
+          type: [string, "null"]
+        isMinor:
+          type: boolean
+          default: false
+        guardianName:
+          type: [string, "null"]
+          description: Required when isMinor is true — a minor cannot file on their own behalf
+        itemType:
+          type: string
+          enum: [producto, servicio]
+        itemDescription:
+          type: string
+          minLength: 1
+        itemAmount:
+          type: [string, "null"]
+          description: Amount claimed, decimal string (e.g. "150.00")
+        orderId:
+          type: [string, "null"]
+          format: uuid
+        detail:
+          type: string
+          minLength: 1
+          description: Detalle de la reclamación
+        request:
+          type: string
+          minLength: 1
+          description: Pedido del consumidor — what they are asking the business to do
+      required:
+        - type
+        - consumerName
+        - consumerDocumentType
+        - consumerDocumentNumber
+        - consumerEmail
+        - itemType
+        - itemDescription
+        - detail
+        - request
+    ComplaintReceipt:
+      type: object
+      description: Proof of filing handed back to the consumer, with the legal deadline.
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Human-facing correlativo, e.g. "LR-000001"
+        complaintNumber:
+          type: integer
+        type:
+          type: string
+          enum: [reclamo, queja]
+        status:
+          type: string
+          enum: [pendiente, en_proceso, resuelto, cerrado]
+        consumerEmail:
+          type: string
+        dueAt:
+          type: string
+          format: date-time
+          description: Legal deadline to respond (30 calendar days from filing)
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - code
+        - complaintNumber
+        - type
+        - status
+        - consumerEmail
+        - dueAt
+        - createdAt
+    AdminComplaint:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        complaintNumber:
+          type: integer
+        type:
+          type: string
+          enum: [reclamo, queja]
+        consumerName:
+          type: string
+        consumerDocumentType:
+          type: string
+          enum: [dni, ce, pasaporte, ruc]
+        consumerDocumentNumber:
+          type: string
+        consumerEmail:
+          type: string
+        consumerPhone:
+          type: [string, "null"]
+        consumerAddress:
+          type: [string, "null"]
+        isMinor:
+          type: boolean
+        guardianName:
+          type: [string, "null"]
+        itemType:
+          type: string
+          enum: [producto, servicio]
+        itemDescription:
+          type: string
+        itemAmount:
+          type: [string, "null"]
+        orderId:
+          type: [string, "null"]
+        orderNumber:
+          type: [integer, "null"]
+        detail:
+          type: string
+        request:
+          type: string
+        status:
+          type: string
+          enum: [pendiente, en_proceso, resuelto, cerrado]
+        response:
+          type: [string, "null"]
+        respondedAt:
+          type: [string, "null"]
+          format: date-time
+        dueAt:
+          type: string
+          format: date-time
+        daysRemaining:
+          type: integer
+          description: Calendar days left to answer; negative once the legal deadline has passed
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - code
+        - complaintNumber
+        - type
+        - consumerName
+        - consumerDocumentType
+        - consumerDocumentNumber
+        - consumerEmail
+        - consumerPhone
+        - consumerAddress
+        - isMinor
+        - guardianName
+        - itemType
+        - itemDescription
+        - itemAmount
+        - orderId
+        - orderNumber
+        - detail
+        - request
+        - status
+        - response
+        - respondedAt
+        - dueAt
+        - daysRemaining
+        - createdAt
+    AdminComplaintList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminComplaint"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - items
+        - total
+        - page
+        - limit
+    UpdateComplaintInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pendiente, en_proceso, resuelto, cerrado]
+        response:
+          type: [string, "null"]
+          description: Acciones adoptadas por el proveedor, sent to the consumer by email
+      required:
+        - status
+    RecordConsentInput:
+      type: object
+      properties:
+        purpose:
+          type: string
+          enum: [pedido, marketing, cookies_analytics, cookies_marketing]
+        granted:
+          type: boolean
+        policyVersion:
+          type: string
+          minLength: 1
+          description: Which version of the text was shown; pins what was actually agreed to
+        email:
+          type: [string, "null"]
+      required:
+        - purpose
+        - granted
+        - policyVersion
+    LegalTexts:
+      type: object
+      description: Editable legal copy. Kept as configuration so a rebrand is not a code change.
+      properties:
+        privacyPolicy:
+          type: [string, "null"]
+        termsOfService:
+          type: [string, "null"]
+        cookiePolicy:
+          type: [string, "null"]
+        policyVersion:
+          type: string
+          description: Bumped whenever the texts change; stamped onto every consent record
+      required:
+        - privacyPolicy
+        - termsOfService
+        - cookiePolicy
+        - policyVersion
+    BusinessIdentity:
+      type: object
+      description: >
+        Provider identity. Required to be visible to consumers, and stamped onto every Hoja
+        de Reclamación as the "identificación del proveedor".
+      properties:
+        legalName:
+          type: [string, "null"]
+          description: Razón social
+        tradeName:
+          type: [string, "null"]
+          description: Nombre comercial
+        ruc:
+          type: [string, "null"]
+        fiscalAddress:
+          type: [string, "null"]
+          description: Domicilio fiscal
+      required:
+        - legalName
+        - tradeName
+        - ruc
+        - fiscalAddress
     ContactInfo:
       type: object
       description: Store contact channels; null/empty link hides that channel in the UI

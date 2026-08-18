@@ -1847,6 +1847,157 @@ export const UpdateUserResponse = zod.object({
 
 
 /**
+ * Public on purpose and NOT authenticated: requiring an account to complain would itself obstruct the right to complain. Returns the correlativo and the legal response deadline; the full Hoja de Reclamación is emailed to the consumer as the required constancia.
+ * @summary File a complaint in the Libro de Reclamaciones (Ley 29571, D.S. 011-2011-PCM)
+ */
+
+
+export const createComplaintBodyIsMinorDefault = false;
+
+
+
+
+export const CreateComplaintBody = zod.object({
+  "type": zod.enum(['reclamo', 'queja']).describe('reclamo = disputes the product\/service; queja = about how the customer was treated'),
+  "consumerName": zod.string().min(1),
+  "consumerDocumentType": zod.enum(['dni', 'ce', 'pasaporte', 'ruc']),
+  "consumerDocumentNumber": zod.string().min(1),
+  "consumerEmail": zod.string().email(),
+  "consumerPhone": zod.string().nullish(),
+  "consumerAddress": zod.string().nullish(),
+  "isMinor": zod.boolean().default(createComplaintBodyIsMinorDefault),
+  "guardianName": zod.string().nullish().describe('Required when isMinor is true — a minor cannot file on their own behalf'),
+  "itemType": zod.enum(['producto', 'servicio']),
+  "itemDescription": zod.string().min(1),
+  "itemAmount": zod.string().nullish().describe('Amount claimed, decimal string (e.g. \"150.00\")'),
+  "orderId": zod.string().uuid().nullish(),
+  "detail": zod.string().min(1).describe('Detalle de la reclamación'),
+  "request": zod.string().min(1).describe('Pedido del consumidor — what they are asking the business to do')
+}).describe('Fields required on a Hoja de Reclamación by D.S. 011-2011-PCM.')
+
+export const CreateComplaintResponse = zod.object({
+  "id": zod.string().uuid(),
+  "code": zod.string().describe('Human-facing correlativo, e.g. \"LR-000001\"'),
+  "complaintNumber": zod.number(),
+  "type": zod.enum(['reclamo', 'queja']),
+  "status": zod.enum(['pendiente', 'en_proceso', 'resuelto', 'cerrado']),
+  "consumerEmail": zod.string(),
+  "dueAt": zod.coerce.date().describe('Legal deadline to respond (30 calendar days from filing)'),
+  "createdAt": zod.coerce.date()
+}).describe('Proof of filing handed back to the consumer, with the legal deadline.')
+
+
+/**
+ * Append-only. Withdrawing consent writes a new row with granted=false rather than updating the old one, because erasing the evidence would defeat demonstrability. The IP and user agent are taken from the request itself and are never accepted from the client, which would make the record forgeable and therefore worthless.
+ * @summary Record a grant or withdrawal of consent (Ley 29733, D.S. 016-2024-JUS)
+ */
+
+
+
+export const RecordConsentBody = zod.object({
+  "purpose": zod.enum(['pedido', 'marketing', 'cookies_analytics', 'cookies_marketing']),
+  "granted": zod.boolean(),
+  "policyVersion": zod.string().min(1).describe('Which version of the text was shown; pins what was actually agreed to'),
+  "email": zod.string().nullish()
+})
+
+export const RecordConsentResponse = zod.void()
+
+
+/**
+ * @summary List complaints for the backoffice, soonest legal deadline first
+ */
+export const listComplaintsQueryPageDefault = 1;
+
+export const listComplaintsQueryLimitDefault = 20;
+export const listComplaintsQueryLimitMax = 100;
+
+
+
+export const ListComplaintsQueryParams = zod.object({
+  "status": zod.enum(['pendiente', 'en_proceso', 'resuelto', 'cerrado']).optional(),
+  "type": zod.enum(['reclamo', 'queja']).optional(),
+  "page": zod.coerce.number().min(1).default(listComplaintsQueryPageDefault),
+  "limit": zod.coerce.number().min(1).max(listComplaintsQueryLimitMax).default(listComplaintsQueryLimitDefault)
+})
+
+export const ListComplaintsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "code": zod.string(),
+  "complaintNumber": zod.number(),
+  "type": zod.enum(['reclamo', 'queja']),
+  "consumerName": zod.string(),
+  "consumerDocumentType": zod.enum(['dni', 'ce', 'pasaporte', 'ruc']),
+  "consumerDocumentNumber": zod.string(),
+  "consumerEmail": zod.string(),
+  "consumerPhone": zod.string().nullable(),
+  "consumerAddress": zod.string().nullable(),
+  "isMinor": zod.boolean(),
+  "guardianName": zod.string().nullable(),
+  "itemType": zod.enum(['producto', 'servicio']),
+  "itemDescription": zod.string(),
+  "itemAmount": zod.string().nullable(),
+  "orderId": zod.string().nullable(),
+  "orderNumber": zod.number().nullable(),
+  "detail": zod.string(),
+  "request": zod.string(),
+  "status": zod.enum(['pendiente', 'en_proceso', 'resuelto', 'cerrado']),
+  "response": zod.string().nullable(),
+  "respondedAt": zod.coerce.date().nullable(),
+  "dueAt": zod.coerce.date(),
+  "daysRemaining": zod.number().describe('Calendar days left to answer; negative once the legal deadline has passed'),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * There is deliberately no DELETE for complaints anywhere in this API. Records are kept for two years; `cerrado` is how a file ends.
+ * @summary Record the provider's response to a complaint
+ */
+export const RespondComplaintParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const RespondComplaintBody = zod.object({
+  "status": zod.enum(['pendiente', 'en_proceso', 'resuelto', 'cerrado']),
+  "response": zod.string().nullish().describe('Acciones adoptadas por el proveedor, sent to the consumer by email')
+})
+
+export const RespondComplaintResponse = zod.object({
+  "id": zod.string().uuid(),
+  "code": zod.string(),
+  "complaintNumber": zod.number(),
+  "type": zod.enum(['reclamo', 'queja']),
+  "consumerName": zod.string(),
+  "consumerDocumentType": zod.enum(['dni', 'ce', 'pasaporte', 'ruc']),
+  "consumerDocumentNumber": zod.string(),
+  "consumerEmail": zod.string(),
+  "consumerPhone": zod.string().nullable(),
+  "consumerAddress": zod.string().nullable(),
+  "isMinor": zod.boolean(),
+  "guardianName": zod.string().nullable(),
+  "itemType": zod.enum(['producto', 'servicio']),
+  "itemDescription": zod.string(),
+  "itemAmount": zod.string().nullable(),
+  "orderId": zod.string().nullable(),
+  "orderNumber": zod.number().nullable(),
+  "detail": zod.string(),
+  "request": zod.string(),
+  "status": zod.enum(['pendiente', 'en_proceso', 'resuelto', 'cerrado']),
+  "response": zod.string().nullable(),
+  "respondedAt": zod.coerce.date().nullable(),
+  "dueAt": zod.coerce.date(),
+  "daysRemaining": zod.number().describe('Calendar days left to answer; negative once the legal deadline has passed'),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Public store config for checkout/home (delivery fee, Yape, banners)
  */
 export const GetPublicConfigResponse = zod.object({
@@ -1877,7 +2028,19 @@ export const GetPublicConfigResponse = zod.object({
   "question": zod.string(),
   "answer": zod.string()
 })),
-  "returnsPolicy": zod.string().nullable()
+  "returnsPolicy": zod.string().nullable(),
+  "legal": zod.object({
+  "privacyPolicy": zod.string().nullable(),
+  "termsOfService": zod.string().nullable(),
+  "cookiePolicy": zod.string().nullable(),
+  "policyVersion": zod.string().describe('Bumped whenever the texts change; stamped onto every consent record')
+}).describe('Editable legal copy. Kept as configuration so a rebrand is not a code change.'),
+  "business": zod.object({
+  "legalName": zod.string().nullable().describe('Razón social'),
+  "tradeName": zod.string().nullable().describe('Nombre comercial'),
+  "ruc": zod.string().nullable(),
+  "fiscalAddress": zod.string().nullable().describe('Domicilio fiscal')
+}).describe('Provider identity. Required to be visible to consumers, and stamped onto every Hoja de Reclamación as the \"identificación del proveedor\".\n')
 })
 
 
@@ -1927,7 +2090,19 @@ export const GetAdminConfigResponse = zod.object({
   "question": zod.string(),
   "answer": zod.string()
 })).describe('FAQ entries in render order; empty = store shows its defaults'),
-  "returnsPolicy": zod.string().nullable().describe('Returns-policy page text; null = store shows its default')
+  "returnsPolicy": zod.string().nullable().describe('Returns-policy page text; null = store shows its default'),
+  "legal": zod.object({
+  "privacyPolicy": zod.string().nullable(),
+  "termsOfService": zod.string().nullable(),
+  "cookiePolicy": zod.string().nullable(),
+  "policyVersion": zod.string().describe('Bumped whenever the texts change; stamped onto every consent record')
+}).describe('Editable legal copy. Kept as configuration so a rebrand is not a code change.'),
+  "business": zod.object({
+  "legalName": zod.string().nullable().describe('Razón social'),
+  "tradeName": zod.string().nullable().describe('Nombre comercial'),
+  "ruc": zod.string().nullable(),
+  "fiscalAddress": zod.string().nullable().describe('Domicilio fiscal')
+}).describe('Provider identity. Required to be visible to consumers, and stamped onto every Hoja de Reclamación as the \"identificación del proveedor\".\n')
 })
 
 
@@ -1963,7 +2138,19 @@ export const UpdateAdminConfigBody = zod.object({
   "question": zod.string(),
   "answer": zod.string()
 })).optional(),
-  "returnsPolicy": zod.string().nullish()
+  "returnsPolicy": zod.string().nullish(),
+  "legal": zod.object({
+  "privacyPolicy": zod.string().nullable(),
+  "termsOfService": zod.string().nullable(),
+  "cookiePolicy": zod.string().nullable(),
+  "policyVersion": zod.string().describe('Bumped whenever the texts change; stamped onto every consent record')
+}).optional().describe('Editable legal copy. Kept as configuration so a rebrand is not a code change.'),
+  "business": zod.object({
+  "legalName": zod.string().nullable().describe('Razón social'),
+  "tradeName": zod.string().nullable().describe('Nombre comercial'),
+  "ruc": zod.string().nullable(),
+  "fiscalAddress": zod.string().nullable().describe('Domicilio fiscal')
+}).optional().describe('Provider identity. Required to be visible to consumers, and stamped onto every Hoja de Reclamación as the \"identificación del proveedor\".\n')
 })
 
 export const UpdateAdminConfigResponse = zod.object({
@@ -1995,7 +2182,19 @@ export const UpdateAdminConfigResponse = zod.object({
   "question": zod.string(),
   "answer": zod.string()
 })).describe('FAQ entries in render order; empty = store shows its defaults'),
-  "returnsPolicy": zod.string().nullable().describe('Returns-policy page text; null = store shows its default')
+  "returnsPolicy": zod.string().nullable().describe('Returns-policy page text; null = store shows its default'),
+  "legal": zod.object({
+  "privacyPolicy": zod.string().nullable(),
+  "termsOfService": zod.string().nullable(),
+  "cookiePolicy": zod.string().nullable(),
+  "policyVersion": zod.string().describe('Bumped whenever the texts change; stamped onto every consent record')
+}).describe('Editable legal copy. Kept as configuration so a rebrand is not a code change.'),
+  "business": zod.object({
+  "legalName": zod.string().nullable().describe('Razón social'),
+  "tradeName": zod.string().nullable().describe('Nombre comercial'),
+  "ruc": zod.string().nullable(),
+  "fiscalAddress": zod.string().nullable().describe('Domicilio fiscal')
+}).describe('Provider identity. Required to be visible to consumers, and stamped onto every Hoja de Reclamación as the \"identificación del proveedor\".\n')
 })
 
 

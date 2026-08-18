@@ -5,6 +5,8 @@ import type {
   Banner,
   ContactInfo,
   FaqEntry,
+  LegalTexts,
+  BusinessIdentity,
   UpdateConfigInput,
   PickupPoint as PickupPointDto,
   PickupPointList,
@@ -36,6 +38,15 @@ const KEY_ANNOUNCEMENT = "announcement_text";
 const KEY_CONTACT = "contact";
 const KEY_FAQ = "faq";
 const KEY_RETURNS_POLICY = "returns_policy";
+// Legal copy and provider identity. Both are configuration rather than code so that a rebrand
+// (or the second brand this codebase will be forked into) is a settings change, and so the
+// business can correct its own legal text without a deploy.
+const KEY_LEGAL = "legal_texts";
+const KEY_BUSINESS = "business_identity";
+
+// Stamped onto every consent record. If the legal texts change without bumping this, old
+// consents would silently claim agreement to words the user never saw.
+const DEFAULT_POLICY_VERSION = "v1";
 
 type YapeSetting = { number: string | null; qrPath: string | null };
 type HeroSetting = { title: string | null; subtitle: string | null };
@@ -49,7 +60,7 @@ function moneyOrNull(value: unknown): string | null {
 
 // Reads the config settings and normalizes them into the admin shape (paths, not URLs).
 async function readConfig(): Promise<AdminConfig> {
-  const [fee, threshold, yape, banners, hero, promoText, editorial, announcement, contact, faq, returnsPolicy] =
+  const [fee, threshold, yape, banners, hero, promoText, editorial, announcement, contact, faq, returnsPolicy, legal, business] =
     await Promise.all([
       getSetting(KEY_DELIVERY_FEE),
       getSetting(KEY_FREE_SHIPPING_THRESHOLD),
@@ -62,12 +73,16 @@ async function readConfig(): Promise<AdminConfig> {
       getSetting(KEY_CONTACT),
       getSetting(KEY_FAQ),
       getSetting(KEY_RETURNS_POLICY),
+      getSetting(KEY_LEGAL),
+      getSetting(KEY_BUSINESS),
     ]);
 
   const y = (yape ?? {}) as Partial<YapeSetting>;
   const h = (hero ?? {}) as Partial<HeroSetting>;
   const e = (editorial ?? {}) as Partial<EditorialSetting>;
   const ct = (contact ?? {}) as Partial<ContactInfo>;
+  const lg = (legal ?? {}) as Partial<LegalTexts>;
+  const bz = (business ?? {}) as Partial<BusinessIdentity>;
   const bannerList = Array.isArray(banners) ? (banners as Banner[]) : [];
 
   return {
@@ -87,7 +102,30 @@ async function readConfig(): Promise<AdminConfig> {
     },
     faq: Array.isArray(faq) ? (faq as FaqEntry[]) : [],
     returnsPolicy: typeof returnsPolicy === "string" && returnsPolicy.trim() !== "" ? returnsPolicy : null,
+    legal: {
+      privacyPolicy: lg.privacyPolicy ?? null,
+      termsOfService: lg.termsOfService ?? null,
+      cookiePolicy: lg.cookiePolicy ?? null,
+      policyVersion: lg.policyVersion ?? DEFAULT_POLICY_VERSION,
+    },
+    business: {
+      legalName: bz.legalName ?? null,
+      tradeName: bz.tradeName ?? null,
+      ruc: bz.ruc ?? null,
+      fiscalAddress: bz.fiscalAddress ?? null,
+    },
   };
+}
+
+// The provider identity block that must appear on every Hoja de Reclamación, read straight
+// from settings so a change of address does not require touching stored complaints.
+export async function getBusinessIdentity(): Promise<BusinessIdentity> {
+  return (await readConfig()).business;
+}
+
+// The version of the legal texts currently published. Consent records pin this.
+export async function getPolicyVersion(): Promise<string> {
+  return (await readConfig()).legal.policyVersion;
 }
 
 export function getAdminConfig(): Promise<AdminConfig> {
@@ -114,6 +152,8 @@ export async function getPublicConfig(): Promise<PublicConfig> {
     contact: c.contact,
     faq: c.faq,
     returnsPolicy: c.returnsPolicy,
+    legal: c.legal,
+    business: c.business,
   };
 }
 
@@ -157,6 +197,12 @@ export async function updateConfig(input: UpdateConfigInput): Promise<AdminConfi
   }
   if (input.returnsPolicy !== undefined) {
     await setSetting(KEY_RETURNS_POLICY, input.returnsPolicy);
+  }
+  if (input.legal !== undefined) {
+    await setSetting(KEY_LEGAL, input.legal);
+  }
+  if (input.business !== undefined) {
+    await setSetting(KEY_BUSINESS, input.business);
   }
   return readConfig();
 }

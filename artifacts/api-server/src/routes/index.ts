@@ -8,6 +8,8 @@ import checkoutRouter from "../modules/checkout/router";
 import ordersRouter from "../modules/orders/router";
 import paymentsRouter from "../modules/payments/router";
 import returnsRouter from "../modules/returns/router";
+import complaintsRouter from "../modules/complaints/router";
+import consentsRouter from "../modules/consents/router";
 import configRouter from "../modules/config/router";
 import adminRouter from "../modules/admin/router";
 
@@ -22,6 +24,8 @@ router.use(checkoutRouter);
 router.use(ordersRouter);
 router.use(paymentsRouter);
 router.use(returnsRouter);
+router.use(complaintsRouter);
+router.use(consentsRouter);
 router.use(configRouter);
 router.use(adminRouter);
 

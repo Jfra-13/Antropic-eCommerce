@@ -42,14 +42,49 @@ export const globalLimiter: RateLimitRequestHandler = rateLimit({
   handler: tooMany("Too many requests. Please wait a moment and try again."),
 });
 
-// Customer-facing writes: creating orders, quoting checkout, opening returns. Tighter,
-// because each one costs a database transaction and there is no legitimate reason to do
-// dozens per minute. Admin mutations are NOT covered here — the backoffice does bulk work
-// and is already gated on a verified role.
+// Customer-facing writes: creating orders, opening returns, filing a complaint. Tighter,
+// because each one costs a database transaction and there is no legitimate reason to do dozens
+// per minute. Admin mutations are NOT covered here — the backoffice does bulk work and is
+// already gated on a verified role.
+//
+// The three limiters below are separate instances ON PURPOSE. Each rateLimit() call owns its
+// own store, so one instance mounted on several paths would make them share a single budget:
+// filing complaints would eat the allowance for checking out. Distinct concerns, distinct
+// buckets.
 export const writeLimiter: RateLimitRequestHandler = rateLimit({
   ...shared,
   windowMs: FIVE_MINUTES_MS,
   limit: 30,
+  handler: tooMany("Too many requests. Please wait a moment and try again."),
+});
+
+// Checkout quotes are a pricing preview: no writes, no side effects, and the storefront
+// re-quotes on every change of delivery method or coupon. Someone comparing options is being
+// a normal shopper, not an attacker, so this gets far more headroom than a real write.
+export const quoteLimiter: RateLimitRequestHandler = rateLimit({
+  ...shared,
+  windowMs: FIVE_MINUTES_MS,
+  limit: 120,
+  handler: tooMany("Too many requests. Please wait a moment and try again."),
+});
+
+// Filing a complaint is public, unauthenticated, and legally protected. It gets its own bucket
+// rather than sharing the customer-write one so that abuse of the complaint form can never cost
+// somebody else the ability to place an order — behind NAT (very common on Peruvian mobile
+// networks) those two people can share an IP without any relationship to each other.
+export const complaintLimiter: RateLimitRequestHandler = rateLimit({
+  ...shared,
+  windowMs: FIVE_MINUTES_MS,
+  limit: 30,
+  handler: tooMany("Too many requests. Please wait a moment and try again."),
+});
+
+// Consent records arrive in small bursts by design — one row per purpose, so a single cookie
+// decision writes two and a checkout writes two more. Budgeted per decision, not per row.
+export const consentLimiter: RateLimitRequestHandler = rateLimit({
+  ...shared,
+  windowMs: FIVE_MINUTES_MS,
+  limit: 60,
   handler: tooMany("Too many requests. Please wait a moment and try again."),
 });
 

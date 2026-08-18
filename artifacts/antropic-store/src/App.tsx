@@ -20,6 +20,9 @@ import Profile from "./pages/Profile";
 import Faq from "./pages/Faq";
 import Returns from "./pages/Returns";
 import PickupPoints from "./pages/PickupPoints";
+import LibroReclamaciones from "./pages/LibroReclamaciones";
+import { Privacidad, Terminos, Cookies } from "./pages/Legal";
+import { CookieBanner } from "./components/CookieBanner";
 
 const queryClient = new QueryClient();
 
@@ -49,10 +52,17 @@ function Router() {
           <Route path="/faq" component={Faq} />
           <Route path="/devoluciones" component={Returns} />
           <Route path="/recojo" component={PickupPoints} />
+          {/* Legal. The Libro de Reclamaciones route must stay publicly reachable and linked
+              from every page — see the footer. */}
+          <Route path="/libro-de-reclamaciones" component={LibroReclamaciones} />
+          <Route path="/privacidad" component={Privacidad} />
+          <Route path="/terminos" component={Terminos} />
+          <Route path="/cookies" component={Cookies} />
           <Route component={NotFound} />
         </Switch>
       </main>
       <Footer />
+      <CookieBanner />
     </div>
   );
 }

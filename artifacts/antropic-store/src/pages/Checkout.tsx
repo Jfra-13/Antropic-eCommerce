@@ -10,11 +10,13 @@ import {
   useGetMe,
   getGetMeQueryKey,
   useUpdateMe,
+  useRecordConsent,
   type CheckoutQuote,
 } from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
 import { formatPrice, priceToNumber } from "../lib/product";
 import { apiErrorCode, apiErrorMessage } from "../lib/errors";
+import { useStoreConfig } from "../lib/config";
 
 type DeliveryMethod = "delivery" | "recojo";
 
@@ -37,6 +39,10 @@ export default function Checkout() {
   const [phone, setPhone] = useState("");
   const [saveContact, setSaveContact] = useState(true);
   const [contactError, setContactError] = useState<string | null>(null);
+  // Marketing opt-in. Starts UNCHECKED and must stay that way: a pre-ticked box is not consent
+  // under the reglamento, it is an infraction. It is also kept separate from placing the order
+  // — agreeing to be sold to is never the same act as agreeing to be delivered to.
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const prefilled = useRef(false);
 
   // One key per checkout visit: a double click on "Confirmar" returns the same order.
@@ -49,6 +55,8 @@ export default function Checkout() {
   const quoteMutation = useCheckoutQuote();
   const updateMe = useUpdateMe();
   const createOrder = useCreateOrder();
+  const recordConsent = useRecordConsent();
+  const { config } = useStoreConfig();
 
   const profile = me?.user;
   const profileIncomplete = !!profile && (!profile.fullName?.trim() || !profile.phone?.trim());
@@ -143,6 +151,17 @@ export default function Checkout() {
       setContactError(apiErrorMessage(e));
       return;
     }
+    // Record both decisions before placing the order, each against the published version of
+    // the legal texts. Best-effort: a consent write must never block a purchase.
+    const policyVersion = config?.legal?.policyVersion;
+    if (policyVersion) {
+      const email = profile?.email ?? null;
+      recordConsent.mutate({ data: { purpose: "pedido", granted: true, policyVersion, email } });
+      recordConsent.mutate({
+        data: { purpose: "marketing", granted: marketingOptIn, policyVersion, email },
+      });
+    }
+
     createOrder.mutate(
       {
         data: {
@@ -371,10 +390,23 @@ export default function Checkout() {
                 <p className="text-sm text-destructive mt-4">{apiErrorMessage(createOrder.error)}</p>
               )}
 
+              <label className="flex items-start gap-2 mt-6 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={marketingOptIn}
+                  onChange={(e) => setMarketingOptIn(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="font-sans text-xs text-muted-foreground leading-relaxed">
+                  Quiero recibir novedades y promociones por correo. Es opcional: tu pedido se
+                  procesa igual si no lo marcas.
+                </span>
+              </label>
+
               <button
                 onClick={confirm}
                 disabled={!canConfirm}
-                className="w-full mt-6 bg-primary text-primary-foreground font-sans font-bold text-base uppercase tracking-wider py-4 hover:bg-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-4 bg-primary text-primary-foreground font-sans font-bold text-base uppercase tracking-wider py-4 hover:bg-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 data-testid="button-confirm-order"
               >
                 {createOrder.isPending ? "Creando pedido…" : "Confirmar pedido"}
