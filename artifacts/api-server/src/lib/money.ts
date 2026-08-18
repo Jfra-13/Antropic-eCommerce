@@ -1,3 +1,5 @@
+import { env } from "./env";
+
 // Money helpers. The DB stores numeric(10,2) as strings; we do integer-cents math and
 // never touch floats (float money math is a bug factory). All values in this domain are
 // non-negative — there is no negative money here.
@@ -15,7 +17,7 @@ export function fromCents(cents: number): string {
 }
 
 // ponytail: dev-time self-check — money is a money path; fail loud on boot if math breaks.
-if (process.env["NODE_ENV"] !== "production") {
+if (!env.isProduction) {
   const eq = (a: string, b: string) => {
     if (a !== b) throw new Error(`money self-check failed: ${a} !== ${b}`);
   };

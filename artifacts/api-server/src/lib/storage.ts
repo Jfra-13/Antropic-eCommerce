@@ -1,18 +1,15 @@
 import { randomUUID } from "node:crypto";
+import { env } from "./env";
 
 // Signed upload URLs to Supabase Storage. The frontend PUTs the file directly with this URL,
 // so the service-role key never leaves the server and the file never transits the API. Uses
 // the Storage REST endpoint directly — no need for the @supabase/supabase-js dependency.
-const SUPABASE_URL = process.env["SUPABASE_URL"];
+const SUPABASE_URL = env.SUPABASE_URL;
 const PROOF_BUCKET = "payment-proofs"; // private (Yape constancias)
 const PUBLIC_BUCKET = "public-media"; // public (Yape QR, banners)
 
-function serviceRoleKey(): string {
-  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  if (!SUPABASE_URL) throw new Error("SUPABASE_URL must be set to sign Storage uploads.");
-  if (!key) throw new Error("SUPABASE_SERVICE_ROLE_KEY must be set to sign Storage uploads.");
-  return key;
-}
+// Presence is guaranteed by lib/env at startup, so there is no lazy check here any more.
+const serviceRoleKey = (): string => env.SUPABASE_SERVICE_ROLE_KEY;
 
 export type SignedUpload = { uploadUrl: string; path: string; token: string };
 
