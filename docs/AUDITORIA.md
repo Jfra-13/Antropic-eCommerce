@@ -499,24 +499,44 @@ Si esto falla, las confirmaciones caen en spam y explotan los reclamos.
 
 ### 9.2 🔴 BLOQUEANTE — Testing
 
-**No hay ni un solo test en el repositorio. No hay runner configurado.**
+**Implantado en la Fase 3**: 35 pruebas unitarias y 19 de integración, todas en CI como puerta
+bloqueante. Siguen faltando el E2E y la prueba de RLS, que dependen de servicios externos.
 
-Esto no es solo una brecha de calidad: hace **imposible** producir la evidencia de auditoría de §11.
-Sin tests no se puede demostrar que RLS funciona, que el webhook (futuro) es idempotente, ni que dos
-compras simultáneas de la última unidad se resuelven bien.
+Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en componentes visuales.
 
-Prioridad: cobertura total de lo que mueve dinero, sin exigencia en componentes visuales.
+- [x] Runner configurado (vitest) y en el pipeline como bloqueante — `.github/workflows/ci.yml`
+      corre `typecheck → test → push del esquema → test:integration → build`
+- [x] Unitarias de dominio: conversión de céntimos, máquinas de estado de pago y fulfillment,
+      descuentos de cupón y aritmética del plazo legal. El costo de envío queda cubierto por
+      integración, no por unitarias: lee tarifas de `settings`
+- [x] **Prueba de concurrencia de stock**: dos compradores simultáneos por la última unidad (solo
+      uno gana), cinco compradores por tres unidades (el stock aterriza en 0, nunca en negativo),
+      doble aprobación del mismo pedido (decremento único) y reversión completa cuando una línea de
+      varias no tiene stock. **Verificadas por mutación**: al quitar la guarda condicional fallan
+      exactamente esas 3 pruebas y siguen pasando las 2 que cubren otros mecanismos
+- [x] Integración de la cola de verificación: aprobar dos veces (idempotente), aprobar un pedido que
+      nunca pasó por verificación (rechazado por la máquina de estados), reversión atómica
+- [x] Integración del Libro de Reclamaciones y del registro de consentimiento: correlativo sin
+      huecos, plazo de 30 días persistido, validación de menor de edad sin escritura parcial,
+      historial append-only y contexto no falsificable
+- [x] Pruebas contra base de datos efímera. **El arnés se niega a ejecutarse contra cualquier host
+      que no sea local** (`src/test/db.ts`), porque truncan tablas; sin `DATABASE_URL` no hay valor
+      por defecto, a propósito
+- [x] Datos de prueba con factories, no fixtures copiados a mano — `src/test/factories.ts`
+- [ ] **Prueba de RLS**: leer pedidos de otro usuario con la anon key debe fallar. La sonda está
+      escrita (§3.2) pero necesita credenciales de Supabase; no se puede ejecutar en CI todavía
+- [ ] E2E con Playwright del flujo completo. El login depende de Supabase (magic link / OAuth), que
+      es externo y no reproducible en CI sin un proyecto de pruebas dedicado. Los tramos sin sesión
+      (catálogo, Libro de Reclamaciones) sí serían automatizables hoy
+- [ ] Cobertura mínima acordada en la capa de dominio
+- [ ] Cada bug de producción incorpora un test que lo reproduce — proceso, no entregable
 
-- [ ] Runner configurado (vitest) y añadido al pipeline como bloqueante
-- [ ] Unitarias de dominio: totales, envío, cupones, transiciones de estado, conversión de céntimos
-- [ ] **Prueba de concurrencia de stock**: dos aprobaciones simultáneas de la última unidad; solo una
-      debe completarse. El código ya está escrito para ganar este test — falta demostrarlo
-- [ ] **Prueba de RLS**: leer pedidos de otro usuario con la anon key **debe fallar**
-- [ ] Integración de la cola de verificación: aprobar dos veces, aprobar un pedido ya pagado,
-      rechazar y volver a subir constancia
-- [ ] E2E con Playwright: navegar → carrito → checkout → constancia → aprobación → pedido pagado
-- [ ] Pruebas contra base de datos efímera, nunca contra desarrollo compartido ni producción
-- [ ] Cada bug de producción incorpora un test que lo reproduce
+**Bug encontrado al escribir las pruebas** (corregido): `toCents` aceptaba entradas que no son
+dinero y devolvía un número plausible en vez de fallar — `""` y `" "` daban `0`, `"1.2.3"` daba
+`120`, `"-5.00"` daba `-500` (que `fromCents` luego recortaba a `"0.00"`, borrando el rastro) y
+`"1e3"` daba `100000`. Ninguna ruta actual llega a alimentarlo con esos valores, pero un parser de
+dinero que inventa una cifra es peor que uno que lanza: el número equivocado llega a un total y no
+se descubre hasta que alguien lo paga.
 
 ### 9.3 Base de datos
 
@@ -633,10 +653,35 @@ Módulo legal verificado en ejecución contra un PostgreSQL real, no solo compil
 > en las redes móviles peruanas— eso significa que una persona podía bloquear la compra de otra sin
 > ninguna relación entre ambas. Cada grupo tiene ahora su propio limitador.
 
-### 11.3 Pendiente
+### 11.3 Recogida en la Fase 3
+
+| Comprobación | Resultado |
+|---|---|
+| Suite unitaria | 35 pruebas, sin base de datos, ~1 s |
+| Suite de integración | 19 pruebas contra Postgres real, ~3,5 s |
+| Última unidad, dos compradores | Exactamente un `ok` y un `out_of_stock`; stock final 0 |
+| Cinco compradores, tres unidades | 3 ganan, 2 rechazados, stock final 0 (nunca negativo) |
+| Doble aprobación del mismo pedido | Ambas `ok`, decremento aplicado una sola vez |
+| Reversión atómica | Con una línea sin stock, la línea abundante queda intacta |
+| **Verificación por mutación** | Al quitar `gte(stock, cantidad)` fallan 3 pruebas y pasan 2 |
+| Correlativo | `LR-000001`, `LR-000002`, sin huecos tras `restart identity` |
+| Plazo legal | 30 días exactos entre `created_at` y `due_at` |
+| Menor sin tutor | Rechazado **y sin fila escrita** |
+| Consentimiento append-only | Otorgar y retirar deja dos filas; la primera intacta |
+| Arnés contra host remoto | Se niega a ejecutarse, salida 1 |
+| Arnés sin `DATABASE_URL` | Falla con mensaje claro, salida 1 |
+| Arnés sin esquema | Indica `push-force`, salida 1 |
+| Pipeline de CI completo | Simulado contra una base nueva: los 5 pasos en verde |
+
+> Las tres salvaguardas salen con código 1. Importa: si alguna saliera con 0 al no encontrar
+> pruebas, CI pasaría en verde **sin haber ejecutado ninguna**, que es la peor forma de fallo
+> posible en una puerta de calidad.
+
+### 11.4 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
-pendiente**, y la mayor parte está bloqueada por §9.2 (no hay tests).
+pendiente**. La suite de pruebas ya no es el bloqueo (§9.2); lo que falta depende de
+credenciales reales, de trámites o de terceros.
 
 - [ ] Reporte de cobertura de pruebas
 - [ ] Reporte de la suite E2E pasando
