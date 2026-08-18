@@ -17,6 +17,25 @@ jobs:
       # The Vite configs read PORT and BASE_PATH and fail without them.
       PORT: 3000
       BASE_PATH: /
+      # Throwaway database for the integration tests. They truncate tables, and the harness
+      # refuses to run against any host that is not local — see src/test/db.ts.
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/antropic_test
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: antropic_test
+        ports:
+          - 5432:5432
+        # Without this the first migration can land before Postgres is accepting connections.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -33,5 +52,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm run typecheck
+
+      # Unit tests first: they need no database and fail fastest.
+      - name: Unit tests
+        run: pnpm --filter @workspace/api-server run test
+
+      # Push-based schema, so the test database is built from the Drizzle schema itself rather
+      # than from migration files (there are none — see docs/AUDITORIA.md §9.3).
+      - name: Apply schema to the test database
+        run: pnpm --filter @workspace/db run push-force
+
+      - name: Integration tests
+        run: pnpm --filter @workspace/api-server run test:integration
 
       - run: pnpm run build

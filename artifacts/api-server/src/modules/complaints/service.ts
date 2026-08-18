@@ -6,7 +6,7 @@ import type {
   CreateComplaintInput,
 } from "@workspace/api-zod";
 import * as notifications from "../notifications/service";
-import { complaintCode } from "./mappers";
+import { complaintCode, dueDateFrom, daysRemaining } from "./mappers";
 import {
   insertComplaint,
   listComplaints,
@@ -15,24 +15,8 @@ import {
   type AdminComplaintRow,
 } from "./queries";
 
-// D.S. 011-2011-PCM: the provider has 30 calendar days — not working days — to answer.
-// Named because a magic 30 buried in a date calculation is how a legal deadline quietly
-// becomes wrong.
-const LEGAL_RESPONSE_DAYS = 30;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
 type ComplaintStatus = Complaint["status"];
 type ComplaintType = Complaint["type"];
-
-function dueDateFrom(filedAt: Date): Date {
-  return new Date(filedAt.getTime() + LEGAL_RESPONSE_DAYS * MS_PER_DAY);
-}
-
-// Whole calendar days left to answer. Negative once the deadline has passed, which the
-// backoffice renders as overdue rather than hiding.
-function daysRemaining(dueAt: Date): number {
-  return Math.ceil((dueAt.getTime() - Date.now()) / MS_PER_DAY);
-}
 
 function toReceipt(row: Complaint): ComplaintReceipt {
   return {

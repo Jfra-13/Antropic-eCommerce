@@ -10,6 +10,8 @@ Run from repo root unless noted. Package manager is pnpm (workspaces).
 pnpm install                                          # install (frozen lockfile in CI/post-merge)
 pnpm run build                                        # typecheck + build all packages
 pnpm run typecheck                                    # tsc --build libs, then typecheck artifacts/scripts
+pnpm run test                                         # vitest unit tests (no database)
+pnpm run test:integration                             # vitest against real Postgres (requires DATABASE_URL)
 pnpm --filter @workspace/api-server run build          # required before `start` after any API change
 pnpm --filter @workspace/api-server run start          # run API server (requires PORT, DATABASE_URL)
 pnpm --filter @workspace/antropic-store run dev        # storefront (requires PORT, BASE_PATH, VITE_API_URL)
@@ -29,9 +31,22 @@ common symptoms). Prefer it over reconstructing commands from scratch.
 
 Single-package typecheck: `pnpm --filter <name> run typecheck` (e.g. `@workspace/antropic-store`).
 
-No test runner is configured — `build` and `typecheck` are the only quality gates, and they are
-what CI runs (`.github/workflows/ci.yml`). `msw` is present (in `onlyBuiltDependencies`) for future
-request mocking, but there are no test scripts. Don't assume `pnpm test` exists.
+Quality gates are `typecheck`, `test`, `test:integration` and `build`, and CI runs all four
+(`.github/workflows/ci.yml`).
+
+- `pnpm test` — vitest unit tests. Pure domain logic only (money, order state machines, coupon
+  discounts, complaint deadlines); no database, runs anywhere.
+- `pnpm test:integration` — vitest against **real Postgres**, driven by `DATABASE_URL`. These cover
+  what a unit test cannot prove: stock concurrency under simultaneous approvals, transaction
+  rollback, complaint correlativos, append-only consent history.
+
+Integration tests **truncate tables**. The harness (`artifacts/api-server/src/test/db.ts`) refuses
+to run against any host other than localhost, so point `DATABASE_URL` at a throwaway database and
+apply the schema first with `pnpm --filter @workspace/db run push-force`. There is no default
+`DATABASE_URL` for them on purpose.
+
+Tests live next to the code they cover: `*.test.ts` for unit, `*.integration.test.ts` for the ones
+that need a database.
 
 Required env vars: `PORT` and `BASE_PATH` (per dev-server package, passed on the command line, not
 in `.env`), `DATABASE_URL` + `SUPABASE_*` (api-server, db, from the root `.env`), `VITE_*` (store
