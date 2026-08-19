@@ -7,6 +7,7 @@
 // bundled assets until real photography lands in Supabase Storage.
 //
 // Run: pnpm --filter @workspace/scripts run seed
+import { brand } from "@workspace/brand";
 import {
   db,
   pool,
@@ -27,7 +28,7 @@ const slugify = (s: string): string =>
     .replace(/^-+|-+$/g, "");
 
 const DEFAULT_DETAILS =
-  "Confeccionada con materiales suaves y de alta calidad, esta pieza combina comodidad y estilo para tu día a día. Diseño versátil pensado para acompañarte en cualquier ocasión y realzar tu look con la esencia ANTROPIC.";
+  `Confeccionada con materiales suaves y de alta calidad, esta pieza combina comodidad y estilo para tu día a día. Diseño versátil pensado para acompañarte en cualquier ocasión y realzar tu look con la esencia ${brand.name.toUpperCase()}.`;
 
 const CATEGORY_NAMES = [
   "Tops",

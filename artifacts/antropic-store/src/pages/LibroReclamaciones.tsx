@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useCreateComplaint } from "@workspace/api-client-react";
 import type { ComplaintReceipt, CreateComplaintInput } from "@workspace/api-client-react";
+import { orderReference } from "@workspace/brand";
 import { useStoreConfig } from "../lib/config";
 
 // Libro de Reclamaciones Virtual — Ley 29571, D.S. 011-2011-PCM, ampliado a plataformas
@@ -239,7 +240,7 @@ export default function LibroReclamaciones() {
               id="itemDescription"
               name="itemDescription"
               required
-              placeholder="Ej. Vestido rosa talla M, pedido ANT-000123"
+              placeholder={`Ej. Vestido rosa talla M, pedido ${orderReference(123)}`}
               className={inputClass}
             />
           </div>

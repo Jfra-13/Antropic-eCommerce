@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { brand } from "@workspace/brand";
 
 // Staff sign-in: Google OAuth (one tap) or Magic Link (passwordless email), matching the
 // customer auth decision (requerimientos §1). No passwords are stored anywhere.
@@ -46,7 +47,7 @@ export default function Login({ error }: { error?: string | null }) {
     <div className="min-h-screen bg-slate-100 flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">ANTROPIC</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{brand.name.toUpperCase()}</h1>
           <p className="text-sm text-slate-500 mt-1">Backoffice</p>
         </div>
 
@@ -82,7 +83,7 @@ export default function Login({ error }: { error?: string | null }) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@antropic.com"
+                placeholder={`tu@${brand.name.toLowerCase()}.com`}
                 className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm focus:border-slate-900 focus:outline-none"
               />
               <button

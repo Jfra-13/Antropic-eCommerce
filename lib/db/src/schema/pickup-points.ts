@@ -2,7 +2,7 @@ import { pgTable, uuid, text, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { timestamps } from "./helpers";
 
-// Pickup points in La Molina (recojo, no shipping cost).
+// Pickup points in the store's coverage area (recojo, no shipping cost).
 export const pickupPoints = pgTable("pickup_points", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),

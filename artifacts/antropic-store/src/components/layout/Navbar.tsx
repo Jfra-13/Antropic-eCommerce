@@ -14,6 +14,7 @@ import {
 import { SearchOverlay } from "../SearchOverlay";
 import modelo_01 from "../../assets/modelo_01.webp";
 import modelo_02 from "../../assets/modelo_02.webp";
+import { brand } from "@workspace/brand";
 
 // Categories the navbar promotes to top-level links (by slug). Everything else
 // goes under the "Ropa" dropdown. The public API returns active categories only,
@@ -86,7 +87,7 @@ export function Navbar() {
 
         {/* Logo */}
         <div className="flex items-center justify-center md:justify-start w-1/3 md:w-auto">
-          <Link href="/" className="font-display text-3xl text-primary -mt-1 cursor-pointer">Antropic</Link>
+          <Link href="/" className="font-display text-3xl text-primary -mt-1 cursor-pointer">{brand.name}</Link>
         </div>
 
         {/* Desktop nav */}

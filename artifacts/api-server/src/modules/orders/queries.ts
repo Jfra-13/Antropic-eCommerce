@@ -19,6 +19,7 @@ import {
 import { and, asc, desc, eq, gte, ilike, isNotNull, lt, notInArray, or, sql } from "drizzle-orm";
 import type { Tx } from "../../lib/tx";
 import { canTransitionFulfillment } from "../../lib/order-state";
+import { parseOrderReference } from "@workspace/brand";
 
 type FulfillmentStatus = NonNullable<Order["fulfillmentStatus"]>;
 
@@ -261,9 +262,11 @@ export async function listAdminOrders(
   if (filters.q) {
     const term = `%${filters.q.trim()}%`;
     const qConds = [ilike(profiles.fullName, term), ilike(profiles.email, term)];
-    // "123" or "ANT-123" also matches the order number exactly.
-    const num = Number.parseInt(filters.q.trim().replace(/^ANT-?/i, ""), 10);
-    if (Number.isInteger(num)) qConds.push(eq(orders.orderNumber, num));
+    // A term that reads as an order reference — bare digits, or the brand prefix followed by
+    // digits — also matches the order number exactly. Parsing is shared with the builder in
+    // lib/brand so the two cannot drift apart when the prefix changes.
+    const num = parseOrderReference(filters.q);
+    if (num !== null) qConds.push(eq(orders.orderNumber, num));
     conds.push(or(...qConds)!);
   }
   const where = conds.length > 0 ? and(...conds) : undefined;

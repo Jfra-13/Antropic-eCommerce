@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { brand } from "@workspace/brand";
 import { LayoutDashboard, CreditCard, ShoppingBag, Truck, Package, Ticket, Undo2, BookText, BarChart3, Users as UsersIcon, Settings, LogOut, ChevronLeft } from "lucide-react";
 import type { StaffRole } from "@/lib/session";
 
@@ -60,7 +61,7 @@ export default function Layout({
           className={`${pinned ? "w-60" : "w-16"} sticky top-0 h-screen shrink-0 border-r border-slate-200 bg-white flex flex-col transition-[width] duration-200`}
         >
           <div className={`relative border-b border-slate-200 py-5 ${pinned ? "px-5" : "px-2 text-center"}`}>
-            <div className="font-bold">{pinned ? "ANTROPIC" : "A"}</div>
+            <div className="font-bold">{pinned ? brand.name.toUpperCase() : brand.shortName}</div>
             {pinned && <div className="text-xs text-slate-500">Backoffice</div>}
             <button
               onClick={togglePinned}

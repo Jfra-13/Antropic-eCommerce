@@ -18,6 +18,7 @@ import {
 } from "@workspace/api-client-react";
 import { supabase } from "@/lib/supabase";
 import { errorMessage } from "@/lib/format";
+import { brand } from "@workspace/brand";
 
 const MEDIA_BUCKET = "public-media";
 function publicUrl(path: string): string {
@@ -180,7 +181,7 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
       )}
 
       {tab === "envio" && (
-        <Section title="Envío (delivery La Molina)">
+        <Section title={`Envío (delivery ${brand.deliveryZone})`}>
           <div className="grid grid-cols-2 gap-4">
             <Field
               label="Tarifa de delivery (S/)"
@@ -233,7 +234,7 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
                 label="Franja promocional (texto bajo el hero)"
                 value={promoText}
                 onChange={setPromoText}
-                placeholder="Envíos a toda La Molina · Pagos con Yape"
+                placeholder={`Envíos a toda ${brand.deliveryZone} · Pagos con Yape`}
               />
             </div>
           </Section>
@@ -288,13 +289,13 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
               label="Instagram — URL completa (vacío oculta el ícono)"
               value={instagramUrl}
               onChange={setInstagramUrl}
-              placeholder="https://instagram.com/antropic"
+              placeholder={`https://instagram.com/${brand.name.toLowerCase()}`}
             />
             <Field
               label="TikTok — URL completa (vacío oculta el ícono)"
               value={tiktokUrl}
               onChange={setTiktokUrl}
-              placeholder="https://tiktok.com/@antropic"
+              placeholder={`https://tiktok.com/@${brand.name.toLowerCase()}`}
             />
           </div>
         </Section>
@@ -315,9 +316,9 @@ function ConfigForm({ initial, tab }: { initial: AdminConfig; tab: ConfigTab }) 
             </p>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Razón social" value={legalName} onChange={setLegalName} placeholder="Comercial Ejemplo S.A.C." />
-              <Field label="Nombre comercial" value={tradeName} onChange={setTradeName} placeholder="Antropic" />
+              <Field label="Nombre comercial" value={tradeName} onChange={setTradeName} placeholder={brand.name} />
               <Field label="RUC" value={ruc} onChange={setRuc} placeholder="20123456789" />
-              <Field label="Domicilio fiscal" value={fiscalAddress} onChange={setFiscalAddress} placeholder="Av. Ejemplo 123, La Molina, Lima" />
+              <Field label="Domicilio fiscal" value={fiscalAddress} onChange={setFiscalAddress} placeholder={`Av. Ejemplo 123, ${brand.deliveryZone}, Lima`} />
             </div>
           </Section>
 
@@ -463,7 +464,7 @@ function FaqList({ faq, onChange }: { faq: FaqEntry[]; onChange: (f: FaqEntry[])
               label="Respuesta"
               value={entry.answer}
               onChange={(v) => setEntry(i, { answer: v })}
-              placeholder="Los pedidos en La Molina llegan en 24-48 horas."
+              placeholder={`Los pedidos en ${brand.deliveryZone} llegan en 24-48 horas.`}
               rows={3}
             />
           </div>
@@ -492,7 +493,7 @@ function PickupPoints() {
     <div className="mt-8 border-t border-slate-200 pt-6">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Puntos de recojo (La Molina)
+          Puntos de recojo ({brand.deliveryZone})
         </h2>
         <button
           onClick={() => setAdding((a) => !a)}
@@ -574,7 +575,7 @@ function PickupForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => 
     <div className="mb-3 rounded-lg border border-slate-200 bg-white p-4">
       <div className="grid grid-cols-2 gap-3">
         <Field label="Nombre" value={name} onChange={setName} placeholder="Punto A" />
-        <Field label="Dirección" value={address} onChange={setAddress} placeholder="Av. La Molina 1234" />
+        <Field label="Dirección" value={address} onChange={setAddress} placeholder="Av. Ejemplo 1234" />
       </div>
       <div className="mt-3 flex items-center gap-2">
         <button

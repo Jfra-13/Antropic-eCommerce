@@ -73,11 +73,12 @@ function toAuthUser(u: User): AuthUser {
   };
 }
 
-const GUEST_FAVORITES_KEY = 'antropic_favorites';
-// v2: variant-keyed lines ({variantId, qty}). The legacy product-keyed 'antropic_cart'
-// cannot be mapped to variants, so it is dropped on first load.
-const GUEST_CART_KEY = 'antropic_cart_v2';
-const LEGACY_GUEST_CART_KEY = 'antropic_cart';
+// Brand-neutral keys: localStorage is already scoped to the origin, so there is nothing for a
+// brand prefix to disambiguate, and a rebrand should never be able to empty a shopper's cart.
+// v2 = variant-keyed lines ({variantId, qty}); the older product-keyed shape could not be
+// mapped to variants and was never migrated.
+const GUEST_FAVORITES_KEY = 'store.favorites';
+const GUEST_CART_KEY = 'store.cart.v2';
 
 type GuestCartItem = { variantId: string; qty: number };
 
@@ -104,10 +105,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // display. Logged in: the server cart is the source of truth (variant-keyed, stock
   // clamped server-side); mutations return the fresh cart and it is written straight
   // into the query cache. Totals shown here are estimates — checkout quotes server-side.
-  const [guestCart, setGuestCart] = useState<GuestCartItem[]>(() => {
-    localStorage.removeItem(LEGACY_GUEST_CART_KEY);
-    return readGuestCart();
-  });
+  const [guestCart, setGuestCart] = useState<GuestCartItem[]>(() => readGuestCart());
 
   useEffect(() => {
     if (user) return; // logged in: the server owns the cart

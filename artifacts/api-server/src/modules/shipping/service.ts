@@ -12,7 +12,7 @@ function settingCents(value: unknown): number | null {
 }
 
 // Shipping cost in cents for a delivery method given the order subtotal. Recojo is always
-// free. Delivery reads the flat La Molina tariff from settings, and is waived when the
+// free. Delivery reads the flat coverage-area tariff from settings, and is waived when the
 // subtotal reaches the configurable free-shipping threshold (unset threshold = never free).
 // Both values are set by the business in the admin panel — non-blocking per planeación §10.
 // ponytail: flat fee from KV; a per-zone Strategy only if the tariff ever becomes zonal.

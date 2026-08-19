@@ -62,9 +62,10 @@ pnpm workspace with two package roots, each with a different lifecycle:
 - **`lib/*`** — internal libraries consumed by artifacts via `workspace:*`. `db` (Drizzle schema +
   pg pool), `api-spec` (OpenAPI source + Orval codegen config, no runtime code), `api-zod`
   (generated Zod schemas), `api-client-react` (generated React Query hooks + hand-written
-  `customFetch` wrapper).
-- **`docs/`** — `COMANDOS.md` (runbook), `TUNELES.md` (Cloudflare Tunnel demo guide), `negocio/`
-  (requirements, physical DB schema, role flows, style guide).
+  `customFetch` wrapper), `brand` (brand identity as data — see below).
+- **`docs/`** — `COMANDOS.md` (runbook), `CLONACION.md` (fork procedure for a second brand),
+  `TUNELES.md` (Cloudflare Tunnel demo guide), `negocio/` (requirements, physical DB schema,
+  role flows, style guide).
 - Shared `catalog:` versions for common deps (react, vite, tailwind, radix, etc.) are pinned once in
   `pnpm-workspace.yaml`; packages reference them as `"catalog:"` instead of hardcoding a version.
 - `scripts/` is a workspace member too (misc one-off TS scripts run via `tsx`).
@@ -106,6 +107,29 @@ migration files are checked in.
 > `drizzle-kit push` opens an interactive "is this a rename?" prompt that `--force` does not skip and
 > that breaks without a TTY. Workaround: split into two pushes — additions first, then the drop.
 
+### brand
+
+`lib/brand/src/brand.ts` is the single file that says who the store is: name, tagline, delivery
+zone, order-reference prefix, per-artifact document head (title, meta, Open Graph, icons, theme
+color) and the email header color. It is consumed by both frontends, the API's email templates and
+the Vite configs.
+
+This exists because the codebase gets forked per brand (`docs/CLONACION.md`). The boundary: what a
+**developer** sets and the HTML shell needs before the API is ever called lives here; what the
+**business** must be able to correct without a deploy — razón social, RUC, domicilio fiscal, legal
+texts, contact, banners — lives in the `settings` table and is edited in the backoffice.
+
+Two things follow from that:
+
+- Each artifact's `index.html` carries no brand identity. `brandHtmlPlugin`
+  (`lib/brand/src/vite-plugin.ts`) injects the head and emits `manifest.webmanifest` at build time,
+  and serves the manifest from memory in dev. The plugin is loaded as real ESM by Node, so imports
+  *inside* `lib/brand` spell out the `.ts` extension.
+- `lib/brand/src/no-hardcoded-brand.test.ts` scans `artifacts/`, `lib/` and `scripts/` and fails if
+  the brand name, tagline, delivery zone or reference prefix are written by hand anywhere else. It
+  runs in CI. Package names and repo paths (`@workspace/antropic-store`) are exempt — they are
+  identifiers, not copy.
+
 ## antropic-store (storefront)
 
 Wired to `api-server` through `api-client-react` (React Query hooks) with Supabase for auth
@@ -118,13 +142,13 @@ local copies are cleared. Supabase persists the session in `localStorage` and re
 Routing is `wouter` (`src/App.tsx`); UI components are shadcn/ui-style primitives under
 `src/components/ui/`.
 
-**Brand color gotcha**: brand colors live in *two* places that must be updated together — HSL tokens
-in `src/index.css` (consumed by shadcn/ui via `hsl(var(--primary))`) and hardcoded hex Tailwind
-arbitrary values (e.g. `text-[#EA4C75]`) scattered across pages/components, which do not inherit from
-the CSS tokens. A palette change touching only `index.css` will look inconsistent. Garment swatch
-colors (Rosa, Coral, Dorado…) come from the database and represent physical product colors, not
-brand identity — never include them in a brand-palette swap, even where a hex value coincidentally
-matches an old brand color.
+**Brand color gotcha**: brand colors live in *two* representations that must be updated together —
+HSL tokens in `src/index.css` (consumed by shadcn/ui via `hsl(var(--primary))`) and the hex value in
+`lib/brand` used by the transactional email templates, which inline their styles because email
+clients discard stylesheets. A palette change touching only `index.css` leaves every email in the old
+colors. Garment swatch colors (Rosa, Coral, Dorado…) come from the database and represent physical
+product colors, not brand identity — never include them in a brand-palette swap, even where a hex
+value coincidentally matches an old brand color.
 
 ## antropic-admin (staff panel)
 

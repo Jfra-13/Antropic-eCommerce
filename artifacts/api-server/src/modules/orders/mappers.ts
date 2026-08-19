@@ -4,11 +4,12 @@ import type {
   OrderListItem as OrderListItemDto,
 } from "@workspace/api-zod";
 import type { Order, OrderItem, PaymentProof } from "@workspace/db";
+import { orderReference } from "@workspace/brand";
 
 // Yape match key, derived from the serial order number (planeación §5.5). Not stored.
-export function referenceCode(orderNumber: number): string {
-  return `ANT-${orderNumber}`;
-}
+// The prefix is brand configuration, and the backoffice search parses it back with
+// `parseOrderReference` — see lib/brand.
+export const referenceCode = orderReference;
 
 export function toOrderItemDto(item: OrderItem): OrderItemDto {
   return {

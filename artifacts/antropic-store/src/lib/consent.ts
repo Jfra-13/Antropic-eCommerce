@@ -8,7 +8,10 @@
 // business publishes new texts the version changes, this cache stops matching, and the banner
 // asks again. That is deliberate: consent to a document nobody has read is not consent.
 
-const STORAGE_KEY = "antropic.cookie-consent";
+// Brand-neutral on purpose. localStorage is already scoped to the origin, so namespacing the
+// key by brand buys nothing — and a key carrying the brand name is one more thing a rebrand
+// would have to remember, with a silently re-prompted consent banner as the failure mode.
+const STORAGE_KEY = "store.cookie-consent";
 
 export type ConsentDecision = {
   policyVersion: string;

@@ -14,7 +14,7 @@ import type { HeroText } from './heroText';
 import type { LegalTexts } from './legalTexts';
 
 export interface AdminConfig {
-  /** Flat La Molina delivery fee, decimal string (e.g. "12.00") */
+  /** Flat delivery fee for the store's coverage area, decimal string (e.g. "12.00") */
   deliveryFee: string;
   /**
      * Subtotal (decimal string) from which delivery is free; null disables it
