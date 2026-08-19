@@ -5,14 +5,73 @@ Adaptación del checklist genérico de ecommerce Perú al stack **real** de este
 **Stack real:** Vite + React (SPA) · Express 5 · Drizzle sobre `pg.Pool` · Supabase (solo Auth y
 Storage) · Resend · verificación manual de Yape/Plin.
 
-**Estado de esta pasada:** revisión de código del 2026-08-17 sobre `main`. Todo ítem marcado `[x]`
-se verificó leyendo el código y se cita el archivo. Los ítems sin cita no se verificaron.
+**Última actualización:** 2026-08-18. Todo ítem marcado `[x]` se verificó leyendo el código —o
+ejecutándolo, cuando la sección lo indica— y cita el archivo que lo respalda. Los ítems sin cita no
+se verificaron.
 
 > **Convención:** `[x]` hecho y verificado · `[~]` parcial · `[ ]` pendiente · `n/a` no aplica a
 > este stack (con la razón).
 > Los ítems **🔴 BLOQUEANTE** no deben lanzarse sin resolver.
 > Los **⚖️ LEGAL** requieren validación de un abogado o contador peruano. Este documento es
 > orientativo, no asesoría legal.
+
+---
+
+## Estado del proyecto — empieza por aquí
+
+Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
+está en su sección; la evidencia de ejecución, en §11.
+
+### Hecho (PR [#1](https://github.com/Jfra-13/Antropic-eCommerce/pull/1), 4 commits, CI en verde)
+
+| Fase | Qué entregó | Dónde |
+|---|---|---|
+| **0** | Este documento: checklist traducido al stack real, con estado y decisiones de alcance | `docs/AUDITORIA.md` |
+| **1** | Endurecimiento de la API: allowlist CORS, helmet, rate limiting por niveles, contrato de entorno validado al arranque | §3.1 · `lib/env.ts`, `lib/rate-limit.ts`, `app.ts` |
+| **2** | Libro de Reclamaciones completo, textos legales editables, registro de consentimiento | §2.1, §2.2 · `modules/complaints`, `modules/consents` |
+| **3** | 35 pruebas unitarias + 19 de integración, bloqueantes en CI | §9.2 · `*.test.ts`, `*.integration.test.ts` |
+
+**Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
+`/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
+`toCents` aceptando entradas que no son dinero. Detalle en §11.1–§11.3.
+
+### Antes de desplegar lo ya hecho
+
+1. **Push de esquema**: las tablas `complaints` y `consents` no existen en ningún entorno todavía.
+   `pnpm --filter @workspace/db run push-force`
+2. **Rellenar identidad del proveedor** (razón social, RUC, domicilio) en el panel → pestaña Legal.
+   Sin eso la Hoja de Reclamación sale sin identificación del proveedor y no cumple.
+3. **`CORS_ORIGINS` es obligatoria en producción**: la API no arranca sin ella, a propósito.
+
+### Pendiente, en el orden que recomiendo
+
+| # | Fase | Por qué en este orden |
+|---|---|---|
+| 1 | **4 · Clonabilidad** | Es lo único que hay que hacer **antes** del fork. Lo que quede hardcodeado se paga dos veces. Ver §10 |
+| 2 | **5 · Preparar arquitectura de pagos** | Refactor para que el flujo manual y una pasarela futura convivan tras la misma interfaz. Barato ahora, caro después del clon. Ver §6.2 |
+| 3 | **6 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. Ver §4, §5, §8.1 |
+| 4 | **Migraciones versionadas** | `drizzle-kit push` sin historial es una bomba en cuanto haya staging + producción. Ver §9.3 |
+
+### Bloqueado por decisiones o trámites tuyos, no por código
+
+- **Textos legales redactados por abogado.** El mecanismo está listo; el contenido no. Mientras
+  estén vacíos, la tienda dice que el documento no ha sido publicado — es deliberado.
+- **Inscripción del banco de datos ante la ANPD.** Trámite, infracción grave si falta.
+- **¿Los precios del catálogo incluyen IGV?** Bloquea §2.4 entera y afecta a todos los totales.
+- **¿Quién responde los reclamos dentro de los 30 días?** El sistema avisa; alguien tiene que
+  contestar.
+- **Prueba de RLS**: la sonda está escrita y sin ejecutar (`pnpm --filter @workspace/scripts run
+  verify-rls`). Necesita credenciales del proyecto Supabase real. **Es probable que salga roja.**
+
+### Recomendaciones
+
+- **Fusiona el PR #1 antes de seguir.** Cuatro commits sin fusionar acumulan riesgo de conflicto.
+- **Protege `main`** (§1.1): sin eso, el CI bloqueante que se montó en la Fase 3 se puede saltar
+  con un push directo.
+- **Ejecuta la sonda de RLS pronto.** Es el hueco de seguridad con mayor impacto potencial y el
+  único que no se puede cerrar desde el código de la aplicación.
+- **Purga `localhost.har` del historial al crear el repo del clon** (§1.2). No hay credenciales
+  dentro, pero son 5.5 MB de peso muerto y el clon arranca de cero de todos modos.
 
 ---
 
