@@ -66,21 +66,58 @@ De acá en más, los demás empleados se crean desde la UI de **Usuarios** del p
 
 ## 2. Base de datos (Drizzle + Supabase)
 
-Solo la primera vez o cuando cambie el schema/catálogo.
+El esquema es **migration-based**: los archivos de `lib/db/drizzle/` están versionados y son la
+única fuente de verdad de cómo llega una base a su estado actual.
 
 ```bash
-# Aplicar schema (dev). Push-based, sin migraciones versionadas.
-pnpm --filter @workspace/db run push
-
-# Igual pero sin prompts (drop/alter directo). Necesario en no-TTY.
-pnpm --filter @workspace/db run push-force
+# Poner al día una base (crea las tablas que falten, en orden). Idempotente.
+pnpm --filter @workspace/db run migrate
 
 # Seed catálogo: 20 productos + categorías + ocasiones + variantes + media placeholder.
 # Idempotente (borra tablas de catálogo FK-safe y re-inserta).
 pnpm --filter @workspace/scripts run seed
 ```
 
-> **Gotcha (rename resolver):** si un cambio en la MISMA tabla suma una columna Y borra otra, `drizzle-kit push` abre un prompt interactivo ("¿es rename?") que `--force` NO saltea y que rompe sin TTY. Workaround: partir en dos push — primero las adiciones, después el drop.
+### Cambiar el esquema
+
+```bash
+# 1. Editar lib/db/src/schema/*.ts
+# 2. Generar el archivo de migración a partir del diff. NO toca ninguna base.
+pnpm --filter @workspace/db run generate
+# 3. Revisar el SQL generado en lib/db/drizzle/ y commitearlo junto al cambio de schema.
+# 4. Aplicarlo.
+pnpm --filter @workspace/db run migrate
+```
+
+El paso 3 no es burocracia: el SQL es lo que se va a ejecutar en producción, y es la última
+oportunidad de ver un `DROP COLUMN` antes de que se lleve datos por delante.
+
+### Base que ya existía antes de las migraciones — una sola vez
+
+Una base creada con `push` tiene las tablas pero no el registro de migraciones, así que
+`migrate` intentaría crear lo que ya está y falla. Hay que marcarle la línea base primero:
+
+```bash
+pnpm --filter @workspace/scripts run baseline-migrations   # marca sin ejecutar SQL
+pnpm --filter @workspace/db run migrate                    # a partir de acá, normal
+```
+
+Se corre **una vez por base** (local, staging, producción). Se niega a ejecutarse contra una
+base vacía: ahí lo correcto es `migrate` directo. Una base nueva nunca lo necesita.
+
+### `push` — solo para prototipar
+
+```bash
+pnpm --filter @workspace/db run push          # con prompts
+pnpm --filter @workspace/db run push-force    # sin prompts
+```
+
+Sirve para tantear un cambio de esquema contra una base **desechable** antes de decidir el
+diseño. **Nunca contra una base compartida**: `push` diffea contra lo que esa base tenga en ese
+momento, así que dos entornos que reciben el mismo `push` en momentos distintos terminan
+distintos, y no queda registro de qué se aplicó. Cuando el diseño esté firme: `generate`.
+
+> **Gotcha (rename resolver):** si un cambio en la MISMA tabla suma una columna Y borra otra, `drizzle-kit push` abre un prompt interactivo ("¿es rename?") que `--force` NO saltea y que rompe sin TTY. Con `generate` el prompt también aparece, pero se contesta una vez y queda resuelto en el archivo commiteado — CI corre `migrate`, que no pregunta nada. Es una razón más para no usar `push` fuera de una base desechable.
 
 ---
 

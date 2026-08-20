@@ -158,7 +158,8 @@ git mv artifacts/antropic-admin artifacts/backoffice
    problema de protección de datos, hace imposible vender o cerrar una de las dos.
 2. **Bucket de Storage** con la misma estructura (media pública del catálogo, constancias de
    pago en bucket **privado**).
-3. **Aplicar el esquema:** `pnpm --filter @workspace/db run push-force`.
+3. **Aplicar el esquema:** `pnpm --filter @workspace/db run migrate`. La base del clon nace
+   vacía, así que las migraciones se replican en orden y no hace falta línea base.
 4. **RLS activado tabla por tabla**, y verificado ejecutando
    `pnpm --filter @workspace/scripts run verify-rls` contra el proyecto real. PostgREST queda
    expuesto sobre la misma base y la anon key es pública por diseño: sin RLS, cualquiera lee
@@ -228,7 +229,6 @@ saltarse.
 Honestidad sobre el punto de partida. Estos huecos vienen de la implementación de referencia y
 siguen abiertos en cualquier fork; el estado al día está en `AUDITORIA.md`.
 
-- Sin migraciones versionadas: el esquema se aplica con `drizzle-kit push` (§9.3).
 - Sin pasarela de pago: el flujo es constancia Yape/Plin con verificación manual (§6).
 - Sin facturación electrónica ni tratamiento de IGV (§2.4).
 - Sin checkout como invitado: `orders.user_id` es `NOT NULL` (§1.4).

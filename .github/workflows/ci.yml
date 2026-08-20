@@ -59,10 +59,12 @@ jobs:
       - name: Unit tests
         run: pnpm run test
 
-      # Push-based schema, so the test database is built from the Drizzle schema itself rather
-      # than from migration files (there are none — see docs/AUDITORIA.md §9.3).
-      - name: Apply schema to the test database
-        run: pnpm --filter @workspace/db run push-force
+      # The test database is built by replaying the committed migrations, not by diffing the
+      # schema. That makes CI exercise the exact path a real deployment takes: if a migration
+      # is missing, malformed, or out of order, the integration tests below fail here rather
+      # than in production.
+      - name: Apply migrations to the test database
+        run: pnpm --filter @workspace/db run migrate
 
       - name: Integration tests
         run: pnpm --filter @workspace/api-server run test:integration

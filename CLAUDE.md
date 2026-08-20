@@ -18,8 +18,9 @@ pnpm --filter @workspace/antropic-store run dev        # storefront (requires PO
 pnpm --filter @workspace/antropic-admin run dev        # admin panel (requires PORT, BASE_PATH)
 pnpm --filter @workspace/mockup-sandbox run dev        # mockup sandbox (requires PORT, BASE_PATH)
 pnpm --filter @workspace/api-spec run codegen          # regenerate api-client-react + api-zod from openapi.yaml
-pnpm --filter @workspace/db run push                   # push Drizzle schema to DATABASE_URL (dev only)
-pnpm --filter @workspace/db run push-force             # push with --force (drops/alters without prompt)
+pnpm --filter @workspace/db run generate               # author a migration from the schema diff
+pnpm --filter @workspace/db run migrate                # apply pending migrations to DATABASE_URL
+pnpm --filter @workspace/db run push-force             # prototyping only, throwaway DB (see below)
 pnpm --filter @workspace/scripts run seed              # seed catalog (idempotent)
 ```
 
@@ -42,7 +43,7 @@ Quality gates are `typecheck`, `test`, `test:integration` and `build`, and CI ru
 
 Integration tests **truncate tables**. The harness (`artifacts/api-server/src/test/db.ts`) refuses
 to run against any host other than localhost, so point `DATABASE_URL` at a throwaway database and
-apply the schema first with `pnpm --filter @workspace/db run push-force`. There is no default
+apply the schema first with `pnpm --filter @workspace/db run migrate`. There is no default
 `DATABASE_URL` for them on purpose.
 
 Tests live next to the code they cover: `*.test.ts` for unit, `*.integration.test.ts` for the ones
@@ -100,12 +101,25 @@ Supabase; the role comes from `profiles.role`.
 profiles, returns, coupons, settings, etc.). `lib/db/src/index.ts` creates the `pg.Pool`/`drizzle`
 instance from `DATABASE_URL` and re-exports the schema.
 
-Schema changes are applied with `push`/`push-force` — **push-based, not migration-based**. No
-migration files are checked in.
+Schema changes are **migration-based**. `generate` authors a SQL file from the schema diff into
+`lib/db/drizzle/`, which is committed alongside the schema change; `migrate` replays whatever a
+database has not seen, tracked in `drizzle.__drizzle_migrations`. CI builds the test database with
+`migrate`, so a missing or malformed migration fails there rather than in production.
+
+`push`/`push-force` still exist but are for prototyping against a **throwaway** database only:
+they diff against whatever the target currently holds, so two environments pushed at different
+times drift apart with no record of what was applied.
+
+A database created before migrations existed has the tables but no bookkeeping, so `migrate`
+would try to re-create them and fail. Run `pnpm --filter @workspace/scripts run
+baseline-migrations` once against it first — it records the baseline without executing its SQL,
+and refuses to run against an empty database, where the answer is plain `migrate`.
 
 > **Gotcha (rename resolver):** if one change adds a column AND drops another in the *same* table,
 > `drizzle-kit push` opens an interactive "is this a rename?" prompt that `--force` does not skip and
-> that breaks without a TTY. Workaround: split into two pushes — additions first, then the drop.
+> that breaks without a TTY. With `generate` the prompt is answered once by a developer and the
+> answer lives in the committed SQL, so CI (`migrate`) never sees it — one more reason `push`
+> belongs only on a throwaway database.
 
 ### brand
 
@@ -173,7 +187,7 @@ registration. It watches the directory in dev and regenerates on add/remove.
 
 `pnpm-workspace.yaml` enforces a 1-day minimum npm package release age as a supply-chain guard
 (`minimumReleaseAge: 1440`); do not lower this without a strong reason. `scripts/post-merge.sh` runs
-a frozen-lockfile install + `db push` after merges.
+a frozen-lockfile install + `db migrate` after merges.
 
 Never commit `.env` files or `.har` captures — HAR files record request headers, cookies and bearer
 tokens in plaintext.
