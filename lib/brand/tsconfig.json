@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    // The Vite configs import ./src/vite-plugin.ts directly as ESM, and Node resolves it with
+    // its own type stripping — which, unlike a bundler, requires the extension to be spelled
+    // out. Allowed here because this project emits declarations only.
+    "allowImportingTsExtensions": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}

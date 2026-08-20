@@ -1850,7 +1850,7 @@ paths:
     get:
       operationId: listPickupPoints
       tags: [config]
-      summary: Active pickup points in La Molina (for checkout recojo)
+      summary: Active pickup points in the store's coverage area (for checkout recojo)
       responses:
         "200":
           description: Active pickup points
@@ -2459,7 +2459,7 @@ components:
           format: uuid
         orderNumber:
           type: integer
-        # Derived Yape match key: ANT-{orderNumber}. Not stored.
+        # Derived Yape match key: <brand prefix>-{orderNumber} (see lib/brand). Not stored.
         referenceCode:
           type: string
         paymentStatus:
@@ -3565,7 +3565,7 @@ components:
       properties:
         deliveryFee:
           type: string
-          description: Flat La Molina delivery fee, decimal string (e.g. "12.00")
+          description: Flat delivery fee for the store's coverage area, decimal string (e.g. "12.00")
         freeShippingThreshold:
           type: [string, "null"]
           description: Subtotal (decimal string) from which delivery is free; null disables it

@@ -18,6 +18,9 @@
   },
   "references": [
     {
+      "path": "../../lib/brand"
+    },
+    {
       "path": "../../lib/api-client-react"
     }
   ]

@@ -4760,7 +4760,7 @@ export const getListPickupPointsUrl = () => {
 }
 
 /**
- * @summary Active pickup points in La Molina (for checkout recojo)
+ * @summary Active pickup points in the store's coverage area (for checkout recojo)
  */
 export const listPickupPoints = async ( options?: RequestInit): Promise<PickupPointList> => {
 
@@ -4807,7 +4807,7 @@ export type ListPickupPointsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Active pickup points in La Molina (for checkout recojo)
+ * @summary Active pickup points in the store's coverage area (for checkout recojo)
  */
 
 export function useListPickupPoints<TData = Awaited<ReturnType<typeof listPickupPoints>>, TError = ErrorType<unknown>>(

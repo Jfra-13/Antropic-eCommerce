@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { brand } from "@workspace/brand";
 
 type ShippingMode = "envio" | "recojo";
 
@@ -106,7 +107,7 @@ export default function Cart() {
                   </SelectTrigger>
                   <SelectContent className="bg-background border-border">
                     <SelectItem value="envio">Envío a domicilio</SelectItem>
-                    <SelectItem value="recojo">Recojo en tienda (La Molina)</SelectItem>
+                    <SelectItem value="recojo">Recojo en tienda ({brand.deliveryZone})</SelectItem>
                   </SelectContent>
                 </Select>
 

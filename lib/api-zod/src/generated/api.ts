@@ -2045,7 +2045,7 @@ export const GetPublicConfigResponse = zod.object({
 
 
 /**
- * @summary Active pickup points in La Molina (for checkout recojo)
+ * @summary Active pickup points in the store's coverage area (for checkout recojo)
  */
 export const ListPickupPointsResponse = zod.object({
   "items": zod.array(zod.object({
@@ -2062,7 +2062,7 @@ export const ListPickupPointsResponse = zod.object({
  * @summary Get store config for the admin panel (admin only)
  */
 export const GetAdminConfigResponse = zod.object({
-  "deliveryFee": zod.string().describe('Flat La Molina delivery fee, decimal string (e.g. \"12.00\")'),
+  "deliveryFee": zod.string().describe('Flat delivery fee for the store\'s coverage area, decimal string (e.g. \"12.00\")'),
   "freeShippingThreshold": zod.string().nullable().describe('Subtotal (decimal string) from which delivery is free; null disables it'),
   "yapeNumber": zod.string().nullable(),
   "yapeQrPath": zod.string().nullable().describe('Storage object path of the Yape QR image'),
@@ -2154,7 +2154,7 @@ export const UpdateAdminConfigBody = zod.object({
 })
 
 export const UpdateAdminConfigResponse = zod.object({
-  "deliveryFee": zod.string().describe('Flat La Molina delivery fee, decimal string (e.g. \"12.00\")'),
+  "deliveryFee": zod.string().describe('Flat delivery fee for the store\'s coverage area, decimal string (e.g. \"12.00\")'),
   "freeShippingThreshold": zod.string().nullable().describe('Subtotal (decimal string) from which delivery is free; null disables it'),
   "yapeNumber": zod.string().nullable(),
   "yapeQrPath": zod.string().nullable().describe('Storage object path of the Yape QR image'),

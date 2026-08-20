@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStore } from "../context/StoreContext";
 import { useLocation } from "wouter";
+import { brand } from "@workspace/brand";
 
 export default function Login() {
   const { signInWithGoogle, sendMagicLink, user } = useStore();
@@ -44,7 +45,7 @@ export default function Login() {
     <div className="min-h-[calc(100vh-4rem)] bg-background flex items-center justify-center px-4 py-12">
       <div className="bg-white w-full max-w-md shadow-xl p-8 md:p-10 border border-border">
         <div className="text-center mb-8">
-          <h1 className="font-display text-5xl text-primary mb-2">Antropic</h1>
+          <h1 className="font-display text-5xl text-primary mb-2">{brand.name}</h1>
           <p className="font-serif text-muted-foreground text-lg">Bienvenida a tu estilo</p>
         </div>
 

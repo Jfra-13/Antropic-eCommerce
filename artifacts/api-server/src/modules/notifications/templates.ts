@@ -1,13 +1,19 @@
 import type { Order, OrderItem, Complaint } from "@workspace/db";
 import type { BusinessIdentity } from "@workspace/api-zod";
-import { referenceCode } from "../orders/mappers";
+import { brand, orderReference } from "@workspace/brand";
 import { env } from "../../lib/env";
 
 // Branded transactional email layout. Inline styles only — email clients ignore
 // stylesheets. Money values are the order's fixed-point strings, never re-computed here.
+//
+// Identity comes from lib/brand rather than from `settings`, because email is rendered on a
+// background job path where a database round trip per message would be a new failure mode for
+// something that is already best-effort. The one exception is the provider identity on the
+// Hoja de Reclamación, which is passed in: that block is a legal requirement and must reflect
+// what the business currently declares, not what was compiled.
 
-const BRAND_COLOR = "#EA4C75";
-const STORE_NAME = "Antropic";
+const BRAND_COLOR = brand.email.headerColor;
+const STORE_NAME = brand.name;
 
 // Public storefront URL for the "ver mi pedido" link; unset (dev) drops the button.
 function storeBaseUrl(): string | undefined {
@@ -61,7 +67,7 @@ export type OrderEmailInput = {
 
 // Full branded order email: header, status message, item summary, totals, CTA link.
 export function orderEmailHtml({ heading, message, order, items }: OrderEmailInput): string {
-  const ref = referenceCode(order.orderNumber);
+  const ref = orderReference(order.orderNumber);
   const base = storeBaseUrl();
   const cta = base
     ? `<tr><td style="padding:24px 0 0;text-align:center;">
@@ -99,7 +105,7 @@ export function orderEmailHtml({ heading, message, order, items }: OrderEmailInp
       <tr>
         <td style="padding:16px 28px;border-top:1px solid #eee;">
           <p style="margin:0;color:#aaa;font-size:12px;">
-            ${STORE_NAME} · Gracias por confiar en nosotros. Si tienes dudas, responde este correo.
+            ${STORE_NAME} · ${brand.email.signOff}
           </p>
         </td>
       </tr>

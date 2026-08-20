@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { brand } from "@workspace/brand";
 import { useStoreConfig } from "../../lib/config";
 
 export function Footer() {
@@ -17,8 +18,8 @@ export function Footer() {
     <footer className="bg-foreground text-background pt-12 pb-6 px-6 mt-20">
       <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-10">
         <div className="col-span-2 md:col-span-1 flex flex-col gap-2">
-          <Link href="/" className="font-display text-3xl text-primary cursor-pointer">Antropic</Link>
-          <p className="text-background/70 font-sans text-sm">Moda que te hace brillar.</p>
+          <Link href="/" className="font-display text-3xl text-primary cursor-pointer">{brand.name}</Link>
+          <p className="text-background/70 font-sans text-sm">{brand.tagline}</p>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -47,7 +48,7 @@ export function Footer() {
 
         <div className="flex flex-col gap-3">
           <h4 className="font-sans font-bold text-sm uppercase tracking-wide text-background/90">Recojo en tienda</h4>
-          <p className="font-sans text-sm text-background/80">Puntos de recojo en La Molina.</p>
+          <p className="font-sans text-sm text-background/80">Puntos de recojo en {brand.deliveryZone}.</p>
           <Link href="/recojo" className={linkClass}>Ver ubicaciones</Link>
         </div>
 
@@ -103,7 +104,7 @@ export function Footer() {
 
       <div className="max-w-6xl mx-auto mt-12 pt-6 border-t border-background/20 text-center">
         <p className="font-sans text-xs text-background/70">
-          © {new Date().getFullYear()} Antropic. Todos los derechos reservados.
+          © {new Date().getFullYear()} {brand.name}. Todos los derechos reservados.
         </p>
         {/* Razón social, RUC y domicilio fiscal deben ser visibles para el consumidor. */}
         {(business?.legalName || business?.ruc || business?.fiscalAddress) && (

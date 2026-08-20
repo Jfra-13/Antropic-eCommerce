@@ -17,6 +17,7 @@ import { useStore } from "../context/StoreContext";
 import { formatPrice, priceToNumber } from "../lib/product";
 import { apiErrorCode, apiErrorMessage } from "../lib/errors";
 import { useStoreConfig } from "../lib/config";
+import { brand } from "@workspace/brand";
 
 type DeliveryMethod = "delivery" | "recojo";
 
@@ -250,7 +251,7 @@ export default function Checkout() {
               {deliveryMethod === "delivery" ? (
                 <div>
                   <label className="font-sans text-sm font-bold text-foreground mb-1 block">
-                    Dirección de envío (La Molina)
+                    Dirección de envío ({brand.deliveryZone})
                   </label>
                   <textarea
                     value={address}

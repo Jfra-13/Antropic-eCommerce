@@ -53,9 +53,11 @@ jobs:
 
       - run: pnpm run typecheck
 
-      # Unit tests first: they need no database and fail fastest.
+      # Unit tests first: they need no database and fail fastest. Recursive rather than
+      # filtered to api-server, so the brand guard in lib/brand (which fails when brand
+      # identity is written back into a component) is a blocking gate too.
       - name: Unit tests
-        run: pnpm --filter @workspace/api-server run test
+        run: pnpm run test
 
       # Push-based schema, so the test database is built from the Drizzle schema itself rather
       # than from migration files (there are none — see docs/AUDITORIA.md §9.3).

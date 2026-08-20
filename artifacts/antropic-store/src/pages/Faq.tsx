@@ -5,13 +5,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useStoreConfig } from "../lib/config";
+import { brand } from "@workspace/brand";
 
 // Shown when the admin has not configured any FAQ entries — the page never renders empty.
 const DEFAULT_FAQ = [
   {
     question: "¿Cuánto demora el envío?",
     answer:
-      "Los pedidos con delivery en La Molina se entregan en 24 a 48 horas después de confirmado el pago. Te avisamos por correo en cada cambio de estado.",
+      `Los pedidos con delivery en ${brand.deliveryZone} se entregan en 24 a 48 horas después de confirmado el pago. Te avisamos por correo en cada cambio de estado.`,
   },
   {
     question: "¿Cómo pago con Yape?",

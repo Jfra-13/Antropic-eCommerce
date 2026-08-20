@@ -5,7 +5,7 @@ Adaptación del checklist genérico de ecommerce Perú al stack **real** de este
 **Stack real:** Vite + React (SPA) · Express 5 · Drizzle sobre `pg.Pool` · Supabase (solo Auth y
 Storage) · Resend · verificación manual de Yape/Plin.
 
-**Última actualización:** 2026-08-18. Todo ítem marcado `[x]` se verificó leyendo el código —o
+**Última actualización:** 2026-08-19. Todo ítem marcado `[x]` se verificó leyendo el código —o
 ejecutándolo, cuando la sección lo indica— y cita el archivo que lo respalda. Los ítems sin cita no
 se verificaron.
 
@@ -22,7 +22,7 @@ se verificaron.
 Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
 está en su sección; la evidencia de ejecución, en §11.
 
-### Hecho (PR [#1](https://github.com/Jfra-13/Antropic-eCommerce/pull/1), 4 commits, CI en verde)
+### Hecho (fases 0–3 fusionadas en `main` vía PR [#1](https://github.com/Jfra-13/Antropic-eCommerce/pull/1); fase 4 en su propia rama)
 
 | Fase | Qué entregó | Dónde |
 |---|---|---|
@@ -30,10 +30,15 @@ está en su sección; la evidencia de ejecución, en §11.
 | **1** | Endurecimiento de la API: allowlist CORS, helmet, rate limiting por niveles, contrato de entorno validado al arranque | §3.1 · `lib/env.ts`, `lib/rate-limit.ts`, `app.ts` |
 | **2** | Libro de Reclamaciones completo, textos legales editables, registro de consentimiento | §2.1, §2.2 · `modules/complaints`, `modules/consents` |
 | **3** | 35 pruebas unitarias + 19 de integración, bloqueantes en CI | §9.2 · `*.test.ts`, `*.integration.test.ts` |
+| **4** | Clonabilidad: identidad de marca como dato en `lib/brand`, `<head>` y manifest generados, procedimiento de fork y prueba que impide que la marca vuelva al código | §1.3, §10 · `lib/brand`, `docs/CLONACION.md` |
 
 **Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
 `/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
 `toCents` aceptando entradas que no son dinero. Detalle en §11.1–§11.3.
+
+En la Fase 4 apareció un cuarto, del mismo tipo: la búsqueda de pedidos del backoffice usaba
+`parseInt` sobre el término, de modo que `"12abc"` resolvía silenciosamente al pedido 12. Detalle
+en §11.4.
 
 ### Antes de desplegar lo ya hecho
 
@@ -47,10 +52,9 @@ está en su sección; la evidencia de ejecución, en §11.
 
 | # | Fase | Por qué en este orden |
 |---|---|---|
-| 1 | **4 · Clonabilidad** | Es lo único que hay que hacer **antes** del fork. Lo que quede hardcodeado se paga dos veces. Ver §10 |
-| 2 | **5 · Preparar arquitectura de pagos** | Refactor para que el flujo manual y una pasarela futura convivan tras la misma interfaz. Barato ahora, caro después del clon. Ver §6.2 |
-| 3 | **6 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. Ver §4, §5, §8.1 |
-| 4 | **Migraciones versionadas** | `drizzle-kit push` sin historial es una bomba en cuanto haya staging + producción. Ver §9.3 |
+| 1 | **5 · Preparar arquitectura de pagos** | Refactor para que el flujo manual y una pasarela futura convivan tras la misma interfaz. Barato ahora, caro después del clon. Ver §6.2 |
+| 2 | **6 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. Ver §4, §5, §8.1 |
+| 3 | **Migraciones versionadas** | `drizzle-kit push` sin historial es una bomba en cuanto haya staging + producción. Ver §9.3 |
 
 ### Bloqueado por decisiones o trámites tuyos, no por código
 
@@ -65,13 +69,12 @@ está en su sección; la evidencia de ejecución, en §11.
 
 ### Recomendaciones
 
-- **Fusiona el PR #1 antes de seguir.** Cuatro commits sin fusionar acumulan riesgo de conflicto.
 - **Protege `main`** (§1.1): sin eso, el CI bloqueante que se montó en la Fase 3 se puede saltar
   con un push directo.
 - **Ejecuta la sonda de RLS pronto.** Es el hueco de seguridad con mayor impacto potencial y el
   único que no se puede cerrar desde el código de la aplicación.
-- **Purga `localhost.har` del historial al crear el repo del clon** (§1.2). No hay credenciales
-  dentro, pero son 5.5 MB de peso muerto y el clon arranca de cero de todos modos.
+- **El clon arranca sin historial** (§1.2): `git clone --depth 1`, así `localhost.har` no viaja.
+  No hay credenciales dentro, pero son 5,5 MB de peso muerto. Procedimiento en `docs/CLONACION.md`.
 
 ---
 
@@ -127,30 +130,52 @@ en el historial** (5.5 MB).
       hay fuga de credenciales que obligue a rotar llaves por este motivo
 - [x] Sin secretos en el código fuente: `service_role` solo aparece como nombre de variable de
       entorno leída en servidor — `lib/auth-admin.ts:7`, `lib/storage.ts:11`
-- [x] `.env.example` presente en raíz y por artefacto
+- [x] `.env.example` presente en raíz y por artefacto, documentado variable por variable
 - [ ] Escaneo formal con `gitleaks detect` o `trufflehog` sobre el historial completo
-- [ ] Decidido si se purga el HAR del historial (`git filter-repo`) o se acepta el peso muerto.
-      **Recomendación: purgarlo al crear el repo del clon**, que arranca de cero de todos modos
+- [x] Decidido qué se hace con el HAR al clonar: el repo del clon arranca de un
+      `git clone --depth 1` sin historial, así que el peso muerto no viaja. La alternativa con
+      `git filter-repo`, para quien quiera conservar el historial, está en `docs/CLONACION.md` §1
+- [ ] Decidido si se purga del historial **de este** repositorio o se acepta el peso muerto
 - [ ] Rotación de secretos programada y documentada
 
 ### 1.3 Rebranding — dónde vive la marca
 
 Esta sección es la que determina si el clon es un cambio de configuración o una cacería.
 
+**Cerrada en la Fase 4.** La identidad de marca es un dato en `lib/brand/src/brand.ts` y una
+prueba en CI impide que vuelva al código. El procedimiento completo está en `docs/CLONACION.md`;
+la evidencia de ejecución, en §11.4.
+
 - [x] Colores de marca centralizados: solo quedan 4 hex arbitrarios en el storefront y son del
       logo de Google (`#4285F4`, `#EA4335`, `#FBBC05`, `#34A853`). La *gotcha* histórica de dos
       fuentes de verdad para el color está resuelta
 - [x] Contenido de tienda ya editable desde el backoffice vía tabla `settings`: banners, hero,
       editorial, FAQ, contacto, anuncio, política de devoluciones, umbral de envío gratis
-- [~] Textos de interfaz: dispersos en componentes, no centralizados
-- [ ] Nombre de marca hardcodeado: `Footer.tsx:19` (`Antropic`), `index.html` de store y admin
-- [ ] Favicon, `apple-touch-icon` e imagen Open Graph por marca
-- [ ] `manifest.json` (no existe)
-- [ ] Plantillas de correo transaccional con identidad parametrizada
-- [ ] Remitente y firma de los correos
+- [x] Nombre de marca, tagline y zona de reparto salen de `lib/brand`: navbar, pie, login de la
+      tienda, barra lateral y login del backoffice, placeholders de `/config`, copy del checkout
+- [x] `<title>`, descripción, Open Graph, Twitter Card, favicon, `apple-touch-icon` y
+      `theme-color` inyectados en el `<head>` desde `lib/brand` por `brandHtmlPlugin`. Los dos
+      `index.html` ya no contienen identidad: una segunda copia del nombre en un archivo
+      estático es una segunda cosa que olvidar al clonar
+- [x] `manifest.webmanifest` generado en build y servido en desarrollo — antes no existía
+- [x] Plantillas de correo transaccional parametrizadas: membrete, color de cabecera, firma y
+      referencia del pedido salen de `lib/brand`
+- [x] Prefijo de la referencia de pedido (`ANT-`) es configuración, y la construcción y el
+      parseo comparten la misma fuente — `orderReference` / `parseOrderReference`
+- [~] Remitente de los correos: `RESEND_FROM` está documentado variable a variable en
+      `.env.example`, incluida la obligación de que su nombre visible coincida con la marca.
+      **SPF, DKIM y DMARC siguen pendientes** (§8.3), y son de infraestructura, no de código
 - [x] Textos legales: ya son configuración editable desde el panel, no JSX — listo para el clon
-- [ ] Metadatos del backoffice: título de pestaña y logo del login
+- [x] Metadatos del backoffice: título de pestaña y wordmark del login toman el nombre de marca
+- [~] Textos de interfaz genéricos: siguen en los componentes. **Decisión de alcance**, no deuda
+      pendiente: la segunda marca también es una tienda de moda peruana en español, así que
+      "Agregar al carrito" o "Finalizar compra" son idénticos en las dos. Extraerlos a un módulo
+      de cadenas sería un cambio mecánico enorme sin ningún beneficio para el clon. Lo que sí
+      cambia entre marcas se sacó, y una prueba lo mantiene fuera
 - [ ] Descriptor de estado de cuenta de tarjeta — pendiente hasta que haya pasarela
+- [ ] Assets de imagen por marca: `favicon.png`, `apple-touch-icon.png`, `opengraph.jpg` y la
+      fotografía de `src/assets/` siguen siendo los de Antropic. Las rutas ya son configuración;
+      **los archivos los tiene que aportar el diseño de la marca nueva**
 
 ### 1.4 UX que impacta conversión
 
@@ -559,7 +584,8 @@ Si esto falla, las confirmaciones caen en spam y explotan los reclamos.
 ### 9.2 🔴 BLOQUEANTE — Testing
 
 **Implantado en la Fase 3**: 35 pruebas unitarias y 19 de integración, todas en CI como puerta
-bloqueante. Siguen faltando el E2E y la prueba de RLS, que dependen de servicios externos.
+bloqueante. La Fase 4 sumó 9 unitarias más (44 en total) para la clonabilidad. Siguen faltando el
+E2E y la prueba de RLS, que dependen de servicios externos.
 
 Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en componentes visuales.
 
@@ -582,6 +608,10 @@ Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en com
       que no sea local** (`src/test/db.ts`), porque truncan tablas; sin `DATABASE_URL` no hay valor
       por defecto, a propósito
 - [x] Datos de prueba con factories, no fixtures copiados a mano — `src/test/factories.ts`
+- [x] **Prueba estructural de clonabilidad** (Fase 4): la marca no puede volver al código sin
+      romper CI — `lib/brand/src/no-hardcoded-brand.test.ts`. Verificada por mutación (§11.4).
+      El paso de CI dejó de filtrarse a `api-server` y corre `pnpm run test` sobre todo el
+      workspace, para que una suite nueva en cualquier paquete sea bloqueante por defecto
 - [ ] **Prueba de RLS**: leer pedidos de otro usuario con la anon key debe fallar. La sonda está
       escrita (§3.2) pero necesita credenciales de Supabase; no se puede ejecutar en CI todavía
 - [ ] E2E con Playwright del flujo completo. El login depende de Supabase (magic link / OAuth), que
@@ -613,6 +643,8 @@ se descubre hasta que alguien lo paga.
 
 ### 9.4 Herramientas y entornos
 
+- [x] `.env.example` documentado variable por variable en los tres paquetes que lo necesitan
+      (raíz, tienda, panel), con el propósito de cada una y qué pasa si falta
 - [ ] ESLint configurado (hay directivas `eslint-disable` en el código pero no hay configuración)
 - [ ] Prettier con configuración única
 - [ ] Husky + lint-staged
@@ -643,14 +675,45 @@ de referencia y va a ser forkeada a una segunda marca con repo y base de datos s
 hardcodeado se convierte en una cacería de find-replace en cada clon, y en deuda que se paga dos
 veces.
 
-- [ ] Inventario completo de identidad de marca: qué es configuración y qué está en el código
-- [ ] Identidad movida a `settings` o a tokens: nombre, logo, favicon, meta, colores
-- [ ] Textos de interfaz centralizados en un módulo, no dispersos en componentes
-- [ ] Plantillas de correo parametrizadas por marca
-- [ ] Textos legales como contenido editable, no como JSX
-- [ ] `.env.example` documentado variable por variable, con su propósito
-- [ ] Procedimiento de fork documentado: qué se cambia, en qué orden, cómo se verifica
-- [ ] Decidido si el historial se purga al crear el repo del clon (ver §1.2)
+**Cerrada en la Fase 4.** Evidencia de ejecución en §11.4.
+
+La identidad vive en tres capas con tres ciclos de vida distintos, y la frontera entre ellas es
+la decisión de diseño que sostiene todo lo demás:
+
+| Capa | Qué contiene | Quién la cambia | Cuándo tiene efecto |
+|---|---|---|---|
+| `lib/brand/src/brand.ts` | Nombre, tagline, zona de reparto, prefijo de pedido, `<head>`, colores de correo | Un desarrollador, en un commit | Al compilar |
+| Assets y tokens por artefacto | `public/*.png`, tokens HSL y fuentes en `src/index.css` | Un desarrollador, en un commit | Al compilar |
+| Tabla `settings` | Razón social, RUC, domicilio, textos legales, contacto, banners, hero, FAQ, tarifas | El negocio, desde el backoffice | Al instante |
+
+Va en `lib/brand` lo que hace falta **antes de que la API conteste** (el `<title>` y el favicon
+se sirven con el HTML) o lo que vive donde el panel no llega (correo, referencia de pedido). Va
+en `settings` **todo lo que el negocio tiene que poder corregir sin un desarrollador** — la
+identidad legal en particular: una empresa que no puede arreglar su domicilio fiscal sin abrir
+un ticket termina emitiendo Hojas de Reclamación incorrectas.
+
+- [x] Inventario completo de identidad de marca: qué es configuración y qué está en el código —
+      la tabla de arriba, desarrollada en `docs/CLONACION.md` §0
+- [x] Identidad movida a configuración: nombre, tagline, zona de reparto, prefijo de pedido,
+      meta, iconos, manifest y colores de correo
+- [x] Plantillas de correo parametrizadas por marca
+- [x] Textos legales como contenido editable, no como JSX (venía de la Fase 2)
+- [x] `.env.example` documentado variable por variable, con su propósito — raíz, tienda y panel
+- [x] Procedimiento de fork documentado: qué se cambia, en qué orden, cómo se verifica —
+      `docs/CLONACION.md`, incluido lo que el clon **hereda sin arreglar**
+- [x] **Prueba que impide la regresión**: `lib/brand/src/no-hardcoded-brand.test.ts` recorre
+      `artifacts/`, `lib/` y `scripts/` y falla si el nombre, el tagline, la zona de reparto o
+      el prefijo de pedido aparecen escritos a mano. Bloqueante en CI. Los términos prohibidos
+      los lee de la propia configuración, así que después del clon vigila las palabras nuevas.
+      Sacar la marca del código una vez es fácil; lo difícil es que siga fuera, y eso no lo
+      sostiene una convención
+- [x] Decidido si el historial se purga al crear el repo del clon: **sí**, arrancando de un
+      `git clone --depth 1`. Comandos y alternativa con `git filter-repo` en `docs/CLONACION.md` §1
+- [~] Textos de interfaz centralizados en un módulo: **descartado con motivo**, ver §1.3
+- [ ] Nombres de paquetes y carpetas (`artifacts/antropic-store`, `@workspace/antropic-*`):
+      siguen llevando la marca original. Son identificadores internos que ningún cliente ve, y
+      por eso la prueba los ignora a propósito. Renombrarlos es cosmético y opcional; los
+      comandos están en `docs/CLONACION.md` §2.6
 
 ---
 
@@ -736,7 +799,38 @@ Módulo legal verificado en ejecución contra un PostgreSQL real, no solo compil
 > pruebas, CI pasaría en verde **sin haber ejecutado ninguna**, que es la peor forma de fallo
 > posible en una puerta de calidad.
 
-### 11.4 Pendiente
+### 11.4 Recogida en la Fase 4
+
+Clonabilidad verificada **cambiando la marca de verdad y compilando**, no leyendo el código. Se
+sustituyó `lib/brand/src/brand.ts` por una segunda marca ficticia («Lunaria», Miraflores, prefijo
+`LUN`, azul), se reconstruyeron los tres artefactos y se revisó la salida:
+
+| Comprobación | Resultado |
+|---|---|
+| Rebranding completo desde un archivo | `<title>`, meta, Open Graph, `theme-color`, manifest, navbar, pie, login, backoffice y correo cambian los tres builds |
+| Rastros de la marca anterior en el build | Ninguno, salvo la ruta absoluta del directorio de compilación que inyecta `esbuild-plugin-pino` |
+| `manifest.webmanifest` en build | Emitido con `name`, `short_name`, `theme_color` y `background_color` de la marca |
+| `manifest.webmanifest` en desarrollo | `200 application/manifest+json` servido desde memoria por el plugin |
+| `<head>` inyectado en dev | `curl` a la raíz devuelve título, OG, iconos y `link rel=manifest` |
+| Correo transaccional | Membrete, color de cabecera, firma y referencia (`ANT-1234`) tomados de `lib/brand`, comprobado renderizando la plantilla |
+| Ida y vuelta de la referencia | `ANT-1234`, `ant1234` y `1234` resuelven al pedido 1234; `12a`, `maria` y `""` no resuelven |
+| Configuración de marca inválida | Un color mal formado o un prefijo fuera de rango rompen la compilación con la lista completa de problemas |
+| **Prueba de identidad, por mutación** | Inyectada una línea con nombre, zona y referencia en `pages/Home.tsx`: fallan exactamente 3 pruebas, con archivo y línea; al revertir, las 9 en verde |
+| Suite unitaria | 44 pruebas (35 de dominio + 9 de marca), sin base de datos |
+| Suite de integración | 19 pruebas contra Postgres real, en verde tras el cambio |
+| Puertas de calidad | `typecheck`, `test`, `test:integration` y `build` en verde |
+
+> **Defecto encontrado al ejecutar** (corregido): la búsqueda de pedidos del backoffice hacía
+> `Number.parseInt(q.replace(/^ANT-?/i, ""))`, y `parseInt` se queda con el prefijo numérico de
+> cualquier cadena. Buscar `"12abc"` devolvía el pedido 12 como si fuera una coincidencia exacta.
+> `parseOrderReference` exige que lo que queda tras el prefijo sean solo dígitos, así que ahora no
+> resuelve y el término cae en la búsqueda por nombre y correo, que es donde pertenece.
+>
+> Es el mismo patrón que `toCents` en la Fase 3: un parser que ante una entrada que no entiende
+> devuelve un número plausible en lugar de rendirse. Compila, pasa el typecheck y solo aparece
+> cuando alguien ejecuta el caso raro.
+
+### 11.5 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**. La suite de pruebas ya no es el bloqueo (§9.2); lo que falta depende de
@@ -781,5 +875,5 @@ Actualizadas respecto al documento original, descartando las que ya tienen respu
 
 ---
 
-**Última revisión de código:** 2026-08-17 · **Normativa citada:** vigente a agosto de 2026.
+**Última revisión de código:** 2026-08-19 · **Normativa citada:** vigente a agosto de 2026.
 Verificar cada punto legal con un abogado antes de lanzar.

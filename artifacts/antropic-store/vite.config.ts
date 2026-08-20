@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { brand, brandHtmlPlugin } from "@workspace/brand/vite-plugin";
 import path from "path";
 
 const rawPort = process.env.PORT;
@@ -30,6 +31,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Injects the head (title, meta, icons) and emits manifest.webmanifest from lib/brand,
+    // so the HTML shell carries no brand identity of its own.
+    brandHtmlPlugin(brand.storefront),
   ],
   resolve: {
     alias: {

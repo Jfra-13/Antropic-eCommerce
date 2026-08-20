@@ -11,6 +11,7 @@
     "verify-rls": "tsx --env-file=../.env ./src/verify-rls.ts"
   },
   "dependencies": {
+    "@workspace/brand": "workspace:*",
     "@workspace/db": "workspace:*"
   },
   "devDependencies": {
