@@ -14,4 +14,7 @@ export const AdminOrderDetailPaymentStatus = {
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',
   rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
 } as const;

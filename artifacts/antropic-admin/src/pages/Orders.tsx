@@ -4,7 +4,9 @@ import { RefreshCw, X } from "lucide-react";
 import {
   useListAdminOrders,
   useGetAdminOrder,
+  useListOrderPaymentEvents,
   type AdminOrderListItem,
+  type PaymentEvent,
   type ListAdminOrdersParams,
 } from "@workspace/api-client-react";
 import { soles, errorMessage } from "@/lib/format";
@@ -13,11 +15,16 @@ import { Pagination } from "@/components/Pagination";
 type PaymentStatus = AdminOrderListItem["paymentStatus"];
 type FulfillmentStatus = NonNullable<AdminOrderListItem["fulfillmentStatus"]>;
 
+// Exhaustive by type, not by habit: Record<PaymentStatus, …> is what makes adding a state to
+// the payment enum fail the build here instead of shipping an order row with a blank badge.
 const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   pendiente_pago: "Pendiente de pago",
   en_verificacion: "En verificación",
   pagado: "Pagado",
   rechazado: "Rechazado",
+  autorizado: "Autorizado",
+  expirado: "Expirado",
+  reembolsado: "Reembolsado",
 };
 
 const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {
@@ -34,6 +41,10 @@ const PAYMENT_BADGE: Record<PaymentStatus, string> = {
   en_verificacion: "bg-blue-50 text-blue-700",
   pagado: "bg-emerald-50 text-emerald-700",
   rechazado: "bg-red-50 text-red-700",
+  autorizado: "bg-blue-50 text-blue-700",
+  // Neutral, not red: an expired order is closed housekeeping, not a problem to chase.
+  expirado: "bg-neutral-100 text-neutral-600",
+  reembolsado: "bg-violet-50 text-violet-700",
 };
 
 const LIMIT = 20;
@@ -289,6 +300,8 @@ function OrderDetail({ id, onClose }: { id: string; onClose: () => void }) {
               </table>
             </div>
 
+            <PaymentHistory orderId={id} />
+
             <div className="space-y-1.5 rounded-lg border border-slate-200 p-3">
               <DetailRow label="Subtotal" value={soles(data.subtotal)} />
               <DetailRow label="Envío" value={soles(data.shippingCost)} />
@@ -300,6 +313,66 @@ function OrderDetail({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Vocabulary of the payment events the system produces today. A gateway would add its own
+// names, so an unknown type falls back to the raw string rather than rendering blank — an
+// audit trail that hides what it does not recognise is worse than an ugly one.
+const EVENT_LABEL: Record<string, string> = {
+  proof_attached: "Constancia subida",
+  manual_approved: "Pago aprobado",
+  manual_rejected: "Pago rechazado",
+  expired_unpaid: "Pedido vencido sin pago",
+};
+
+function eventActor(event: PaymentEvent): string {
+  // Null author is not missing data: it means no person was responsible (the expiry job, or a
+  // gateway webhook). Saying "Sistema" is the honest reading; a blank would look like a bug.
+  return event.actorName ?? event.actorEmail ?? "Sistema";
+}
+
+// The order's payment history (auditoría §6.1). Read-only by construction: payment_events is
+// append-only and there is no endpoint that edits an entry, because a trail that can be
+// corrected in place is not evidence of anything.
+function PaymentHistory({ orderId }: { orderId: string }) {
+  const { data, isLoading, isError } = useListOrderPaymentEvents(orderId);
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-3">
+      <h3 className="mb-2 text-xs font-medium uppercase text-slate-500">Historial de pago</h3>
+      {isLoading && <p className="text-sm text-slate-500">Cargando…</p>}
+      {isError && <p className="text-sm text-red-600">No se pudo cargar el historial.</p>}
+      {data && data.items.length === 0 && (
+        <p className="text-sm text-slate-500">Sin movimientos registrados todavía.</p>
+      )}
+      {data && data.items.length > 0 && (
+        <ol className="space-y-2">
+          {data.items.map((event) => (
+            <li key={event.id} className="flex justify-between gap-3 text-sm">
+              <div>
+                <div className="font-medium text-slate-900">
+                  {EVENT_LABEL[event.type] ?? event.type}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {eventActor(event)}
+                  {event.fromStatus ? ` · ${PAYMENT_LABEL[event.fromStatus]} → ` : " · "}
+                  {PAYMENT_LABEL[event.toStatus]}
+                </div>
+              </div>
+              <span className="whitespace-nowrap text-xs text-slate-500">
+                {new Date(event.createdAt).toLocaleString("es-PE", {
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

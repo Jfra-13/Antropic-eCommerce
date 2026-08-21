@@ -617,7 +617,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+            enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
         - name: fulfillmentStatus
           in: query
           required: false
@@ -749,6 +749,31 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: Order not awaiting verification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/orders/{id}/payment-events:
+    get:
+      operationId: listOrderPaymentEvents
+      tags: [admin]
+      summary: Payment status history of an order, oldest first (who moved it, when and why)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Payment event history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentEventList"
+        "404":
+          description: Order not found
           content:
             application/json:
               schema:
@@ -2464,7 +2489,12 @@ components:
           type: string
         paymentStatus:
           type: string
-          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
+        # Which payment provider owns the order. The client branches on this to render the
+        # right payment instructions instead of assuming there is only ever one method.
+        paymentMethod:
+          type: string
+          enum: [manual_yape]
         fulfillmentStatus:
           type: [string, "null"]
           enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
@@ -2501,6 +2531,7 @@ components:
         - orderNumber
         - referenceCode
         - paymentStatus
+        - paymentMethod
         - fulfillmentStatus
         - deliveryMethod
         - pickupPointId
@@ -2525,7 +2556,7 @@ components:
           type: string
         paymentStatus:
           type: string
-          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
         fulfillmentStatus:
           type: [string, "null"]
           enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
@@ -2583,7 +2614,7 @@ components:
           enum: [delivery, recojo]
         paymentStatus:
           type: string
-          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
         fulfillmentStatus:
           type: [string, "null"]
           enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
@@ -2639,7 +2670,12 @@ components:
           type: [string, "null"]
         paymentStatus:
           type: string
-          enum: [pendiente_pago, en_verificacion, pagado, rechazado]
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
+        # Which payment provider owns the order. The client branches on this to render the
+        # right payment instructions instead of assuming there is only ever one method.
+        paymentMethod:
+          type: string
+          enum: [manual_yape]
         fulfillmentStatus:
           type: [string, "null"]
           enum: [en_preparacion, enviado, entregado, recojo_pendiente, recogido, cancelado, null]
@@ -2684,6 +2720,7 @@ components:
         - customerName
         - customerPhone
         - paymentStatus
+        - paymentMethod
         - fulfillmentStatus
         - deliveryMethod
         - pickupPointId
@@ -2784,6 +2821,61 @@ components:
         - total
         - page
         - limit
+    PaymentEvent:
+      type: object
+      description: >-
+        One entry in an order's payment history. Append-only: an event records the move that
+        happened, so a later correction is a new event rather than an edit of this one.
+      properties:
+        id:
+          type: string
+          format: uuid
+        provider:
+          type: string
+          enum: [manual_yape]
+        # Provider vocabulary for what happened: proof_attached, manual_approved,
+        # manual_rejected, expired_unpaid — or a gateway's own event name.
+        type:
+          type: string
+        fromStatus:
+          type: [string, "null"]
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado, null]
+        toStatus:
+          type: string
+          enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
+        # Null when no person was responsible: a gateway webhook or the expiry job. The
+        # backoffice must render that as "sistema", never as a blank that reads like a name.
+        actorName:
+          type: [string, "null"]
+        actorEmail:
+          type: [string, "null"]
+        amount:
+          type: [string, "null"]
+        currency:
+          type: [string, "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - type
+        - fromStatus
+        - toStatus
+        - actorName
+        - actorEmail
+        - amount
+        - currency
+        - createdAt
+    PaymentEventList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentEvent"
+      required:
+        - items
     ShipmentItem:
       type: object
       properties:

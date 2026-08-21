@@ -230,13 +230,37 @@ En el navegador: DevTools → Network → filtro `api`. Al cargar Home deben ver
 
 ---
 
+## 5.5. Tareas programadas
+
+Los jobs son procesos aparte, no temporizadores dentro de la API: con más de una instancia
+detrás de un balanceador, un `setInterval` en cada una las pondría a competir por el mismo
+trabajo. Requieren el build de la API hecho.
+
+```bash
+pnpm --filter @workspace/api-server run build
+
+# Caducar pedidos abandonados (72 h por defecto). Sin un scheduler que lo invoque, los pedidos
+# que nadie pagó se quedan en `pendiente_pago` para siempre. Ver docs/PAGOS.md §4.
+pnpm --filter @workspace/api-server run expire-orders
+node ./artifacts/api-server/dist/jobs/expire-orders.mjs 48   # ventana explícita, en horas
+```
+
+Es idempotente y seguro de interrumpir: cada pedido se cierra en su propia transacción.
+
+---
+
 ## 6. Calidad (gates)
 
-No hay test runner todavía. Los únicos gates son typecheck y build.
+Cuatro gates, los mismos que corre CI: `typecheck`, `test`, `test:integration` y `build`.
 
 ```bash
 pnpm run typecheck        # tsc de libs + artifacts + scripts
+pnpm run test             # unitarias (dominio puro, sin base de datos)
 pnpm run build            # typecheck + build de todos los paquetes
+
+# Integración: Postgres REAL. Truncan tablas — apunta DATABASE_URL a una base desechable
+# y aplícale el esquema antes con `migrate`. No hay valor por defecto, a propósito.
+DATABASE_URL=postgresql://…/scratch pnpm --filter @workspace/api-server run test:integration
 
 # Por paquete
 pnpm --filter @workspace/antropic-store run typecheck
@@ -262,3 +286,5 @@ Arranque diario → **sección 4** (no se repite acá para no desincronizarse).
 | Promover primer admin | `UPDATE profiles SET role = 'admin' WHERE email = 'TU_CORREO';` (Supabase SQL Editor) |
 | Typecheck todo | `pnpm run typecheck` |
 | Build todo | `pnpm run build` |
+| Pruebas unitarias | `pnpm run test` |
+| Caducar pedidos abandonados | `pnpm --filter @workspace/api-server run expire-orders` |

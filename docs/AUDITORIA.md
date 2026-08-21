@@ -32,6 +32,7 @@ está en su sección; la evidencia de ejecución, en §11.
 | **3** | 35 pruebas unitarias + 19 de integración, bloqueantes en CI | §9.2 · `*.test.ts`, `*.integration.test.ts` |
 | **4** | Clonabilidad: identidad de marca como dato en `lib/brand`, `<head>` y manifest generados, procedimiento de fork y prueba que impide que la marca vuelva al código | §1.3, §10 · `lib/brand`, `docs/CLONACION.md` |
 | **5** | Migraciones versionadas: línea base commiteada, CI construye la base replicando migraciones, y recuperación de bases preexistentes sin recrearlas | §9.3 · `lib/db/drizzle/`, `scripts/src/baseline-migrations.ts` |
+| **6** | Arquitectura de pagos: transacción de liquidación agnóstica de proveedor, interfaz `PaymentProvider`, `payment_events` con idempotencia de webhooks, estados ampliados y caducidad de pedidos abandonados | §6.2 · `docs/PAGOS.md`, `modules/payments/settlement.ts` |
 
 **Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
 `/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
@@ -41,10 +42,14 @@ En la Fase 4 apareció un cuarto, del mismo tipo: la búsqueda de pedidos del ba
 `parseInt` sobre el término, de modo que `"12abc"` resolvía silenciosamente al pedido 12. Detalle
 en §11.4.
 
+Y un quinto en la Fase 6: la guarda de idempotencia de webhooks leía `.code` del error capturado,
+pero drizzle envuelve el error del driver y deja el código de Postgres en `.cause`, así que la
+guarda **nunca se disparaba**. Compilaba, tenía buena pinta y era inerte. Detalle en §11.6.
+
 ### Antes de desplegar lo ya hecho
 
-1. **Aplicar migraciones**: las tablas `complaints` y `consents` no existen en ningún entorno
-   todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
+1. **Aplicar migraciones**: las tablas `complaints`, `consents` y `payment_events` no existen en
+   ningún entorno todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
    —tiene las tablas viejas pero no el registro de migraciones, y `migrate` fallaría intentando
    recrearlas—; en una base nueva basta el segundo comando:
    ```
@@ -54,13 +59,14 @@ en §11.4.
 2. **Rellenar identidad del proveedor** (razón social, RUC, domicilio) en el panel → pestaña Legal.
    Sin eso la Hoja de Reclamación sale sin identificación del proveedor y no cumple.
 3. **`CORS_ORIGINS` es obligatoria en producción**: la API no arranca sin ella, a propósito.
+4. **Programar `expire-orders`** (Fase 6): sin un scheduler que lo invoque, los pedidos
+   abandonados se quedan en `pendiente_pago` para siempre. Comando en `docs/PAGOS.md` §4.
 
 ### Pendiente, en el orden que recomiendo
 
 | # | Fase | Por qué en este orden |
 |---|---|---|
-| 1 | **6 · Preparar arquitectura de pagos** | Refactor para que el flujo manual y una pasarela futura convivan tras la misma interfaz. Agrega una tabla y amplía el enum `payment_status`: con las migraciones ya montadas, ese delta llega como un archivo revisable. Barato ahora, caro después del clon. Ver §6.2 |
-| 2 | **7 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. El bundle del storefront pasa los 500 kB y las 12 rutas comparten un `<title>`. Ver §4, §5, §8.1 |
+| 1 | **7 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. El bundle del storefront pasa los 500 kB y las 12 rutas comparten un `<title>`. Ver §4, §5, §8.1 |
 
 ### Bloqueado por decisiones o trámites tuyos, no por código
 
@@ -389,9 +395,9 @@ pasar por el Express.
       clientes no pueden comprar la última unidad
 - [x] Idempotencia en la creación de pedidos: `idempotency_key` con constraint `UNIQUE` —
       `schema/orders.ts`. Un doble clic en "Continuar" no crea dos pedidos
-- [ ] Liberación automática de stock si el pago no se completa en X minutos — no aplica igual que en
-      una pasarela (el stock no se reserva al crear la orden), pero **sí falta caducar los pedidos
-      `pendiente_pago` abandonados**
+- [x] Liberación automática de stock si el pago no se completa — no aplica igual que en una
+      pasarela (el stock no se reserva al crear la orden). Lo que sí faltaba, caducar los pedidos
+      abandonados, se cerró en la Fase 6: job `expire-orders`, §6.1
 
 ### 3.4 Autenticación y sesiones
 
@@ -477,10 +483,16 @@ fulfillment.
 - [x] Notificación al backoffice de constancia nueva y confirmación al cliente —
       `payments/service.ts:56-58`
 - [x] Un pedido rechazado puede volver a verificación con una constancia nueva
-- [ ] **Historial de cambios de estado con timestamp y autor**: solo existe para la aprobación del
-      pago. Los cambios de fulfillment no dejan rastro de quién los hizo
-- [ ] Caducidad de pedidos `pendiente_pago` abandonados
-- [ ] Reembolsos totales y parciales
+- [x] **Historial de cambios de estado de pago con timestamp y autor** — tabla `payment_events`,
+      append-only, visible en el panel (`GET /admin/orders/{id}/payment-events`). Antes el único
+      rastro era `orders.approved_by`, que la siguiente decisión sobreescribía. Fase 6, §11.6
+- [~] Historial de cambios de **fulfillment**: sigue sin autor. `payment_events` cubre el pago;
+      preparación y envío necesitan su propia forma (no comparten idempotencia ni montos)
+- [x] Caducidad de pedidos abandonados — job `expire-orders`, 72 h por defecto, sobre
+      `pendiente_pago` y `rechazado`. **Nunca** sobre `en_verificacion`: ahí puede haber dinero
+      real que nadie ha mirado. Fase 6, §11.6
+- [ ] Reembolsos totales y parciales — el estado `reembolsado` y su transición existen; el
+      endpoint y la decisión sobre si el stock vuelve al estante, no
 - [ ] Conciliación diaria: pedidos aprobados vs. movimientos reales de la cuenta Yape
 - [ ] Reporte exportable para el contador
 
@@ -488,14 +500,24 @@ fulfillment.
 
 Decisión tomada: **no se integra pasarela en este ciclo, pero se prepara la arquitectura.**
 
-- [ ] Abstraer el proveedor de pago tras una interfaz, de modo que "constancia manual" sea una
-      implementación más y no el único camino cableado
-- [ ] Estados de pago revisados para admitir los de una pasarela (`autorizado`, `expirado`,
-      `reembolsado`) sin romper los existentes
-- [ ] Tabla de eventos de pago con `event_id` único, lista para idempotencia de webhooks
-- [ ] Documentado el contrato que tendrá que cumplir el webhook cuando llegue: firma verificada,
-      monto y moneda contrastados contra la orden, respuesta 200 rápida, endpoint fuera del
-      middleware de autenticación
+**Cerrada en la Fase 6.** El detalle completo está en `docs/PAGOS.md`; la evidencia, en §11.6.
+
+- [x] Proveedor de pago tras una interfaz — `modules/payments/providers/`. La transacción
+      crítica se extrajo a `settlement.ts`, agnóstica de proveedor, y `manual_yape` pasó a ser
+      una implementación alcanzada por un registro `Record<PaymentMethod, PaymentProvider>` que
+      **no compila** si se añade un método sin implementación. La columna
+      `orders.payment_method` dice de quién es cada pedido en vez de dejarlo a deducción
+- [x] Estados de pago ampliados con `autorizado`, `expirado` y `reembolsado`, con sus
+      transiciones declaradas antes de que exista código que las produzca. Las prohibiciones
+      existentes siguen intactas: no hay arista de `pendiente_pago` a `pagado`, y `pagado` solo
+      sale hacia `reembolsado`
+- [x] Tabla `payment_events` con `UNIQUE (provider, event_id) WHERE event_id IS NOT NULL`, y el
+      insert **dentro** de la transacción que cambia el estado — separarlos es exactamente lo
+      que deja que un webhook reintentado liquide dos veces
+- [x] Contrato del webhook documentado — `docs/PAGOS.md` §5: firma verificada sobre el cuerpo
+      crudo, monto y moneda contrastados contra el pedido, 200 rápido, ruta fuera de
+      `requireAuth` con su propio rate limit, `event_id` obligatorio. **Sin endpoint todavía, a
+      propósito:** una ruta pública que aún no verifica ninguna firma es una puerta abierta
 
 ---
 
@@ -875,7 +897,43 @@ Migraciones verificadas **aplicándolas contra Postgres real**, no leyendo el SQ
 > El script `baseline-migrations.ts` nació con el nombre de la marca en un comentario y CI lo
 > rechazó antes de llegar a revisión. Es la segunda vez en dos fases.
 
-### 11.6 Pendiente
+### 11.6 Recogida en la Fase 6
+
+Arquitectura de pagos verificada **ejecutando**: Postgres 16 local, la API levantada de verdad y
+el job de caducidad corriendo como binario.
+
+| Comprobación | Resultado |
+|---|---|
+| **El refactor no movió comportamiento** | `stock.integration.test.ts` (las 5 pruebas de concurrencia, atomicidad e idempotencia del stock) pasa **sin editar una sola línea** después de mover la transacción a `settlement.ts`. Era el criterio de aceptación del refactor |
+| Migración incremental | `0001_payment_architecture.sql` aplicada sobre una base ya migrada: `ALTER TYPE … ADD VALUE` dentro de la transacción de drizzle **no dio problema en PG16**, así que no hizo falta partirla en dos archivos |
+| Equivalencia con el esquema | `migrate` desde cero vs. `push-force`: `pg_dump --schema-only` idéntico salvo la **posición** de `orders.payment_method` (`ALTER TABLE ADD COLUMN` la añade al final) y los *nonces* de `pg_dump`. Sin diferencia semántica |
+| Pipeline de CI completo | Base nueva construida solo con `migrate`: typecheck, 50 unitarias, migrate, 35 de integración y build — los 5 en verde, 2 filas en `drizzle.__drizzle_migrations` |
+| Pruebas nuevas | +6 unitarias de la máquina de estados y **+16 de integración**: historial, idempotencia de webhooks y caducidad |
+| **Flujo completo por HTTP** | API real levantada contra un JWKS local (firma RS256 verificada por el middleware de auth de verdad, sin bypass): subir constancia → rechazar → reintentar → aprobar → aprobar otra vez. Stock 5→3 (una sola vez), fulfillment en `en_preparacion`, y 4 eventos con autor correcto — la segunda aprobación no registró nada |
+| Segunda subida sobre `en_verificacion` | 409 `INVALID_STATE`, no un 200 mudo. Al enrutar la subida por la liquidación, el camino idempotente habría devuelto éxito sin guardar la constancia; el envoltorio lo convierte en conflicto a propósito |
+| Job de caducidad | `node dist/jobs/expire-orders.mjs 72` sobre un pedido de 10 días: `pendiente_pago` → `expirado`, evento `expired_unpaid` con `actor_id` nulo, stock intacto |
+| Prohibición estructural | Un pedido en `en_verificacion` con 5000 h de antigüedad **no** caduca. Probado en integración, no solo afirmado |
+
+> **El defecto de esta fase, encontrado al ejecutar.** La guarda de idempotencia comprobaba
+> `(e as {code?: string}).code === "23505"` sobre el error capturado. Postgres **sí** rechazaba
+> el evento duplicado —el índice único funcionaba— pero drizzle envuelve el error del driver en
+> un `DrizzleQueryError` cuyo `code` es `undefined` y cuelga el error de pg de `.cause`. La
+> guarda no se disparaba nunca: en vez de devolver «duplicado», la excepción escapaba. Compilaba,
+> se leía bien y era inerte. La prueba de integración del reintento la sacó a la primera. Ahora
+> se recorre la cadena de `cause`.
+
+> **Sobre el alcance.** `autorizado` y `reembolsado` quedan declarados sin código que los
+> produzca, y es deliberado: añadir un valor al enum cuesta una migración hoy y dos bases
+> divergentes después del clon. Reembolsos, conciliación diaria contra los movimientos Yape,
+> reporte para el contador e historial de *fulfillment* siguen pendientes y están listados como
+> tales en `docs/PAGOS.md` §5.
+
+> **Lo que NO se pudo verificar en este entorno:** el render en navegador de las pantallas nuevas
+> (historial de pago en el panel, aviso de pedido vencido en la tienda). Ambas SPAs autentican
+> contra el proyecto Supabase real, al que este contenedor no llega. Compilan y pasan el build;
+> la verificación visual queda pendiente de una sesión con credenciales.
+
+### 11.7 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**. La suite de pruebas ya no es el bloqueo (§9.2); lo que falta depende de

@@ -15,7 +15,14 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
 
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    // The server plus every scheduled job. Jobs are separate entrypoints, not timers inside
+    // the server: with more than one API instance running, an in-process timer would have all
+    // of them racing to do the same work.
+    entryPoints: [
+      path.resolve(artifactDir, "src/index.ts"),
+      path.resolve(artifactDir, "src/jobs/expire-orders.ts"),
+    ],
+    outbase: path.resolve(artifactDir, "src"),
     platform: "node",
     bundle: true,
     format: "esm",

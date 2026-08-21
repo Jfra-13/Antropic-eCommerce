@@ -33,6 +33,7 @@ export function toOrderDto(
     orderNumber: order.orderNumber,
     referenceCode: referenceCode(order.orderNumber),
     paymentStatus: order.paymentStatus,
+    paymentMethod: order.paymentMethod,
     fulfillmentStatus: order.fulfillmentStatus,
     deliveryMethod: order.deliveryMethod,
     pickupPointId: order.pickupPointId,

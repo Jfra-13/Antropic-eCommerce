@@ -14,6 +14,7 @@ pnpm run test                                         # vitest unit tests (no da
 pnpm run test:integration                             # vitest against real Postgres (requires DATABASE_URL)
 pnpm --filter @workspace/api-server run build          # required before `start` after any API change
 pnpm --filter @workspace/api-server run start          # run API server (requires PORT, DATABASE_URL)
+pnpm --filter @workspace/api-server run expire-orders   # scheduled job: close unpaid abandoned orders
 pnpm --filter @workspace/antropic-store run dev        # storefront (requires PORT, BASE_PATH, VITE_API_URL)
 pnpm --filter @workspace/antropic-admin run dev        # admin panel (requires PORT, BASE_PATH)
 pnpm --filter @workspace/mockup-sandbox run dev        # mockup sandbox (requires PORT, BASE_PATH)
@@ -65,6 +66,7 @@ pnpm workspace with two package roots, each with a different lifecycle:
   (generated Zod schemas), `api-client-react` (generated React Query hooks + hand-written
   `customFetch` wrapper), `brand` (brand identity as data — see below).
 - **`docs/`** — `COMANDOS.md` (runbook), `CLONACION.md` (fork procedure for a second brand),
+  `PAGOS.md` (payment architecture + the contract a future gateway webhook must meet),
   `TUNELES.md` (Cloudflare Tunnel demo guide), `negocio/` (requirements, physical DB schema,
   role flows, style guide).
 - Shared `catalog:` versions for common deps (react, vite, tailwind, radix, etc.) are pinned once in
@@ -91,9 +93,28 @@ which mounts one router per domain module under `src/modules/`: `catalog`, `cart
 `checkout`, `orders`, `payments`, `returns`, `config`, `admin` — plus the flat `health` and `me`
 routers. New endpoints belong in the matching module's router, not in a new top-level file.
 
+Scheduled work lives in `src/jobs/` — separate esbuild entrypoints, built into `dist/jobs/`, not
+timers inside the server: the API runs in more than one instance and an in-process timer would
+have every instance racing to do the same work.
+
 Structured logging via pino/pino-http (`src/lib/logger.ts`). `PORT` and `DATABASE_URL` are required
 env vars — the app throws at startup rather than defaulting. Auth is JWT verification against
 Supabase; the role comes from `profiles.role`.
+
+### Payments
+
+Everything that moves an order's payment status goes through `settlePaymentTx`
+(`modules/payments/settlement.ts`): it locks the order row, checks the state machine in
+`lib/order-state.ts`, writes a `payment_events` row **in the same transaction**, decrements stock
+on the way to `pagado`, and calls the provider's `onSettled` hook. Anything that changes
+`orders.payment_status` outside it bypasses the oversell guard, the audit trail and the webhook
+idempotency index at once.
+
+How the money arrives lives behind `PaymentProvider` (`modules/payments/providers/`), keyed by
+`orders.payment_method` through a `Record<PaymentMethod, PaymentProvider>` registry — adding an
+enum value without an implementation fails to compile. `manual_yape` (Yape/Plin constancia
+reviewed by a person) is the only one today. `docs/PAGOS.md` is the full picture, including the
+contract a gateway webhook will have to meet.
 
 ### db (Drizzle)
 

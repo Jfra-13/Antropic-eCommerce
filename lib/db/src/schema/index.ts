@@ -20,6 +20,7 @@ export * from "./cart-items";
 export * from "./orders";
 export * from "./order-items";
 export * from "./payment-proofs";
+export * from "./payment-events";
 export * from "./coupons";
 export * from "./coupon-redemptions";
 

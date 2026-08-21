@@ -521,7 +521,8 @@ export const CreateOrderResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
@@ -565,7 +566,7 @@ export const ListOrdersResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "total": zod.string(),
@@ -588,7 +589,8 @@ export const GetOrderResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
@@ -642,7 +644,8 @@ export const AttachPaymentProofResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
@@ -713,7 +716,7 @@ export const listAdminOrdersQueryLimitMax = 100;
 
 export const ListAdminOrdersQueryParams = zod.object({
   "q": zod.coerce.string().optional().describe('Matches order number, customer name or customer email'),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']).optional(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']).optional(),
   "fulfillmentStatus": zod.enum(['en_preparacion', 'enviado', 'entregado', 'recojo_pendiente', 'recogido', 'cancelado']).optional(),
   "userId": zod.coerce.string().uuid().optional(),
   "from": zod.date().optional().describe('Orders created on or after this date'),
@@ -730,7 +733,7 @@ export const ListAdminOrdersResponse = zod.object({
   "customerEmail": zod.string(),
   "customerName": zod.string().nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "total": zod.string(),
   "createdAt": zod.coerce.date()
@@ -755,7 +758,8 @@ export const GetAdminOrderResponse = zod.object({
   "customerEmail": zod.string(),
   "customerName": zod.string().nullable(),
   "customerPhone": zod.string().nullable(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
@@ -792,7 +796,8 @@ export const ApproveOrderPaymentResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
@@ -827,7 +832,8 @@ export const RejectOrderPaymentResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
@@ -848,6 +854,29 @@ export const RejectOrderPaymentResponse = zod.object({
   "quantity": zod.number(),
   "lineTotal": zod.string()
 }))
+})
+
+
+/**
+ * @summary Payment status history of an order, oldest first (who moved it, when and why)
+ */
+export const ListOrderPaymentEventsParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const ListOrderPaymentEventsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "provider": zod.enum(['manual_yape']),
+  "type": zod.string(),
+  "fromStatus": zod.union([zod.literal('pendiente_pago'),zod.literal('en_verificacion'),zod.literal('pagado'),zod.literal('rechazado'),zod.literal('autorizado'),zod.literal('expirado'),zod.literal('reembolsado'),zod.literal(null)]).nullable(),
+  "toStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "actorName": zod.string().nullable(),
+  "actorEmail": zod.string().nullable(),
+  "amount": zod.string().nullable(),
+  "currency": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}).describe('One entry in an order\'s payment history. Append-only: an event records the move that happened, so a later correction is a new event rather than an edit of this one.'))
 })
 
 
@@ -905,7 +934,8 @@ export const AdvanceFulfillmentResponse = zod.object({
   "id": zod.string().uuid(),
   "orderNumber": zod.number(),
   "referenceCode": zod.string(),
-  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado']),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "pickupPointId": zod.string().uuid().nullable(),
