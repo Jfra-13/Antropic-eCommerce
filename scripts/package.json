@@ -8,7 +8,8 @@
     "seed": "tsx --env-file=../.env ./src/seed-catalog.ts",
     "backfill-colors": "tsx --env-file=../.env ./src/backfill-variant-colors.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "verify-rls": "tsx --env-file=../.env ./src/verify-rls.ts"
+    "verify-rls": "tsx --env-file=../.env ./src/verify-rls.ts",
+    "baseline-migrations": "tsx --env-file=../.env ./src/baseline-migrations.ts"
   },
   "dependencies": {
     "@workspace/brand": "workspace:*",

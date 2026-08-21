@@ -65,7 +65,7 @@ export async function resetDatabase(): Promise<void> {
     if (/does not exist/i.test(message)) {
       throw new Error(
         `Schema is missing from the test database (${message}). ` +
-          "Run: pnpm --filter @workspace/db run push-force",
+          "Run: pnpm --filter @workspace/db run migrate",
       );
     }
     throw e;

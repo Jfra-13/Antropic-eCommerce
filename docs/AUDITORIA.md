@@ -5,7 +5,7 @@ Adaptación del checklist genérico de ecommerce Perú al stack **real** de este
 **Stack real:** Vite + React (SPA) · Express 5 · Drizzle sobre `pg.Pool` · Supabase (solo Auth y
 Storage) · Resend · verificación manual de Yape/Plin.
 
-**Última actualización:** 2026-08-19. Todo ítem marcado `[x]` se verificó leyendo el código —o
+**Última actualización:** 2026-08-20. Todo ítem marcado `[x]` se verificó leyendo el código —o
 ejecutándolo, cuando la sección lo indica— y cita el archivo que lo respalda. Los ítems sin cita no
 se verificaron.
 
@@ -22,7 +22,7 @@ se verificaron.
 Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
 está en su sección; la evidencia de ejecución, en §11.
 
-### Hecho (fases 0–3 fusionadas en `main` vía PR [#1](https://github.com/Jfra-13/Antropic-eCommerce/pull/1); fase 4 en su propia rama)
+### Hecho (fases 0–4 fusionadas en `main`; fase 5 en su propia rama)
 
 | Fase | Qué entregó | Dónde |
 |---|---|---|
@@ -31,6 +31,7 @@ está en su sección; la evidencia de ejecución, en §11.
 | **2** | Libro de Reclamaciones completo, textos legales editables, registro de consentimiento | §2.1, §2.2 · `modules/complaints`, `modules/consents` |
 | **3** | 35 pruebas unitarias + 19 de integración, bloqueantes en CI | §9.2 · `*.test.ts`, `*.integration.test.ts` |
 | **4** | Clonabilidad: identidad de marca como dato en `lib/brand`, `<head>` y manifest generados, procedimiento de fork y prueba que impide que la marca vuelva al código | §1.3, §10 · `lib/brand`, `docs/CLONACION.md` |
+| **5** | Migraciones versionadas: línea base commiteada, CI construye la base replicando migraciones, y recuperación de bases preexistentes sin recrearlas | §9.3 · `lib/db/drizzle/`, `scripts/src/baseline-migrations.ts` |
 
 **Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
 `/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
@@ -42,8 +43,14 @@ en §11.4.
 
 ### Antes de desplegar lo ya hecho
 
-1. **Push de esquema**: las tablas `complaints` y `consents` no existen en ningún entorno todavía.
-   `pnpm --filter @workspace/db run push-force`
+1. **Aplicar migraciones**: las tablas `complaints` y `consents` no existen en ningún entorno
+   todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
+   —tiene las tablas viejas pero no el registro de migraciones, y `migrate` fallaría intentando
+   recrearlas—; en una base nueva basta el segundo comando:
+   ```
+   pnpm --filter @workspace/scripts run baseline-migrations   # solo si la base ya existía
+   pnpm --filter @workspace/db run migrate
+   ```
 2. **Rellenar identidad del proveedor** (razón social, RUC, domicilio) en el panel → pestaña Legal.
    Sin eso la Hoja de Reclamación sale sin identificación del proveedor y no cumple.
 3. **`CORS_ORIGINS` es obligatoria en producción**: la API no arranca sin ella, a propósito.
@@ -52,9 +59,8 @@ en §11.4.
 
 | # | Fase | Por qué en este orden |
 |---|---|---|
-| 1 | **5 · Preparar arquitectura de pagos** | Refactor para que el flujo manual y una pasarela futura convivan tras la misma interfaz. Barato ahora, caro después del clon. Ver §6.2 |
-| 2 | **6 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. Ver §4, §5, §8.1 |
-| 3 | **Migraciones versionadas** | `drizzle-kit push` sin historial es una bomba en cuanto haya staging + producción. Ver §9.3 |
+| 1 | **6 · Preparar arquitectura de pagos** | Refactor para que el flujo manual y una pasarela futura convivan tras la misma interfaz. Agrega una tabla y amplía el enum `payment_status`: con las migraciones ya montadas, ese delta llega como un archivo revisable. Barato ahora, caro después del clon. Ver §6.2 |
+| 2 | **7 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. El bundle del storefront pasa los 500 kB y las 12 rutas comparten un `<title>`. Ver §4, §5, §8.1 |
 
 ### Bloqueado por decisiones o trámites tuyos, no por código
 
@@ -93,7 +99,7 @@ contempla). Esta es la traducción.
 | §6 Izipay: webhook, firma, idempotencia de eventos, conciliación diaria | `n/a` **hoy**. No hay pasarela. El flujo real es constancia Yape/Plin → cola de verificación manual. Ver §6 de este documento |
 | §3.1 RLS como control principal | Degradado a defensa en profundidad. El navegador nunca habla con Postgres: pega al Express, que verifica JWT y consulta con credenciales de servidor. Sigue siendo obligatorio porque PostgREST está expuesto sobre la misma base |
 | §10.3 Server Actions, CSRF de Server Actions | `n/a`. Routers Express con bearer token en cabecera, no cookies de sesión → sin superficie CSRF clásica |
-| §10.4 Migraciones con Supabase CLI | `n/a` como está escrito. Aquí es `drizzle-kit push` **sin migraciones versionadas** — es un hueco real, ver §10.4 |
+| §10.4 Migraciones con Supabase CLI | `n/a` como está escrito. Aquí son migraciones de `drizzle-kit`, versionadas en `lib/db/drizzle/` y aplicadas con `migrate` — ver §9.3 |
 | §10.2 `supabase gen types typescript` | Sustituido por codegen desde `lib/api-spec/openapi.yaml` (Orval), que cumple el mismo objetivo |
 | §12 pregunta 8 ("¿qué pasa con Yape manual?") | No es una pregunta abierta: **es la arquitectura de pagos vigente** |
 
@@ -635,9 +641,19 @@ se descubre hasta que alguien lo paga.
 - [x] Índices justificados por consultas reales, incluido un índice parcial
 - [x] Diagrama entidad-relación versionado — `docs/negocio/DATABASE-SCHEMA.dbml`
 - [x] Script de seed idempotente — `scripts`
-- [ ] **Migraciones versionadas.** Hoy es `drizzle-kit push`, sin historial ni rollback. Con una sola
-      base de desarrollo se aguanta; con local + staging + producción es una fuente garantizada de
-      divergencia. Es el cambio estructural más importante antes de tener entornos separados
+- [x] **Migraciones versionadas.** Implantado en la Fase 5. `generate` escribe el SQL a partir del
+      diff del esquema y se commitea junto al cambio; `migrate` reproduce lo que a cada base le
+      falte, con el registro en `drizzle.__drizzle_migrations`. **CI construye la base de pruebas
+      replicando las migraciones**, no diffeando el esquema, así que una migración ausente o mal
+      formada falla ahí y no en producción. La línea base es `0000_initial_schema.sql`. Evidencia
+      en §11.5
+- [x] Base preexistente recuperable sin recrearla: `pnpm --filter @workspace/scripts run
+      baseline-migrations` marca la línea base sin ejecutar su SQL. Se niega a correr contra una
+      base vacía, donde marcar migraciones como aplicadas sin crear nada sería un desastre
+      silencioso que solo aparecería como *relation does not exist* en producción
+- [~] `push`/`push-force` siguen existiendo, degradados a prototipar contra una base **desechable**
+      y documentados como tales. Diffean contra lo que la base tenga en ese momento, así que dos
+      entornos que reciben el mismo push en momentos distintos terminan distintos
 - [ ] Restricciones `CHECK` en la base (precios ≥ 0, cantidades > 0), no solo en la aplicación
 - [ ] Borrado lógico en productos y clientes; prohibición física de borrar pedidos
 
@@ -645,7 +661,10 @@ se descubre hasta que alguien lo paga.
 
 - [x] `.env.example` documentado variable por variable en los tres paquetes que lo necesitan
       (raíz, tienda, panel), con el propósito de cada una y qué pasa si falta
-- [ ] ESLint configurado (hay directivas `eslint-disable` en el código pero no hay configuración)
+- [ ] ESLint configurado. **Corrección respecto de revisiones anteriores de este documento:** no
+      hay configuración *ni* directivas `eslint-disable`; se buscó en `artifacts`, `lib` y
+      `scripts` y no aparece ninguna referencia a eslint. El hueco es real, pero no hay deuda
+      previa que desactivar
 - [ ] Prettier con configuración única
 - [ ] Husky + lint-staged
 - [ ] Detección de código muerto y dependencias huérfanas (`knip`)
@@ -830,7 +849,33 @@ sustituyó `lib/brand/src/brand.ts` por una segunda marca ficticia («Lunaria»,
 > devuelve un número plausible en lugar de rendirse. Compila, pasa el typecheck y solo aparece
 > cuando alguien ejecuta el caso raro.
 
-### 11.5 Pendiente
+### 11.5 Recogida en la Fase 5
+
+Migraciones verificadas **aplicándolas contra Postgres real**, no leyendo el SQL generado.
+
+| Comprobación | Resultado |
+|---|---|
+| **Equivalencia con el esquema** | Dos bases nuevas, una por `migrate` y otra por `push-force`; `pg_dump --schema-only` de ambas: **472 líneas idénticas**, diferencia cero (las únicas dos líneas distintas eran los *nonces* aleatorios que `pg_dump` inserta en cada volcado) |
+| `migrate` idempotente | Segunda corrida sobre la misma base: sin cambios, una sola fila en `drizzle.__drizzle_migrations` |
+| **Base preexistente sin línea base** | `migrate` contra una base construida con `push` **falla con salida 1** — es exactamente el escenario del Supabase actual, y la razón de que el script de línea base exista |
+| Recuperación de esa base | `baseline-migrations` la marca sin ejecutar SQL; `migrate` pasa a ser un no-op limpio |
+| `baseline-migrations` idempotente | Segunda corrida: «Nothing to do: this database was already baselined» |
+| **Guarda contra base vacía** | Se niega con salida 1 y remite a `migrate`: marcar migraciones como aplicadas sin crear nada solo se descubriría como *relation does not exist* en producción |
+| Flujo hacia adelante | Cambio de esquema desechable → `generate` produce **solo el `ALTER`**, no el esquema entero; `migrate` lo aplica sobre la base ya con línea base; la columna aparece y el registro pasa a 2 filas |
+| Pipeline de CI completo | Simulado contra una base nueva con el paso `migrate` en lugar de `push-force`: typecheck, 44 unitarias, migrate, 19 de integración y build, los 5 en verde |
+
+> El compromiso deliberado: `push` y `push-force` **no** se eliminaron. Quitarlos obligaría a
+> generar una migración para cada tanteo de diseño, que es fricción sin beneficio. Quedan como
+> herramienta de prototipado contra una base desechable, y tanto `CLAUDE.md` como
+> `docs/COMANDOS.md` dicen por qué no deben tocar una base compartida: `push` diffea contra lo que
+> la base tenga en ese momento, así que dos entornos que reciben el mismo push en momentos
+> distintos terminan distintos y sin registro de qué se aplicó.
+
+> **Sobre el hallazgo de la Fase 4:** la prueba de identidad de marca volvió a cobrarse su costo.
+> El script `baseline-migrations.ts` nació con el nombre de la marca en un comentario y CI lo
+> rechazó antes de llegar a revisión. Es la segunda vez en dos fases.
+
+### 11.6 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**. La suite de pruebas ya no es el bloqueo (§9.2); lo que falta depende de
