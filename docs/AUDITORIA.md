@@ -22,7 +22,7 @@ se verificaron.
 Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
 está en su sección; la evidencia de ejecución, en §11.
 
-### Hecho (fases 0–4 fusionadas en `main`; fase 5 en su propia rama)
+### Hecho (fases 0–5, todas fusionadas en `main`)
 
 | Fase | Qué entregó | Dónde |
 |---|---|---|
