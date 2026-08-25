@@ -67,8 +67,9 @@ pnpm workspace with two package roots, each with a different lifecycle:
   `customFetch` wrapper), `brand` (brand identity as data — see below).
 - **`docs/`** — `COMANDOS.md` (runbook), `CLONACION.md` (fork procedure for a second brand),
   `PAGOS.md` (payment architecture + the contract a future gateway webhook must meet),
-  `TUNELES.md` (Cloudflare Tunnel demo guide), `negocio/` (requirements, physical DB schema,
-  role flows, style guide).
+  `OBSERVABILIDAD.md` (where to look when something fails: request ids, health probes, the email
+  outbox, and what is deliberately not wired up), `TUNELES.md` (Cloudflare Tunnel demo guide),
+  `negocio/` (requirements, physical DB schema, role flows, style guide).
 - Shared `catalog:` versions for common deps (react, vite, tailwind, radix, etc.) are pinned once in
   `pnpm-workspace.yaml`; packages reference them as `"catalog:"` instead of hardcoding a version.
 - `scripts/` is a workspace member too (misc one-off TS scripts run via `tsx`).
@@ -90,16 +91,30 @@ injection, bearer auth, and error parsing (`ApiError`/`ResponseParseError`).
 
 Express 5 app (`src/app.ts`) mounted under `/api`. Routes are composed in `src/routes/index.ts`,
 which mounts one router per domain module under `src/modules/`: `catalog`, `cart`, `wishlist`,
-`checkout`, `orders`, `payments`, `returns`, `config`, `admin` — plus the flat `health` and `me`
-routers. New endpoints belong in the matching module's router, not in a new top-level file.
+`checkout`, `orders`, `payments`, `returns`, `notifications`, `ops`, `config`, `admin` — plus the
+flat `health` and `me` routers. New endpoints belong in the matching module's router, not in a new
+top-level file.
 
 Scheduled work lives in `src/jobs/` — separate esbuild entrypoints, built into `dist/jobs/`, not
 timers inside the server: the API runs in more than one instance and an in-process timer would
 have every instance racing to do the same work.
 
-Structured logging via pino/pino-http (`src/lib/logger.ts`). `PORT` and `DATABASE_URL` are required
-env vars — the app throws at startup rather than defaulting. Auth is JWT verification against
-Supabase; the role comes from `profiles.role`.
+Structured logging via pino/pino-http (`src/lib/logger.ts`). Every request gets an id that appears
+in its log lines, in the `X-Request-Id` response header and in the body of a 500 — see
+`docs/OBSERVABILIDAD.md`. `PORT` and `DATABASE_URL` are required env vars — the app throws at
+startup rather than defaulting. Auth is JWT verification against Supabase; the role comes from
+`profiles.role`.
+
+Two health endpoints, and they are not interchangeable: `/healthz` is liveness and must stay
+dependency-free (a load balancer restarts what fails it), `/readyz` checks the database and returns
+503 when it is unreachable. External monitoring goes to `/readyz`.
+
+**Email never goes out directly.** Every message is written to the `notification_deliveries` outbox
+by `modules/notifications/outbox.ts` before delivery is attempted, retried by the
+`retry-notifications` job, and visible in the backoffice under Operaciones. Calling the transport
+(`lib/notify.ts`) from anywhere else puts the system back in the state where a send failure left no
+trace. The older guarantee still holds on top of that: a notification failure must never break a
+business flow.
 
 ### Payments
 

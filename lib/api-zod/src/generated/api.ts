@@ -9,12 +9,27 @@ import * as zod from 'zod';
 
 
 /**
- * Returns server health status
- * @summary Health check
+ * Answers "is this process alive". Deliberately checks nothing else: a load balancer polls it constantly, and a liveness probe that depends on the database restarts every healthy instance during a database blip. Use /readyz to know whether the API can serve traffic.
+ * @summary Liveness probe
  */
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
+
+
+/**
+ * Answers "can this instance serve requests". Checks its dependencies (today: the database) and returns 503 when one of them is unreachable, so an uptime monitor pointed here reports the outage instead of a cheerful 200. Point external monitoring at this endpoint, not at /healthz.
+ * @summary Readiness probe
+ */
+export const ReadinessCheckResponse = zod.object({
+  "status": zod.enum(['ok', 'degraded']),
+  "checks": zod.object({
+  "database": zod.object({
+  "status": zod.enum(['ok', 'error']),
+  "latencyMs": zod.number().optional()
+})
+})
+}).describe('Kept deliberately small. This endpoint is reachable without authentication, so it carries no version, no configuration and no connection details — only whether each dependency answered and how long it took.\n')
 
 
 /**
@@ -2313,5 +2328,92 @@ export const DeletePickupPointParams = zod.object({
 })
 
 export const DeletePickupPointResponse = zod.void()
+
+
+/**
+ * The handful of numbers that say whether the operation is healthy right now: how long the oldest unverified constancia has been waiting, how payments have been resolving, and whether notifications are going out. Separate from /admin/dashboard on purpose — that one is loaded on every visit to the panel and is about sales, this one runs heavier aggregate queries and is only read when somebody is looking at operations.
+ * @summary Operational snapshot for the day the store is running
+ */
+export const GetOpsSnapshotResponse = zod.object({
+  "verificationQueue": zod.object({
+  "pending": zod.number(),
+  "oldestWaitingHours": zod.number().nullable().describe('Null when the queue is empty — not zero, which would read as \"instant\"')
+}).describe('The manual payment queue. Waiting time here is what customers feel.'),
+  "payments7d": zod.object({
+  "approved": zod.number(),
+  "rejected": zod.number(),
+  "expired": zod.number(),
+  "approvalRatePct": zod.number().nullable().describe('Null when nothing was resolved; no honest ratio exists over zero')
+}).describe('Resolved payments over the last 7 days, from the payment_events history.'),
+  "notifications": zod.object({
+  "pending": zod.number(),
+  "failed": zod.number(),
+  "oldestPendingMinutes": zod.number().nullable()
+}),
+  "database": zod.object({
+  "poolTotal": zod.number(),
+  "poolIdle": zod.number(),
+  "poolWaiting": zod.number()
+}).describe('Connection pool of THIS instance only. Behind a load balancer each instance has its own pool, so these numbers describe the process that answered the request, not the deployment. Useful for spotting exhaustion; not a cluster-wide metric.\n')
+})
+
+
+/**
+ * @summary Outbox — what was sent, what failed and what is still queued
+ */
+export const listNotificationDeliveriesQueryLimitDefault = 50;
+export const listNotificationDeliveriesQueryLimitMax = 100;
+
+
+
+export const ListNotificationDeliveriesQueryParams = zod.object({
+  "status": zod.enum(['pendiente', 'enviado', 'fallido']).optional(),
+  "relatedType": zod.enum(['order', 'complaint', 'return', 'variant']).optional(),
+  "relatedId": zod.coerce.string().uuid().optional(),
+  "limit": zod.coerce.number().min(1).max(listNotificationDeliveriesQueryLimitMax).default(listNotificationDeliveriesQueryLimitDefault)
+})
+
+export const ListNotificationDeliveriesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "channel": zod.enum(['email']),
+  "kind": zod.string().describe('Which notification this is (payment_approved, complaint_filed, ...)'),
+  "recipient": zod.string(),
+  "subject": zod.string(),
+  "relatedType": zod.string().nullish(),
+  "relatedId": zod.string().uuid().nullish(),
+  "status": zod.enum(['pendiente', 'enviado', 'fallido']),
+  "attempts": zod.number(),
+  "lastError": zod.string().nullish(),
+  "nextAttemptAt": zod.coerce.date().nullish(),
+  "sentAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+}).describe('One outbox record. `bodyHtml` is deliberately NOT exposed: the rendered message holds the customer\'s name, address and order contents, and the backoffice list does not need it to answer \"did this go out\".\n'))
+})
+
+
+/**
+ * Only a `fallido` record can be requeued. The usual reason a batch fails is configuration (an unverified sender domain, a missing API key), and once that is fixed those messages still need to go out — most of all the Hoja de Reclamación, which is the consumer's legal constancia of their filing.
+ * @summary Put a failed delivery back in the queue
+ */
+export const RetryNotificationDeliveryParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const RetryNotificationDeliveryResponse = zod.object({
+  "id": zod.string().uuid(),
+  "channel": zod.enum(['email']),
+  "kind": zod.string().describe('Which notification this is (payment_approved, complaint_filed, ...)'),
+  "recipient": zod.string(),
+  "subject": zod.string(),
+  "relatedType": zod.string().nullish(),
+  "relatedId": zod.string().uuid().nullish(),
+  "status": zod.enum(['pendiente', 'enviado', 'fallido']),
+  "attempts": zod.number(),
+  "lastError": zod.string().nullish(),
+  "nextAttemptAt": zod.coerce.date().nullish(),
+  "sentAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+}).describe('One outbox record. `bodyHtml` is deliberately NOT exposed: the rendered message holds the customer\'s name, address and order contents, and the backoffice list does not need it to answer \"did this go out\".\n')
 
 

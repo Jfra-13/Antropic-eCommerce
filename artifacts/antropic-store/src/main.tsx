@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
 import { supabase } from "./lib/supabase";
 import App from "./App";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import "./index.css";
 
 // Dev: storefront and API run on different ports. Prod: front (Vercel) and API
@@ -17,4 +18,10 @@ setAuthTokenGetter(async () => {
   return data.session?.access_token ?? null;
 });
 
-createRoot(document.getElementById("root")!).render(<App />);
+// The boundary wraps everything, including the providers: a crash inside QueryClientProvider
+// or StoreContext is exactly the kind that produces a blank page.
+createRoot(document.getElementById("root")!).render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>,
+);

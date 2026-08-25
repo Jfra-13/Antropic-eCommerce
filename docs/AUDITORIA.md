@@ -5,7 +5,7 @@ Adaptación del checklist genérico de ecommerce Perú al stack **real** de este
 **Stack real:** Vite + React (SPA) · Express 5 · Drizzle sobre `pg.Pool` · Supabase (solo Auth y
 Storage) · Resend · verificación manual de Yape/Plin.
 
-**Última actualización:** 2026-08-25 (Fase 6 + decisiones de IGV y checkout de invitado). Todo ítem marcado `[x]` se verificó leyendo el código —o
+**Última actualización:** 2026-08-25 (Fase 7 — observabilidad). Todo ítem marcado `[x]` se verificó leyendo el código —o
 ejecutándolo, cuando la sección lo indica— y cita el archivo que lo respalda. Los ítems sin cita no
 se verificaron.
 
@@ -22,7 +22,7 @@ se verificaron.
 Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
 está en su sección; la evidencia de ejecución, en §11.
 
-### Hecho (fases 0–5, todas fusionadas en `main`)
+### Hecho (fases 0–7)
 
 | Fase | Qué entregó | Dónde |
 |---|---|---|
@@ -33,6 +33,12 @@ está en su sección; la evidencia de ejecución, en §11.
 | **4** | Clonabilidad: identidad de marca como dato en `lib/brand`, `<head>` y manifest generados, procedimiento de fork y prueba que impide que la marca vuelva al código | §1.3, §10 · `lib/brand`, `docs/CLONACION.md` |
 | **5** | Migraciones versionadas: línea base commiteada, CI construye la base replicando migraciones, y recuperación de bases preexistentes sin recrearlas | §9.3 · `lib/db/drizzle/`, `scripts/src/baseline-migrations.ts` |
 | **6** | Arquitectura de pagos: transacción de liquidación agnóstica de proveedor, interfaz `PaymentProvider`, `payment_events` con idempotencia de webhooks, estados ampliados y caducidad de pedidos abandonados | §6.2 · `docs/PAGOS.md`, `modules/payments/settlement.ts` |
+| **7** | Observabilidad: outbox de notificaciones con reintentos y visibilidad en el panel, id de petición extremo a extremo, `/readyz` que sí comprueba la base, pantalla de Operaciones y `ErrorBoundary` en las dos SPA | §5, §8.3 · `docs/OBSERVABILIDAD.md`, `modules/notifications/outbox.ts` |
+
+> **Fusión:** las fases 0–5 están en `main`. Las fases **6 y 7 no lo están todavía**: la 6 vive
+> en `claude/fase-6-arquitectura-pagos-s47c8t` y la 7 se construyó **encima de esa rama**, no de
+> `main`. Fusionar la 7 sin la 6 revertiría la arquitectura de pagos entera. Orden: primero la 6,
+> después la 7 (o la 7 arrastra ambas).
 
 **Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
 `/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
@@ -46,10 +52,22 @@ Y un quinto en la Fase 6: la guarda de idempotencia de webhooks leía `.code` de
 pero drizzle envuelve el error del driver y deja el código de Postgres en `.cause`, así que la
 guarda **nunca se disparaba**. Compilaba, tenía buena pinta y era inerte. Detalle en §11.6.
 
+La Fase 7 no encontró un sexto defecto de ese tipo en el código existente, pero sí lo encontró en
+**una prueba recién escrita**: un caso llamado «se registra como fallido cuando el correo no está
+configurado» no comprobaba eso en absoluto —el módulo de entorno se lee una vez al importar y no
+se puede reconfigurar a mitad del proceso— sino un 401 cualquiera. Pasaba en verde y mentía sobre
+qué estaba cubierto. Se partió en dos: el caso real vive ahora en `lib/notify.test.ts`, donde el
+módulo de entorno sí se puede sustituir. Detalle en §11.7.
+
 ### Antes de desplegar lo ya hecho
 
-1. **Aplicar migraciones**: las tablas `complaints`, `consents` y `payment_events` no existen en
-   ningún entorno todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
+> Esta lista, con el porqué de cada punto y el orden recomendado, está desarrollada en
+> **`docs/ANTES-DE-SEGUIR.md`**. Empieza por ahí antes de abrir la Fase 8: incluye el aviso sobre
+> el orden de fusión de las ramas 6 y 7, que es lo único de esta lista que empeora solo con el
+> tiempo.
+
+1. **Aplicar migraciones**: las tablas `complaints`, `consents`, `payment_events` y
+   `notification_deliveries` no existen en ningún entorno todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
    —tiene las tablas viejas pero no el registro de migraciones, y `migrate` fallaría intentando
    recrearlas—; en una base nueva basta el segundo comando:
    ```
@@ -61,12 +79,17 @@ guarda **nunca se disparaba**. Compilaba, tenía buena pinta y era inerte. Detal
 3. **`CORS_ORIGINS` es obligatoria en producción**: la API no arranca sin ella, a propósito.
 4. **Programar `expire-orders`** (Fase 6): sin un scheduler que lo invoque, los pedidos
    abandonados se quedan en `pendiente_pago` para siempre. Comando en `docs/PAGOS.md` §4.
+5. **Programar `retry-notifications`** (Fase 7), cada 5 minutos: sin él, un correo que falle una
+   vez se queda en la cola. Comando en `docs/OBSERVABILIDAD.md` §4.
+6. **Apuntar el monitor de uptime a `/api/readyz`, no a `/api/healthz`** (Fase 7). El primero
+   comprueba la base y devuelve 503 cuando no responde; el segundo solo dice que el proceso está
+   vivo, a propósito.
 
 ### Pendiente, en el orden que recomiendo
 
 | # | Fase | Por qué en este orden |
 |---|---|---|
-| 1 | **7 · Observabilidad, SEO y rendimiento** | Observabilidad **primero**, invirtiendo el orden del título: hoy toda notificación es *fire-and-forget* y cada fallo se traga en un `logger.warn` (cinco `catch` en `notifications/service.ts`), y no hay Sentry ni equivalente en ningún paquete. El día del lanzamiento, «el aviso de constancia nueva nunca llegó» es una línea de log que nadie lee. Luego SEO —las 12 rutas comparten un `<title>`— y code-splitting. Ver §4, §5, §8.1 |
+| 1 | **7b · SEO y rendimiento** | La otra mitad del título de la Fase 7, aplazada a propósito para no mezclar dos problemas sin relación en una revisión. Las 12 rutas comparten un `<title>`, así que un producto compartido a WhatsApp se ve como la home; y el bundle del storefront pesa 733 kB sin code-splitting (el `build` ya lo avisa). Ver §4, §8.1 |
 | 2 | **8 · IGV y base fiscal** | Bloqueada por la confirmación del contador (§2.4). Es el último cambio de esquema que se encarece de verdad con el clon: toca catálogo, pedidos y líneas, y reinterpreta totales ya guardados |
 | 3 | **9 · Checkout de invitado** | Modelo ya decidido (§1.4). Va al final justo porque **no** es un acantilado de esquema: el perfil de invitado no obliga a migrar nada, así que cuesta lo mismo antes o después del fork |
 
@@ -534,9 +557,19 @@ La §4 original asume renderizado en servidor. Estos son los equivalentes reales
 - [ ] Paginación por cursor en listados grandes (hoy es paginación por página)
 - [ ] Plan de Supabase de pago — el gratuito pausa el proyecto por inactividad y no tiene PITR
 - [ ] Alertas de consumo antes de llegar al tope
-- [ ] Sentry o equivalente capturando errores de cliente y servidor
-- [ ] Monitor de uptime con alerta al responsable
-- [ ] Dashboard operativo: pedidos por hora, tasa de aprobación, errores 5xx
+- [~] Sentry o equivalente capturando errores de cliente y servidor — **la costura sí, el
+      proveedor no**. `lib/observability.ts` concentra el reporte de errores del servidor y de
+      los jobs, y cada SPA tiene su `ErrorBoundary` con su punto de enganche. No se montó el SDK
+      porque no hay cuenta ni DSN y este entorno no puede ejercitarlo: una integración inerte es
+      el defecto que esta auditoría lleva seis fases quitando. Ver `docs/OBSERVABILIDAD.md` §6
+- [x] Sonda de disponibilidad que comprueba sus dependencias — `GET /api/readyz` devuelve 503
+      con la base caída. Antes `/healthz` respondía 200 con Postgres apagado, así que un monitor
+      habría reportado la tienda sana mientras cada petición devolvía 500 (§11.7)
+- [ ] Monitor de uptime con alerta al responsable — servicio externo; apúntalo a `/api/readyz`
+- [~] Dashboard operativo: pedidos por hora, tasa de aprobación, errores 5xx — pantalla
+      **Operaciones** en el panel con la espera de la cola de verificación, la tasa de aprobación
+      a 7 días y el estado del envío de correos. La tasa de 5xx queda fuera: contarla bien
+      necesita un backend de métricas, y un contador en memoria mentiría con más de una instancia
 - [ ] Prueba de carga básica
 
 ---
@@ -624,6 +657,8 @@ Decisión tomada: **no se integra pasarela en este ciclo, pero se prepara la arq
 - [x] Reportes con exportación — `pages/Reports.tsx`
 - [x] Configuración de contenido de tienda sin tocar código — `pages/Config.tsx`
 - [x] Alertas de stock — tabla `stock_alerts`
+- [x] Pantalla de **Operaciones**: espera real de la cola de verificación, tasa de aprobación y
+      estado del envío de correos, con reintento manual de los que fallaron — `pages/Operations.tsx`
 - [ ] Ajuste manual de stock con motivo obligatorio registrado en auditoría
 - [ ] Panel del Libro de Reclamaciones (bloqueado por §2.1)
 - [ ] Cumplimiento de solicitudes ARCOP desde el panel (bloqueado por §2.2)
@@ -666,7 +701,11 @@ Si esto falla, las confirmaciones caen en spam y explotan los reclamos.
 - [ ] Remitente en dominio propio, no en Gmail
 - [ ] Probado en Gmail, Outlook y Hotmail
 - [ ] Plantillas completas: confirmación, pago recibido, enviado, entregado, hoja de reclamación
-- [ ] Reintentos con backoff — hoy un fallo de Resend se pierde en silencio
+- [x] Reintentos con backoff — outbox `notification_deliveries` + job `retry-notifications`
+      (1, 5, 15, 60, 240 min, seis intentos). `docs/OBSERVABILIDAD.md` §4
+- [x] Un fallo de envío deja de perderse en silencio: cada mensaje es una fila con su estado,
+      sus intentos y el error del proveedor, visible y reencolable desde el panel. Incluye el
+      caso «sin `RESEND_API_KEY`», que antes descartaba el correo sin dejar rastro
 
 ---
 
@@ -1012,7 +1051,56 @@ el job de caducidad corriendo como binario.
 > contra el proyecto Supabase real, al que este contenedor no llega. Compilan y pasan el build;
 > la verificación visual queda pendiente de una sesión con credenciales.
 
-### 11.7 Pendiente
+### 11.7 Recogida en la Fase 7
+
+Observabilidad verificada **ejecutando**: Postgres 16 local, la API levantada de verdad, el job
+de reintentos corriendo como binario compilado, un proveedor de correo falso, y las dos SPA
+abiertas en Chromium con Playwright.
+
+| Comprobación | Resultado |
+|---|---|
+| **Sonda de disponibilidad con la base caída** | Postgres detenido en caliente: `/api/healthz` sigue devolviendo **200** (es una sonda de vida y no debe tumbar instancias sanas) y `/api/readyz` devuelve **503** `{"status":"degraded"}` en 2 ms. Al volver Postgres, `/readyz` vuelve a 200 sin reiniciar la API |
+| **Correlación de extremo a extremo** | Un 500 real (petición a `/api/products` con la base apagada) devolvió `requestId` en el cuerpo, la misma cadena en la cabecera `X-Request-Id`, y **3 líneas de log** con ese id. `Access-Control-Expose-Headers: X-Request-Id` confirmado en la respuesta y en el preflight |
+| **Flujo real por HTTP: el correo que no salió** | Reclamo presentado contra la API de verdad (`POST /api/complaints` → 201, `LR-000001`). Con Resend sin configurar, la constancia quedó como fila `fallido` con «RESEND_API_KEY / RESEND_FROM sin configurar» en vez de desaparecer en un `logger.warn`. **El reclamo se registró igual**: la garantía de que el correo no puede tumbar un flujo de negocio sigue en pie |
+| **Ciclo completo de reintento** | `POST /api/admin/notifications/{id}/retry` con un JWT RS256 firmado contra un JWKS local (middleware de auth real, sin bypass) → job compilado `dist/jobs/retry-notifications.mjs` contra un servidor que devuelve 500 y luego 200. Corrida 1: `claimed 1, sent 0`. Corrida 2 inmediata: `claimed 0` — **el backoff lo retiene**. Corrida 3 ya vencido: `claimed 1, sent 1`. El proveedor falso registró **exactamente 2 entregas**, ninguna duplicada |
+| Endpoints nuevos por HTTP | `/api/admin/ops` y `/api/admin/notifications` respondiendo con token real. `bodyHtml` **no** aparece en la respuesta: el DTO no lo lleva |
+| Números de operaciones contra datos reales | Constancia sembrada con 26 h de antigüedad → `oldestWaitingHours: 26`, `pending: 1`. Tras aprobar el pago por HTTP: cola vacía (`null`, no `0`) y `approvalRatePct: 100` |
+| **`ErrorBoundary` en navegador** | Chromium sobre los dos dev servers, con un `throw` temporal inyectado en una ruta pública y revertido después. Tienda: pantalla «Algo salió mal» con los colores de marca y el nombre desde `lib/brand`. Panel: «El panel dejó de responder» con el texto del error a la vista. Sin el boundary, ambos casos eran una página en blanco |
+| Pruebas nuevas | **+5 unitarias** (calendario de reintentos y clasificación del transporte) y **+13 de integración** (outbox contra Postgres real). Totales: 55 unitarias, 48 de integración |
+| Pipeline de CI completo | Base nueva construida solo con `migrate`: typecheck, 55 unitarias, migrate, 48 de integración y build — los 5 en verde, **3 filas** en `drizzle.__drizzle_migrations` |
+
+> **El defecto de esta fase, y esta vez estaba en una prueba nueva.** Un caso de integración
+> llamado «se registra como fallido cuando el correo no está configurado» no comprobaba eso:
+> `lib/env.ts` se evalúa una sola vez al importar, así que la llamada a `vi.stubEnv` no cambiaba
+> nada y el caso terminaba probando un 401 corriente. Verde, y mintiendo sobre qué cubría — la
+> peor variante, porque una prueba falsa es peor que ninguna: ocupa el sitio de la que faltaba.
+> Se partió en dos: el caso honesto vive ahora en `lib/notify.test.ts`, donde el módulo de
+> entorno sí se puede sustituir con `vi.mock`, y el de integración se renombró a lo que de
+> verdad prueba.
+
+> **Sobre el alcance: no se montó Sentry.** No hay cuenta ni DSN, y este contenedor no puede
+> ejercitarlo. Montar el SDK igualmente habría producido justo el código que estas siete fases
+> llevan quitando: compila, se lee bien y es inerte. Lo que sí queda es la costura —
+> `lib/observability.ts` en el servidor, `logError` en cada `ErrorBoundary`— con los pasos de
+> integración escritos. El ítem de §5 sigue en `[ ]`.
+
+> **Tampoco se montó ingesta propia de errores del navegador.** Un endpoint público sin
+> autenticar que acepta cualquier cosa es un blanco de inundación y una tabla que crece sin
+> control. Es una decisión, no un olvido: `docs/OBSERVABILIDAD.md` §6.
+
+> **Lo que NO se pudo verificar en este entorno:** la pantalla de **Operaciones** del panel con
+> datos reales en el navegador. Sus dos endpoints se probaron enteros por HTTP con un token
+> firmado, y el `ErrorBoundary` del panel sí se vio renderizado; lo que falta es el render de la
+> tabla y las tarjetas, porque el panel autentica contra el Supabase real al que este contenedor
+> no llega. Compila y pasa el build. Igual que en la Fase 6, la verificación visual queda
+> pendiente de una sesión con credenciales.
+
+> **Retención pendiente de decisión legal.** `notification_deliveries` guarda el cuerpo
+> renderizado, que incluye datos personales. No se implementó purga automática a propósito:
+> cuánto se conserva la constancia de un reclamo es una decisión del abogado, no un valor por
+> defecto elegido en el código. Ver `docs/OBSERVABILIDAD.md` §5.
+
+### 11.8 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**. La suite de pruebas ya no es el bloqueo (§9.2); lo que falta depende de

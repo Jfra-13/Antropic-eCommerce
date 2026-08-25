@@ -30,7 +30,11 @@ const shared = {
 // are listed because req.path is relative to where the middleware is mounted: "/api/healthz"
 // at app level (how it is mounted today), "/healthz" if it is ever moved inside the router.
 // Matching only one silently stops exempting the route the day someone remounts it.
-const HEALTH_PATHS = new Set(["/api/healthz", "/healthz"]);
+//
+// /readyz is exempt for the same reason and matters more: it is the endpoint external
+// monitoring is told to watch (docs/OBSERVABILIDAD.md), so throttling it would turn a busy
+// afternoon into a false outage alert.
+const HEALTH_PATHS = new Set(["/api/healthz", "/healthz", "/api/readyz", "/readyz"]);
 
 // Catch-all ceiling. High enough that browsing the catalogue and polling the verification
 // queue never reach it; low enough that a scraper does.

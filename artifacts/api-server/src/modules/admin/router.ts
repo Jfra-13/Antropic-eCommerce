@@ -88,6 +88,11 @@ import {
   GetDashboardResponse,
   GetSalesReportQueryParams,
   GetSalesReportResponse,
+  GetOpsSnapshotResponse,
+  ListNotificationDeliveriesQueryParams,
+  ListNotificationDeliveriesResponse,
+  RetryNotificationDeliveryParams,
+  RetryNotificationDeliveryResponse,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../../lib/auth";
 import { createPublicMediaUploadUrl } from "../../lib/storage";
@@ -100,6 +105,8 @@ import * as complaints from "../complaints/service";
 import * as users from "../users/service";
 import * as config from "../config/service";
 import * as reports from "../reports/service";
+import * as ops from "../ops/service";
+import * as notifications from "../notifications/service";
 
 const router: IRouter = Router();
 
@@ -693,6 +700,44 @@ router.get("/admin/reports", adminOnly, async (req, res) => {
   }
   const report = await reports.getSalesReport(query.data.from, query.data.to);
   res.json(GetSalesReportResponse.parse(report));
+});
+
+// --- Operaciones y notificaciones (auditoría §5, §8.3) ---
+
+// Operational snapshot. Employee + admin: the people who work the verification queue are the
+// ones who need to see how long it has been waiting.
+router.get("/admin/ops", async (_req, res) => {
+  const snapshot = await ops.getOpsSnapshot();
+  res.json(GetOpsSnapshotResponse.parse(snapshot));
+});
+
+// The outbox. Employee + admin for the same reason: "did the customer get the email" is a
+// question the person answering the phone has to be able to check.
+router.get("/admin/notifications", async (req, res) => {
+  const query = ListNotificationDeliveriesQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ code: "INVALID_QUERY", message: query.error.message });
+    return;
+  }
+  const items = await notifications.listDeliveryRecords(query.data);
+  res.json(ListNotificationDeliveriesResponse.parse({ items }));
+});
+
+router.post("/admin/notifications/:id/retry", async (req, res) => {
+  const params = RetryNotificationDeliveryParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAMS", message: params.error.message });
+    return;
+  }
+  const record = await notifications.requeueDeliveryRecord(params.data.id);
+  if (!record) {
+    // Also the answer for a record that exists but is not `fallido`: requeueing something that
+    // is queued or already sent would duplicate a message, so it is refused rather than
+    // silently ignored.
+    res.status(404).json({ code: "NOT_FOUND", message: "Envío no encontrado o no reintentable" });
+    return;
+  }
+  res.json(RetryNotificationDeliveryResponse.parse(record));
 });
 
 export default router;

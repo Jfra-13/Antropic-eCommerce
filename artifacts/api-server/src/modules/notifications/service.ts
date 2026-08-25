@@ -1,15 +1,29 @@
-import type { Order, ReturnTicket, Complaint } from "@workspace/db";
+import type { Order, ReturnTicket, Complaint, NotificationDelivery } from "@workspace/db";
+import type { NotificationDelivery as NotificationDeliveryRecord } from "@workspace/api-zod";
 import { logger } from "../../lib/logger";
-import { sendEmail, adminNotificationEmail } from "../../lib/notify";
+import { adminNotificationEmail } from "../../lib/notify";
+import { enqueueEmail } from "./outbox";
 import { referenceCode } from "../orders/mappers";
 import { getOrderItems } from "../orders/queries";
 import { orderEmailHtml, complaintEmailHtml } from "./templates";
 import { complaintCode } from "../complaints/mappers";
 import { getBusinessIdentity } from "../config/service";
-import { getProfileEmail, pendingStockAlerts, markStockAlertsNotified } from "./queries";
+import {
+  getProfileEmail,
+  pendingStockAlerts,
+  markStockAlertsNotified,
+  listDeliveries,
+  requeueDelivery,
+} from "./queries";
 
 // Every function here is fire-and-forget from the caller's view: wrapped so a notification
 // failure can never bubble into a business flow. Callers use `void notifications.notifyX(...)`.
+//
+// What changed in the observability phase: composing a message and DELIVERING it are now
+// separate. These functions decide who gets told what; `enqueueEmail` writes the message to
+// the outbox and takes responsibility for getting it out, retries included. The `kind` string
+// is what the backoffice groups by, so it names the notification, not the state that triggered
+// it — "el correo de pago aprobado no salió" has to be answerable without reading this file.
 
 // Customer-facing heading + body per fulfillment state.
 const FULFILLMENT_COPY: Record<string, { heading: string; message: string }> = {
@@ -45,7 +59,10 @@ export async function notifyPaymentApproved(order: Order): Promise<void> {
     if (!to) return;
     const ref = referenceCode(order.orderNumber);
     const items = await getOrderItems(order.id);
-    await sendEmail({
+    await enqueueEmail({
+      kind: "payment_approved",
+      relatedType: "order",
+      relatedId: order.id,
       to,
       subject: `Pago confirmado — pedido ${ref}`,
       html: orderEmailHtml({
@@ -72,7 +89,10 @@ export async function notifyOrderStatusChanged(order: Order): Promise<void> {
       message: "Entra a tu pedido para ver el detalle.",
     };
     const items = await getOrderItems(order.id);
-    await sendEmail({
+    await enqueueEmail({
+      kind: `fulfillment_${status}`,
+      relatedType: "order",
+      relatedId: order.id,
       to,
       subject: `${copy.heading} — pedido ${ref}`,
       html: orderEmailHtml({ heading: copy.heading, message: copy.message, order, items }),
@@ -89,7 +109,10 @@ export async function notifyProofReceived(order: Order): Promise<void> {
     if (!to) return;
     const ref = referenceCode(order.orderNumber);
     const items = await getOrderItems(order.id);
-    await sendEmail({
+    await enqueueEmail({
+      kind: "proof_received",
+      relatedType: "order",
+      relatedId: order.id,
       to,
       subject: `Recibimos tu constancia — pedido ${ref}`,
       html: orderEmailHtml({
@@ -110,7 +133,10 @@ export async function notifyAdminNewProof(order: Order): Promise<void> {
     const to = adminNotificationEmail();
     if (!to) return;
     const ref = referenceCode(order.orderNumber);
-    await sendEmail({
+    await enqueueEmail({
+      kind: "admin_new_proof",
+      relatedType: "order",
+      relatedId: order.id,
       to,
       subject: `Nueva constancia por verificar — ${ref}`,
       html: `<p>El pedido <strong>${ref}</strong> (S/ ${order.total}) subió una constancia de pago pendiente de verificación.</p>`,
@@ -124,7 +150,10 @@ export async function notifyAdminNewReturn(ticket: ReturnTicket): Promise<void> 
   try {
     const to = adminNotificationEmail();
     if (!to) return;
-    await sendEmail({
+    await enqueueEmail({
+      kind: "admin_new_return",
+      relatedType: "return",
+      relatedId: ticket.id,
       to,
       subject: `Nueva solicitud de devolución #${ticket.ticketNumber}`,
       html: `<p>Se creó la solicitud de devolución <strong>#${ticket.ticketNumber}</strong>.</p>
@@ -143,7 +172,10 @@ export async function notifyStockAvailable(variantId: string): Promise<void> {
     if (alerts.length === 0) return;
     await Promise.all(
       alerts.map((a) =>
-        sendEmail({
+        enqueueEmail({
+          kind: "stock_available",
+          relatedType: "variant",
+          relatedId: variantId,
           to: a.email,
           subject: `¡${a.productName} está disponible de nuevo!`,
           html: `<p>La variante que esperabas (<strong>${a.variantLabel}</strong>) de <strong>${a.productName}</strong> volvió a tener stock.</p>
@@ -167,7 +199,10 @@ export async function notifyComplaintFiled(complaint: Complaint): Promise<void> 
   try {
     const business = await getBusinessIdentity();
     const code = complaintCode(complaint.complaintNumber);
-    await sendEmail({
+    await enqueueEmail({
+      kind: "complaint_filed",
+      relatedType: "complaint",
+      relatedId: complaint.id,
       to: complaint.consumerEmail,
       subject: `Registramos tu ${complaint.type} — ${code}`,
       html: complaintEmailHtml({
@@ -192,7 +227,10 @@ export async function notifyAdminNewComplaint(complaint: Complaint): Promise<voi
     if (!to) return;
     const business = await getBusinessIdentity();
     const code = complaintCode(complaint.complaintNumber);
-    await sendEmail({
+    await enqueueEmail({
+      kind: "admin_new_complaint",
+      relatedType: "complaint",
+      relatedId: complaint.id,
       to,
       subject: `Nuevo ${complaint.type} en el Libro de Reclamaciones — ${code}`,
       html: complaintEmailHtml({
@@ -215,7 +253,10 @@ export async function notifyComplaintAnswered(complaint: Complaint): Promise<voi
   try {
     const business = await getBusinessIdentity();
     const code = complaintCode(complaint.complaintNumber);
-    await sendEmail({
+    await enqueueEmail({
+      kind: "complaint_answered",
+      relatedType: "complaint",
+      relatedId: complaint.id,
       to: complaint.consumerEmail,
       subject: `Respuesta a tu ${complaint.type} — ${code}`,
       html: complaintEmailHtml({
@@ -229,4 +270,45 @@ export async function notifyComplaintAnswered(complaint: Complaint): Promise<voi
   } catch (err) {
     logger.warn({ err, complaintId: complaint.id }, "notifyComplaintAnswered failed");
   }
+}
+
+// --- Backoffice view of the outbox (auditoría §8.3) --------------------------
+
+// Read side of the outbox. `bodyHtml` is dropped here rather than in the router: the rendered
+// message contains the customer's name, address and order contents, and no screen in the panel
+// needs it to answer "did this go out". Keeping the projection next to the mapping means a
+// future field is opted IN, not accidentally exposed by a `select *`.
+function toDeliveryRecord(row: NotificationDelivery): NotificationDeliveryRecord {
+  return {
+    id: row.id,
+    channel: row.channel,
+    kind: row.kind,
+    recipient: row.recipient,
+    subject: row.subject,
+    relatedType: row.relatedType,
+    relatedId: row.relatedId,
+    status: row.status,
+    attempts: row.attempts,
+    lastError: row.lastError,
+    nextAttemptAt: row.nextAttemptAt,
+    sentAt: row.sentAt,
+    createdAt: row.createdAt,
+  };
+}
+
+export async function listDeliveryRecords(filter: {
+  status?: "pendiente" | "enviado" | "fallido";
+  relatedType?: string;
+  relatedId?: string;
+  limit?: number;
+}): Promise<NotificationDeliveryRecord[]> {
+  const rows = await listDeliveries({ ...filter, limit: filter.limit ?? 50 });
+  return rows.map(toDeliveryRecord);
+}
+
+export async function requeueDeliveryRecord(
+  id: string,
+): Promise<NotificationDeliveryRecord | undefined> {
+  const row = await requeueDelivery(id);
+  return row ? toDeliveryRecord(row) : undefined;
 }

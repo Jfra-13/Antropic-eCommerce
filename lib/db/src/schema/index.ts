@@ -33,6 +33,9 @@ export * from "./return-tickets";
 export * from "./complaints";
 export * from "./consents";
 
+// Notifications (outbox: delivery record + retry queue)
+export * from "./notification-deliveries";
+
 // Logistics + config
 export * from "./pickup-points";
 export * from "./settings";

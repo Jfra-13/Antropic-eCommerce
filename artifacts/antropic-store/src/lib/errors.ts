@@ -29,9 +29,27 @@ export function apiErrorCode(e: unknown): string | undefined {
   return undefined;
 }
 
+// The id the API assigns to a failed request (auditoría §5). Only unexpected failures carry
+// one: a rejected coupon is an expected outcome, not an incident, and showing a reference code
+// for it would make a normal message look alarming.
+export function apiErrorReference(e: unknown): string | undefined {
+  if (e instanceof ApiError && e.data && typeof e.data === "object" && "requestId" in e.data) {
+    const id = (e.data as { requestId?: unknown }).requestId;
+    return typeof id === "string" ? id : undefined;
+  }
+  return undefined;
+}
+
 export function apiErrorMessage(e: unknown): string {
   const code = apiErrorCode(e);
   if (code && CODE_MESSAGES[code]) return CODE_MESSAGES[code];
   if (e instanceof Error && e.message) return e.message;
-  return "Algo salió mal. Inténtalo de nuevo.";
+
+  // Nothing we recognise. Attaching the request id turns "algo salió mal" into something the
+  // customer can quote and support can find in the logs, instead of a report that says only
+  // "no me funcionó ayer".
+  const reference = apiErrorReference(e);
+  return reference
+    ? `Algo salió mal. Inténtalo de nuevo. Código de referencia: ${reference}`
+    : "Algo salió mal. Inténtalo de nuevo.";
 }
