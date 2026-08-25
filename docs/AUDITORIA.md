@@ -61,8 +61,13 @@ módulo de entorno sí se puede sustituir. Detalle en §11.7.
 
 ### Antes de desplegar lo ya hecho
 
-1. **Aplicar migraciones**: las tablas `complaints`, `consents` y `payment_events` no existen en
-   ningún entorno todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
+> Esta lista, con el porqué de cada punto y el orden recomendado, está desarrollada en
+> **`docs/ANTES-DE-SEGUIR.md`**. Empieza por ahí antes de abrir la Fase 8: incluye el aviso sobre
+> el orden de fusión de las ramas 6 y 7, que es lo único de esta lista que empeora solo con el
+> tiempo.
+
+1. **Aplicar migraciones**: las tablas `complaints`, `consents`, `payment_events` y
+   `notification_deliveries` no existen en ningún entorno todavía. En una base **creada antes de la Fase 5** hay que marcarle la línea base una sola vez
    —tiene las tablas viejas pero no el registro de migraciones, y `migrate` fallaría intentando
    recrearlas—; en una base nueva basta el segundo comando:
    ```
