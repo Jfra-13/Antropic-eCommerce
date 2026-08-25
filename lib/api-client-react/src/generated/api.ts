@@ -78,6 +78,7 @@ import type {
   Occasion,
   Order,
   OrderList,
+  PaymentEventList,
   PaymentProofUploadUrl,
   PaymentVerificationQueue,
   PickupPoint,
@@ -2088,6 +2089,83 @@ export const useRejectOrderPayment = <TError = ErrorType<Error>,
       > => {
       return useMutation(getRejectOrderPaymentMutationOptions(options));
     }
+
+export const getListOrderPaymentEventsUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/orders/${id}/payment-events`
+}
+
+/**
+ * @summary Payment status history of an order, oldest first (who moved it, when and why)
+ */
+export const listOrderPaymentEvents = async (id: string, options?: RequestInit): Promise<PaymentEventList> => {
+
+  return customFetch<PaymentEventList>(getListOrderPaymentEventsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOrderPaymentEventsQueryKey = (id: string,) => {
+    return [
+    `/api/admin/orders/${id}/payment-events`
+    ] as const;
+    }
+
+
+export const getListOrderPaymentEventsQueryOptions = <TData = Awaited<ReturnType<typeof listOrderPaymentEvents>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrderPaymentEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOrderPaymentEventsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOrderPaymentEvents>>> = ({ signal }) => listOrderPaymentEvents(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOrderPaymentEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOrderPaymentEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listOrderPaymentEvents>>>
+export type ListOrderPaymentEventsQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Payment status history of an order, oldest first (who moved it, when and why)
+ */
+
+export function useListOrderPaymentEvents<TData = Awaited<ReturnType<typeof listOrderPaymentEvents>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrderPaymentEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOrderPaymentEventsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListShipmentsUrl = (params?: ListShipmentsParams,) => {
   const normalizedParams = new URLSearchParams();

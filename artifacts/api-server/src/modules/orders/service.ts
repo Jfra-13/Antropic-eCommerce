@@ -270,6 +270,7 @@ export async function getAdminOrderDetail(orderId: string): Promise<AdminOrderDe
     customerName: row.customerName,
     customerPhone: row.customerPhone,
     paymentStatus: row.order.paymentStatus,
+    paymentMethod: row.order.paymentMethod,
     fulfillmentStatus: row.order.fulfillmentStatus,
     deliveryMethod: row.order.deliveryMethod,
     pickupPointId: row.order.pickupPointId,

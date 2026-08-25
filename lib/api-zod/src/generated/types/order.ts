@@ -8,6 +8,7 @@
 import type { OrderDeliveryMethod } from './orderDeliveryMethod';
 import type { OrderFulfillmentStatus } from './orderFulfillmentStatus';
 import type { OrderItem } from './orderItem';
+import type { OrderPaymentMethod } from './orderPaymentMethod';
 import type { OrderPaymentProofStatus } from './orderPaymentProofStatus';
 import type { OrderPaymentStatus } from './orderPaymentStatus';
 
@@ -16,6 +17,7 @@ export interface Order {
   orderNumber: number;
   referenceCode: string;
   paymentStatus: OrderPaymentStatus;
+  paymentMethod: OrderPaymentMethod;
   /** @nullable */
   fulfillmentStatus: OrderFulfillmentStatus;
   deliveryMethod: OrderDeliveryMethod;

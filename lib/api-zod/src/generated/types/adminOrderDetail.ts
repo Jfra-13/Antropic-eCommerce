@@ -7,6 +7,7 @@
  */
 import type { AdminOrderDetailDeliveryMethod } from './adminOrderDetailDeliveryMethod';
 import type { AdminOrderDetailFulfillmentStatus } from './adminOrderDetailFulfillmentStatus';
+import type { AdminOrderDetailPaymentMethod } from './adminOrderDetailPaymentMethod';
 import type { AdminOrderDetailPaymentProofStatus } from './adminOrderDetailPaymentProofStatus';
 import type { AdminOrderDetailPaymentStatus } from './adminOrderDetailPaymentStatus';
 import type { OrderItem } from './orderItem';
@@ -21,6 +22,7 @@ export interface AdminOrderDetail {
   /** @nullable */
   customerPhone: string | null;
   paymentStatus: AdminOrderDetailPaymentStatus;
+  paymentMethod: AdminOrderDetailPaymentMethod;
   /** @nullable */
   fulfillmentStatus: AdminOrderDetailFulfillmentStatus;
   deliveryMethod: AdminOrderDetailDeliveryMethod;

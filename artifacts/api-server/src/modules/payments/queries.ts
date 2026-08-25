@@ -1,33 +1,62 @@
 import {
   db,
   paymentProofs,
+  paymentEvents,
   orders,
-  orderItems,
-  productVariants,
   profiles,
   type Order,
 } from "@workspace/db";
-import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { canTransitionPayment } from "../../lib/order-state";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { settlePaymentTx } from "./settlement";
 
-// Attach a proof and move the order to verification in one transaction (two writes must not
-// diverge). Returns the updated order row.
+export type AttachProofResult =
+  | { kind: "ok"; order: Order }
+  | { kind: "not_found" }
+  | { kind: "invalid_state"; from: Order["paymentStatus"] };
+
+// Attach a constancia and move the order into the verification queue.
+//
+// This runs through settlePaymentTx like every other payment-status move, which buys two
+// things the hand-rolled transaction it replaced did not have: the state machine is now
+// checked while holding the order lock rather than in the service beforehand (so two uploads
+// racing each other can no longer both pass the check), and the upload lands in the order's
+// payment_events history instead of being invisible until someone approved it.
 export async function attachProofAndVerify(
   orderId: string,
+  userId: string,
   storagePath: string,
   amountReported: string | null,
-): Promise<Order> {
-  return db.transaction(async (tx) => {
-    await tx.insert(paymentProofs).values({ orderId, storagePath, amountReported });
-    const rows = await tx
-      .update(orders)
-      .set({ paymentStatus: "en_verificacion" })
-      .where(eq(orders.id, orderId))
-      .returning();
-    const order = rows[0];
-    if (!order) throw new Error(`Order ${orderId} vanished during proof attach`);
-    return order;
+): Promise<AttachProofResult> {
+  const result = await settlePaymentTx({
+    orderId,
+    provider: "manual_yape",
+    to: "en_verificacion",
+    actor: { kind: "customer", profileId: userId },
+    event: { eventId: null, type: "proof_attached", amount: amountReported },
+    // The proof row and the status change must not diverge, so the insert happens inside the
+    // settlement transaction rather than next to it.
+    beforeSettle: async (tx) => {
+      await tx.insert(paymentProofs).values({ orderId, storagePath, amountReported });
+    },
   });
+  switch (result.kind) {
+    case "ok":
+      // `alreadySettled` means the order was ALREADY in verification, so the settlement was a
+      // no-op and beforeSettle never ran — the constancia was not stored. Approving twice is
+      // harmlessly idempotent; a second upload that silently vanishes is not, so this path
+      // reports the conflict instead of a success the customer would believe.
+      return result.alreadySettled
+        ? { kind: "invalid_state", from: result.order.paymentStatus }
+        : { kind: "ok", order: result.order };
+    case "not_found":
+      return { kind: "not_found" };
+    case "invalid_state":
+      return { kind: "invalid_state", from: result.from };
+    case "out_of_stock":
+    case "wrong_provider":
+    case "duplicate_event":
+      throw new Error(`Unreachable on the constancia upload path: ${result.kind}`);
+  }
 }
 
 export type VerificationQueueRow = {
@@ -104,76 +133,36 @@ export type ApproveResult =
   | { kind: "invalid_state"; from: Order["paymentStatus"] }
   | { kind: "out_of_stock"; sku: string | null };
 
-// Thrown to roll back the approval transaction when a variant lacks stock (so no partial
-// decrements survive). Caught right outside the transaction and mapped to a result.
-class OutOfStockError extends Error {
-  constructor(public sku: string | null) {
-    super("out_of_stock");
-  }
-}
-
-// THE critical transaction (planeación §2.5, §5.4). Approving a payment = transition to
-// `pagado` + decrement stock of every order item, atomically. The order row is locked FOR
-// UPDATE so two concurrent approvals of the same order serialize; the second sees `pagado`
-// and returns without decrementing again (idempotent — approving twice never double-decrements).
-// Each decrement is a guarded conditional UPDATE (stock >= qty), so an oversell can never
-// commit — the whole transaction rolls back and the employee is told stock is insufficient.
+// Approve a Yape/Plin constancia: order -> pagado, stock decremented, fulfillment started.
+//
+// The transaction itself now lives in settlement.ts, shared with every other way an order can
+// be settled; this is the manual provider's entry into it. Keeping the wrapper (rather than
+// making callers build a SettlementInput) is what let the fase 6 refactor be proved by the
+// existing stock.integration.test.ts passing untouched.
+//
+// `duplicate_event` and `wrong_provider` cannot happen on this path — a staff approval carries
+// no external event id to replay, and the order's own provider is what routed us here — so
+// they are folded into the states the backoffice already knows how to render.
 export async function approvePaymentTx(orderId: string, adminId: string): Promise<ApproveResult> {
-  try {
-    return await db.transaction(async (tx): Promise<ApproveResult> => {
-      const locked = await tx
-        .select()
-        .from(orders)
-        .where(eq(orders.id, orderId))
-        .for("update")
-        .limit(1);
-      const order = locked[0];
-      if (!order) return { kind: "not_found" };
-      if (order.paymentStatus === "pagado") return { kind: "ok", order };
-      if (!canTransitionPayment(order.paymentStatus, "pagado")) {
-        return { kind: "invalid_state", from: order.paymentStatus };
-      }
-
-      const items = await tx
-        .select({
-          variantId: orderItems.variantId,
-          quantity: orderItems.quantity,
-          sku: orderItems.sku,
-        })
-        .from(orderItems)
-        .where(eq(orderItems.orderId, orderId));
-
-      for (const item of items) {
-        if (!item.variantId) continue; // variant deleted since purchase — nothing to decrement
-        const decremented = await tx
-          .update(productVariants)
-          .set({ stock: sql`${productVariants.stock} - ${item.quantity}` })
-          .where(
-            and(eq(productVariants.id, item.variantId), gte(productVariants.stock, item.quantity)),
-          )
-          .returning({ id: productVariants.id });
-        if (!decremented[0]) throw new OutOfStockError(item.sku);
-      }
-
-      const fulfillmentStatus =
-        order.deliveryMethod === "delivery" ? "en_preparacion" : "recojo_pendiente";
-      const now = new Date();
-      const updated = await tx
-        .update(orders)
-        .set({ paymentStatus: "pagado", fulfillmentStatus, approvedBy: adminId, approvedAt: now })
-        .where(eq(orders.id, orderId))
-        .returning();
-
-      await tx
-        .update(paymentProofs)
-        .set({ status: "aprobado", reviewedBy: adminId, reviewedAt: now })
-        .where(and(eq(paymentProofs.orderId, orderId), eq(paymentProofs.status, "pendiente")));
-
-      return { kind: "ok", order: updated[0]! };
-    });
-  } catch (e) {
-    if (e instanceof OutOfStockError) return { kind: "out_of_stock", sku: e.sku };
-    throw e;
+  const result = await settlePaymentTx({
+    orderId,
+    provider: "manual_yape",
+    to: "pagado",
+    actor: { kind: "staff", profileId: adminId },
+    event: { eventId: null, type: "manual_approved" },
+  });
+  switch (result.kind) {
+    case "ok":
+      return { kind: "ok", order: result.order };
+    case "not_found":
+      return { kind: "not_found" };
+    case "out_of_stock":
+      return { kind: "out_of_stock", sku: result.sku };
+    case "invalid_state":
+      return { kind: "invalid_state", from: result.from };
+    case "wrong_provider":
+    case "duplicate_event":
+      throw new Error(`Unreachable on the manual approval path: ${result.kind}`);
   }
 }
 
@@ -182,34 +171,83 @@ export type RejectResult =
   | { kind: "not_found" }
   | { kind: "invalid_state"; from: Order["paymentStatus"] };
 
-// Reject a payment: order -> rechazado, proofs -> rechazado. No stock touched. Idempotent.
+// Reject a constancia: order -> rechazado, proofs -> rechazado. No stock touched. Idempotent.
 export async function rejectPaymentTx(orderId: string, adminId: string): Promise<RejectResult> {
-  return db.transaction(async (tx): Promise<RejectResult> => {
-    const locked = await tx
-      .select()
-      .from(orders)
-      .where(eq(orders.id, orderId))
-      .for("update")
-      .limit(1);
-    const order = locked[0];
-    if (!order) return { kind: "not_found" };
-    if (order.paymentStatus === "rechazado") return { kind: "ok", order };
-    if (!canTransitionPayment(order.paymentStatus, "rechazado")) {
-      return { kind: "invalid_state", from: order.paymentStatus };
-    }
-
-    const now = new Date();
-    const updated = await tx
-      .update(orders)
-      .set({ paymentStatus: "rechazado", approvedBy: adminId, approvedAt: now })
-      .where(eq(orders.id, orderId))
-      .returning();
-
-    await tx
-      .update(paymentProofs)
-      .set({ status: "rechazado", reviewedBy: adminId, reviewedAt: now })
-      .where(and(eq(paymentProofs.orderId, orderId), eq(paymentProofs.status, "pendiente")));
-
-    return { kind: "ok", order: updated[0]! };
+  const result = await settlePaymentTx({
+    orderId,
+    provider: "manual_yape",
+    to: "rechazado",
+    actor: { kind: "staff", profileId: adminId },
+    event: { eventId: null, type: "manual_rejected" },
   });
+  switch (result.kind) {
+    case "ok":
+      return { kind: "ok", order: result.order };
+    case "not_found":
+      return { kind: "not_found" };
+    case "invalid_state":
+      return { kind: "invalid_state", from: result.from };
+    case "out_of_stock":
+    case "wrong_provider":
+    case "duplicate_event":
+      throw new Error(`Unreachable on the manual rejection path: ${result.kind}`);
+  }
+}
+
+// The order's payment history, oldest first — the audit trail §6.1 asked for and could not
+// have, back when the only record was orders.approved_by being overwritten by each decision.
+export async function listPaymentEvents(orderId: string): Promise<PaymentEventRow[]> {
+  return db
+    .select({
+      id: paymentEvents.id,
+      provider: paymentEvents.provider,
+      type: paymentEvents.type,
+      fromStatus: paymentEvents.fromStatus,
+      toStatus: paymentEvents.toStatus,
+      actorId: paymentEvents.actorId,
+      actorName: profiles.fullName,
+      actorEmail: profiles.email,
+      amount: paymentEvents.amount,
+      currency: paymentEvents.currency,
+      createdAt: paymentEvents.createdAt,
+    })
+    .from(paymentEvents)
+    .leftJoin(profiles, eq(paymentEvents.actorId, profiles.id))
+    .where(eq(paymentEvents.orderId, orderId))
+    .orderBy(asc(paymentEvents.createdAt));
+}
+
+export type PaymentEventRow = {
+  id: string;
+  provider: Order["paymentMethod"];
+  type: string;
+  fromStatus: Order["paymentStatus"] | null;
+  toStatus: Order["paymentStatus"];
+  actorId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  amount: string | null;
+  currency: string | null;
+  createdAt: Date;
+};
+
+// Orders abandoned before payment: never paid, never rejected-and-retried, and old enough that
+// the customer is not coming back. Deliberately NOT including `en_verificacion` — see the
+// prohibition in lib/order-state.ts: an order with a constancia under review may represent
+// money that was actually sent, and no timer gets to close that.
+export async function findExpirableOrders(
+  olderThan: Date,
+  limit: number,
+): Promise<{ id: string; paymentMethod: Order["paymentMethod"] }[]> {
+  return db
+    .select({ id: orders.id, paymentMethod: orders.paymentMethod })
+    .from(orders)
+    .where(
+      and(
+        inArray(orders.paymentStatus, ["pendiente_pago", "rechazado"]),
+        lt(orders.createdAt, olderThan),
+      ),
+    )
+    .orderBy(asc(orders.createdAt))
+    .limit(limit);
 }

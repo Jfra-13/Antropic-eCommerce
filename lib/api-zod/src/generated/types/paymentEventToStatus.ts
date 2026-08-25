@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type OrderPaymentStatus = typeof OrderPaymentStatus[keyof typeof OrderPaymentStatus];
+export type PaymentEventToStatus = typeof PaymentEventToStatus[keyof typeof PaymentEventToStatus];
 
 
-export const OrderPaymentStatus = {
+export const PaymentEventToStatus = {
   pendiente_pago: 'pendiente_pago',
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',

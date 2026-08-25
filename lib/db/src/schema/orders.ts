@@ -6,6 +6,7 @@ import { pickupPoints } from "./pickup-points";
 import { coupons } from "./coupons";
 import {
   paymentStatusEnum,
+  paymentMethodEnum,
   fulfillmentStatusEnum,
   deliveryMethodEnum,
 } from "./enums";
@@ -23,6 +24,10 @@ export const orders = pgTable(
       .notNull()
       .references(() => profiles.id),
     paymentStatus: paymentStatusEnum("payment_status").notNull().default("pendiente_pago"),
+    // Which payment provider owns this order. Recorded rather than inferred: with a second
+    // method in play, "is this order waiting for a constancia or for a webhook?" has to be a
+    // fact on the row, not a guess from its shape.
+    paymentMethod: paymentMethodEnum("payment_method").notNull().default("manual_yape"),
     fulfillmentStatus: fulfillmentStatusEnum("fulfillment_status"),
     deliveryMethod: deliveryMethodEnum("delivery_method").notNull(),
     pickupPointId: uuid("pickup_point_id").references(() => pickupPoints.id),

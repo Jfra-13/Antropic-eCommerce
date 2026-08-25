@@ -69,6 +69,16 @@ export default function OrderDetail() {
           <PaymentInstructions order={order} />
         )}
 
+        {order.paymentStatus === "expirado" && (
+          <div className="border border-border p-6 text-center">
+            <p className="font-sans text-foreground font-bold mb-1">Este pedido venció</p>
+            <p className="font-sans text-sm text-muted-foreground">
+              No recibimos el pago a tiempo, así que liberamos el pedido. Si aún lo quieres,
+              vuelve a armarlo desde el carrito — o escríbenos y lo vemos.
+            </p>
+          </div>
+        )}
+
         {order.paymentStatus === "en_verificacion" && (
           <div className="border border-border p-6 text-center">
             <p className="font-sans text-foreground font-bold mb-1">Estamos verificando tu pago</p>
@@ -143,9 +153,19 @@ function FulfillmentNotice({ order }: { order: Order }) {
   );
 }
 
+// What the customer has to do next depends on how the order is paid, which the server states
+// on the order itself (`paymentMethod`) rather than leaving the client to assume. Today there
+// is one method; a second one adds a branch here instead of a rewrite of this screen.
+function PaymentInstructions({ order }: { order: Order }) {
+  switch (order.paymentMethod) {
+    case "manual_yape":
+      return <ManualYapeInstructions order={order} />;
+  }
+}
+
 // Yape/Plin manual payment: business number + QR from the admin config, reference code for
 // the match, then the customer uploads the constancia (direct to private Storage).
-function PaymentInstructions({ order }: { order: Order }) {
+function ManualYapeInstructions({ order }: { order: Order }) {
   const { config } = useStoreConfig();
 
   return (

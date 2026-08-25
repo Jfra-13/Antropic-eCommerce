@@ -42,6 +42,7 @@ function assertScratchDatabase(): void {
 // the tests assert LR-000001, which is only stable if the sequence restarts.
 const TABLES = [
   "order_items",
+  "payment_events",
   "orders",
   "payment_proofs",
   "product_variants",
@@ -157,6 +158,37 @@ export async function seedOrderAwaitingApproval(
     })),
   );
   return order[0]!.id;
+}
+
+// An order in an arbitrary payment state and, optionally, backdated. The expiry tests need
+// both: the job only looks at orders older than a cutoff, and asserting that with real waiting
+// would make the suite take days.
+export async function seedOrderInState(
+  userId: string,
+  paymentStatus: (typeof orders.$inferInsert)["paymentStatus"],
+  opts: { createdAt?: Date; deliveryMethod?: "delivery" | "recojo" } = {},
+): Promise<string> {
+  const row = await db
+    .insert(orders)
+    .values({
+      userId,
+      paymentStatus,
+      deliveryMethod: opts.deliveryMethod ?? "delivery",
+      shippingAddress: "Av. Test 123",
+      subtotal: "50.00",
+      total: "50.00",
+      ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
+    })
+    .returning({ id: orders.id });
+  return row[0]!.id;
+}
+
+export async function orderPaymentStatus(orderId: string): Promise<string> {
+  const rows = await db
+    .select({ status: orders.paymentStatus })
+    .from(orders)
+    .where(sql`${orders.id} = ${orderId}`);
+  return rows[0]!.status;
 }
 
 export async function variantStock(variantId: string): Promise<number> {

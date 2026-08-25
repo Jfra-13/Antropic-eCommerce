@@ -3,13 +3,34 @@ import { pgEnum } from "drizzle-orm/pg-core";
 // User roles. Authorization lives in Express middleware (see api-server), not RLS.
 export const roleEnum = pgEnum("role", ["customer", "employee", "admin"]);
 
-// Order payment lifecycle: pendiente_pago -> en_verificacion -> pagado | rechazado
+// Order payment lifecycle. The manual Yape/Plin flow drives only the first four:
+//   pendiente_pago -> en_verificacion -> pagado | rechazado
+//
+// The last three exist for payment methods this store does not have yet, and are deliberately
+// declared before there is code that produces them (auditoría §6.2):
+//   - `autorizado`: a gateway that authorises and captures in two steps parks the order here.
+//   - `expirado`:   an abandoned order that was never paid. Reachable today via the expiry job.
+//   - `reembolsado`: money returned. Refunds are not implemented; the state is reserved so the
+//                    enum does not have to change once they are.
+//
+// Adding an enum value costs one migration today and two divergent databases after the fork
+// (docs/CLONACION.md), which is the whole reason they land now rather than when they are used.
+// The authoritative list of which transitions are legal is api-server's lib/order-state.ts —
+// this enum only says which names exist.
 export const paymentStatusEnum = pgEnum("payment_status", [
   "pendiente_pago",
   "en_verificacion",
   "pagado",
   "rechazado",
+  "autorizado",
+  "expirado",
+  "reembolsado",
 ]);
+
+// How an order is paid. One value today: the manual Yape/Plin constancia reviewed by a human.
+// The column exists so that a second method can be added without any code having to infer,
+// from the shape of an order, which flow owns it. See api-server modules/payments/providers.
+export const paymentMethodEnum = pgEnum("payment_method", ["manual_yape"]);
 
 // Order fulfillment lifecycle (set once payment is approved).
 // delivery: en_preparacion -> enviado -> entregado

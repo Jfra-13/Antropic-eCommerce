@@ -6,6 +6,8 @@ import {
   ApproveOrderPaymentResponse,
   RejectOrderPaymentParams,
   RejectOrderPaymentResponse,
+  ListOrderPaymentEventsParams,
+  ListOrderPaymentEventsResponse,
   ListShipmentsQueryParams,
   ListShipmentsResponse,
   ListAdminOrdersQueryParams,
@@ -144,6 +146,24 @@ router.post("/admin/orders/:id/reject", async (req, res) => {
     return;
   }
   res.json(RejectOrderPaymentResponse.parse(result.order));
+});
+
+// Payment history of an order (auditoría §6.1): every status move with its author and time.
+// Read-only by construction — payment_events is append-only and there is no endpoint that
+// edits one, because an audit trail that can be corrected in place is not evidence.
+router.get("/admin/orders/:id/payment-events", async (req, res) => {
+  const params = ListOrderPaymentEventsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ code: "INVALID_PARAM", message: "Invalid order id" });
+    return;
+  }
+  const detail = await orders.getAdminOrderDetail(params.data.id);
+  if (!detail) {
+    res.status(404).json({ code: "NOT_FOUND", message: "Order not found" });
+    return;
+  }
+  const items = await payments.getPaymentEvents(params.data.id);
+  res.json(ListOrderPaymentEventsResponse.parse({ items }));
 });
 
 // Logistics board (requerimientos §6.4): paid orders in fulfilment, filterable by method/status.

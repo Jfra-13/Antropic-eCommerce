@@ -9,7 +9,8 @@
     "start": "node --enable-source-maps --env-file-if-exists=../../.env ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config ./vitest.config.ts",
-    "test:integration": "vitest run --config ./vitest.integration.config.ts"
+    "test:integration": "vitest run --config ./vitest.integration.config.ts",
+    "expire-orders": "node --enable-source-maps --env-file-if-exists=../../.env ./dist/jobs/expire-orders.mjs"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

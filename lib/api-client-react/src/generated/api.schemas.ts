@@ -274,6 +274,16 @@ export const OrderPaymentStatus = {
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',
   rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
+} as const;
+
+export type OrderPaymentMethod = typeof OrderPaymentMethod[keyof typeof OrderPaymentMethod];
+
+
+export const OrderPaymentMethod = {
+  manual_yape: 'manual_yape',
 } as const;
 
 /**
@@ -316,6 +326,7 @@ export interface Order {
   orderNumber: number;
   referenceCode: string;
   paymentStatus: OrderPaymentStatus;
+  paymentMethod: OrderPaymentMethod;
   /** @nullable */
   fulfillmentStatus: OrderFulfillmentStatus;
   deliveryMethod: OrderDeliveryMethod;
@@ -343,6 +354,9 @@ export const OrderListItemPaymentStatus = {
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',
   rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
 } as const;
 
 /**
@@ -403,6 +417,9 @@ export const AdminOrderListItemPaymentStatus = {
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',
   rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
 } as const;
 
 /**
@@ -450,6 +467,16 @@ export const AdminOrderDetailPaymentStatus = {
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',
   rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
+} as const;
+
+export type AdminOrderDetailPaymentMethod = typeof AdminOrderDetailPaymentMethod[keyof typeof AdminOrderDetailPaymentMethod];
+
+
+export const AdminOrderDetailPaymentMethod = {
+  manual_yape: 'manual_yape',
 } as const;
 
 /**
@@ -497,6 +524,7 @@ export interface AdminOrderDetail {
   /** @nullable */
   customerPhone: string | null;
   paymentStatus: AdminOrderDetailPaymentStatus;
+  paymentMethod: AdminOrderDetailPaymentMethod;
   /** @nullable */
   fulfillmentStatus: AdminOrderDetailFulfillmentStatus;
   deliveryMethod: AdminOrderDetailDeliveryMethod;
@@ -565,6 +593,67 @@ export interface PaymentVerificationQueue {
   total: number;
   page: number;
   limit: number;
+}
+
+export type PaymentEventProvider = typeof PaymentEventProvider[keyof typeof PaymentEventProvider];
+
+
+export const PaymentEventProvider = {
+  manual_yape: 'manual_yape',
+} as const;
+
+/**
+ * @nullable
+ */
+export type PaymentEventFromStatus = typeof PaymentEventFromStatus[keyof typeof PaymentEventFromStatus] | null;
+
+
+export const PaymentEventFromStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
+} as const;
+
+export type PaymentEventToStatus = typeof PaymentEventToStatus[keyof typeof PaymentEventToStatus];
+
+
+export const PaymentEventToStatus = {
+  pendiente_pago: 'pendiente_pago',
+  en_verificacion: 'en_verificacion',
+  pagado: 'pagado',
+  rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
+} as const;
+
+/**
+ * One entry in an order's payment history. Append-only: an event records the move that happened, so a later correction is a new event rather than an edit of this one.
+ */
+export interface PaymentEvent {
+  id: string;
+  provider: PaymentEventProvider;
+  type: string;
+  /** @nullable */
+  fromStatus: PaymentEventFromStatus;
+  toStatus: PaymentEventToStatus;
+  /** @nullable */
+  actorName: string | null;
+  /** @nullable */
+  actorEmail: string | null;
+  /** @nullable */
+  amount: string | null;
+  /** @nullable */
+  currency: string | null;
+  createdAt: string;
+}
+
+export interface PaymentEventList {
+  items: PaymentEvent[];
 }
 
 export type ShipmentItemDeliveryMethod = typeof ShipmentItemDeliveryMethod[keyof typeof ShipmentItemDeliveryMethod];
@@ -1666,6 +1755,9 @@ export const ListAdminOrdersPaymentStatus = {
   en_verificacion: 'en_verificacion',
   pagado: 'pagado',
   rechazado: 'rechazado',
+  autorizado: 'autorizado',
+  expirado: 'expirado',
+  reembolsado: 'reembolsado',
 } as const;
 
 export type ListAdminOrdersFulfillmentStatus = typeof ListAdminOrdersFulfillmentStatus[keyof typeof ListAdminOrdersFulfillmentStatus];
