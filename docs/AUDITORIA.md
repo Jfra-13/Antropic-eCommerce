@@ -5,7 +5,7 @@ Adaptación del checklist genérico de ecommerce Perú al stack **real** de este
 **Stack real:** Vite + React (SPA) · Express 5 · Drizzle sobre `pg.Pool` · Supabase (solo Auth y
 Storage) · Resend · verificación manual de Yape/Plin.
 
-**Última actualización:** 2026-08-20. Todo ítem marcado `[x]` se verificó leyendo el código —o
+**Última actualización:** 2026-08-25 (Fase 6 + decisiones de IGV y checkout de invitado). Todo ítem marcado `[x]` se verificó leyendo el código —o
 ejecutándolo, cuando la sección lo indica— y cita el archivo que lo respalda. Los ítems sin cita no
 se verificaron.
 
@@ -66,14 +66,19 @@ guarda **nunca se disparaba**. Compilaba, tenía buena pinta y era inerte. Detal
 
 | # | Fase | Por qué en este orden |
 |---|---|---|
-| 1 | **7 · SEO, rendimiento y observabilidad** | No bloquea el lanzamiento pero sí las ventas. El bundle del storefront pasa los 500 kB y las 12 rutas comparten un `<title>`. Ver §4, §5, §8.1 |
+| 1 | **7 · Observabilidad, SEO y rendimiento** | Observabilidad **primero**, invirtiendo el orden del título: hoy toda notificación es *fire-and-forget* y cada fallo se traga en un `logger.warn` (cinco `catch` en `notifications/service.ts`), y no hay Sentry ni equivalente en ningún paquete. El día del lanzamiento, «el aviso de constancia nueva nunca llegó» es una línea de log que nadie lee. Luego SEO —las 12 rutas comparten un `<title>`— y code-splitting. Ver §4, §5, §8.1 |
+| 2 | **8 · IGV y base fiscal** | Bloqueada por la confirmación del contador (§2.4). Es el último cambio de esquema que se encarece de verdad con el clon: toca catálogo, pedidos y líneas, y reinterpreta totales ya guardados |
+| 3 | **9 · Checkout de invitado** | Modelo ya decidido (§1.4). Va al final justo porque **no** es un acantilado de esquema: el perfil de invitado no obliga a migrar nada, así que cuesta lo mismo antes o después del fork |
 
 ### Bloqueado por decisiones o trámites tuyos, no por código
 
 - **Textos legales redactados por abogado.** El mecanismo está listo; el contenido no. Mientras
   estén vacíos, la tienda dice que el documento no ha sido publicado — es deliberado.
 - **Inscripción del banco de datos ante la ANPD.** Trámite, infracción grave si falta.
-- **¿Los precios del catálogo incluyen IGV?** Bloquea §2.4 entera y afecta a todos los totales.
+- **¿La empresa es afecta a IGV?** El modelo de almacenamiento ya está decidido (§2.4: bruto en el
+  catálogo, snapshot fiscal congelado en el pedido). Lo que falta es que **el contador confirme el
+  régimen tributario**; sin eso no se escribe el cálculo. Es lo único pendiente que sí se encarece
+  con el clon, porque toca `products`, `orders`, `order_items` y todos los totales ya guardados.
 - **¿Quién responde los reclamos dentro de los 30 días?** El sistema avisa; alguien tiene que
   contestar.
 - **Prueba de RLS**: la sonda está escrita y sin ejecutar (`pnpm --filter @workspace/scripts run
@@ -117,6 +122,10 @@ contempla). Esta es la traducción.
   toda la identidad de marca a configuración antes del fork.
 - **SEO:** meta dinámicos por ruta + `sitemap.xml` + JSON-LD, **sin** migrar a SSR. Consecuencia
   aceptada: las vistas previas de WhatsApp e Instagram no renderizarán por producto.
+- **IGV:** precio bruto en el catálogo y snapshot fiscal congelado en el pedido, no derivación en
+  tiempo de lectura. Detalle y motivo en §2.4.
+- **Invitados:** perfil de invitado sin cuenta de autenticación, no `user_id` nullable. Decidido
+  ahora, implementado más tarde. Detalle y motivo en §1.4.
 
 ---
 
@@ -196,13 +205,45 @@ la evidencia de ejecución, en §11.4.
 - [x] Búsqueda con overlay y página dedicada — `SearchOverlay.tsx`, `pages/Search.tsx`
 - [x] Filtros por categoría — `CategoryPills.tsx`
 - [x] Costo de envío calculado en servidor antes de confirmar — `checkout/service.ts:35`
-- [ ] Checkout como invitado: **hoy exige cuenta** (`orders` tiene `user_id NOT NULL`)
+- [~] Checkout como invitado: **hoy exige cuenta** (`orders` tiene `user_id NOT NULL`). Modelo
+      decidido y **aplazado a propósito** — ver la nota al final de esta sección
 - [ ] Indicador de progreso en el checkout
 - [ ] Guía de tallas
 - [ ] Stock visible tipo "últimas 3 unidades"
 - [ ] Contraste WCAG AA verificado
 - [ ] Navegación por teclado en el checkout verificada
 - [ ] Verificado en móvil real, no solo en el inspector
+
+#### Checkout como invitado — decisión tomada (agosto 2026)
+
+**Modelo elegido: perfil de invitado.** Se crea una fila en `profiles` sin cuenta de Supabase
+detrás. `orders.user_id` sigue siendo `NOT NULL`.
+
+**Se descartó hacer `user_id` nullable**, que parece el cambio pequeño y es el caro. Hay **cinco
+`innerJoin(profiles, eq(orders.userId, profiles.id))`** en el código —entre ellos la cola de
+verificación de pagos (`payments/queries.ts`) y el listado de pedidos del backoffice—, y un
+`INNER JOIN` sobre un nulo **no devuelve la fila**: un pedido de invitado que suba su constancia
+sería invisible para quien tiene que aprobarla. Además `coupon_redemptions.user_id`,
+`return_tickets.user_id` y `carts.user_id` son todos `NOT NULL`, así que un invitado no podría
+usar cupón, abrir una devolución ni tener carrito de servidor. El coste no está en la migración:
+está repartido para siempre en cada consulta que alguien escriba después.
+
+El perfil de invitado **es casi gratis en este esquema** porque `profiles` no tiene ninguna FK a
+`auth.users` (verificado: cero coincidencias de `auth.users` en `lib/db/drizzle/0000_initial_schema.sql`).
+Una fila de perfil puede existir sin cuenta de autenticación, así que los cinco joins siguen
+funcionando sin tocarse.
+
+**Por qué se aplaza, y por qué eso NO contradice la regla del clon:** al no necesitar cambio de
+esquema, esta decisión no se encarece con el fork. Es la diferencia con el IGV (§2.4), que sí es un
+acantilado. Y hay una razón de negocio para no correr: el pago no se completa en una sola visita
+—el cliente se va a Yape y **tiene que volver a subir la constancia**—, así que un invitado
+necesita un camino de vuelta por correo con enlace firmado. Parte de la fricción que se ahorra al
+no pedir registro se devuelve ahí. En esta tienda la cuenta no es solo un peaje: es el mecanismo
+por el que el cliente reencuentra su pedido.
+
+Lo que costará cuando se haga: enlazar por correo el perfil de invitado con la cuenta que ese mismo
+correo cree después (si no, los pedidos quedan huérfanos), y reutilizar el perfil existente en la
+segunda compra — `profiles.email` **no** tiene constraint `UNIQUE` hoy.
 
 ---
 
@@ -311,10 +352,48 @@ ANPD.
 de `IGV` o `0.18` en todo el repositorio. Los precios son el valor plano del producto, sin
 desagregación de impuesto.
 
-Esta es una decisión de negocio antes que técnica: hay que definir si los precios de catálogo ya
-incluyen IGV (y solo falta desagregarlo en el comprobante) o si no lo contemplan en absoluto.
+#### Decisión de arquitectura tomada (agosto 2026)
 
-- [ ] Definido el tratamiento del IGV en precios y totales
+La pregunta original de esta sección —«¿los precios incluyen IGV?»— estaba mal planteada. Para una
+tienda B2C en Perú el lado de la **exhibición** no es una elección libre: el precio anunciado debe
+ser el precio total que paga el consumidor. Lo que sí era una decisión de ingeniería es **cómo se
+almacena**, y es lo que se decidió.
+
+**Modelo elegido: precio bruto en el catálogo + snapshot fiscal congelado en el pedido.**
+
+- `products.price` sigue siendo el precio final que ve el cliente. Cero cambios en la exhibición.
+- Al **crear** el pedido se congelan `tax_rate`, `taxable_base` y `tax_amount` en `orders`, y el
+  desglose por línea en `order_items`.
+
+**El porqué, que es lo que no debe simplificarse después:** la tasa de impuesto es un dato
+histórico, no una constante. Un comprobante emitido en marzo por un pedido de enero tiene que
+llevar la tasa de enero. Si el desglose se deriva en tiempo de lectura, cambiar la tasa reescribe
+en silencio el desglose de todos los pedidos pasados. Es el mismo principio que este esquema ya
+aplica al cupón —«coupon code + amounts are snapshotted», `schema/orders.ts`— y por la misma razón.
+
+Se descartó guardar el precio **neto** en el catálogo: obligaría a multiplicar en cada render de
+cada precio en las dos SPA, y cualquier sitio que se olvide muestra un precio que incumple.
+
+> **Invariante de redondeo — obligatorio.** Derivar la base y el impuesto por separado y redondear
+> ambos descuadra el total por céntimos, que es el motivo clásico de rechazo de un comprobante. Se
+> deriva **uno** y el otro sale por resta, sobre los enteros de céntimos que ya usa `lib/money.ts`:
+>
+> ```
+> base_cents = round(bruto_cents * 100 / (100 + tasa))
+> igv_cents  = bruto_cents - base_cents      // restado, NUNCA redondeado aparte
+> ```
+>
+> Así `base + impuesto` es idénticamente igual al bruto por construcción, siempre.
+
+#### ⚖️ Pendiente de confirmación del contador — bloquea la implementación
+
+**¿La empresa es afecta a IGV?** Depende del régimen tributario, y de eso depende si hay algo que
+desagregar. Este documento **no** asume la respuesta: la arquitectura de arriba está decidida, su
+aplicabilidad no. Sin esa confirmación no se escribe el cálculo.
+
+- [x] Definido el modelo de almacenamiento del IGV (bruto + snapshot fiscal en el pedido)
+- [ ] Confirmado por el contador el régimen tributario y si la empresa es afecta a IGV
+- [ ] Implementado el cálculo y las columnas fiscales (bloqueado por lo anterior)
 - [ ] Proveedor de facturación electrónica definido (Nubefact, Bsale, Efact…)
 - [ ] Emisión automática de boleta o factura al aprobarse el pago
 - [ ] Serie separada para el canal online (ej. B002/F002)
@@ -961,10 +1040,13 @@ Actualizadas respecto al documento original, descartando las que ya tienen respu
    hay multa si nadie contesta en 30 días.
 2. **¿Está inscrito el banco de datos ante la ANPD?** Es trámite, no código, y se olvida hasta la
    fiscalización.
-3. **¿Los precios del catálogo incluyen IGV?** Bloquea §2.4 entera y afecta a todos los totales ya
-   calculados.
-4. **¿El checkout debe permitir invitados?** Hoy exige cuenta (`orders.user_id` es `NOT NULL`).
-   Cambiarlo después del clon es tocar el esquema en dos bases.
+3. **¿La empresa es afecta a IGV?** *(Reformulada.)* La pregunta original —si los precios incluyen
+   IGV— ya tiene respuesta: en B2C peruano el precio exhibido es el total, y el modelo de
+   almacenamiento está decidido en §2.4. Lo que queda es **de tu contador**: el régimen tributario
+   determina si hay algo que desagregar. Bloquea la implementación de §2.4.
+4. ~~**¿El checkout debe permitir invitados?**~~ **Respondida:** sí, con perfil de invitado, y
+   aplazada a propósito. Ver §1.4. No es un acantilado de esquema, así que no se encarece con el
+   clon.
 5. **¿Quién concilia los Yape recibidos contra los pedidos aprobados, y con qué frecuencia?** Es el
    punto ciego del flujo manual: un pedido aprobado por error no lo detecta nadie.
 6. **¿El stock de la web es el mismo que el de la tienda física?** Si sí, quién actualiza qué y cada
