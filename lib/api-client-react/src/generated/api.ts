@@ -67,6 +67,7 @@ import type {
   ListComplaintsParams,
   ListCouponsParams,
   ListMyReturnsParams,
+  ListNotificationDeliveriesParams,
   ListOccasionsParams,
   ListOrdersParams,
   ListPaymentVerificationQueueParams,
@@ -75,7 +76,10 @@ import type {
   ListShipmentsParams,
   ListUsersParams,
   Me,
+  NotificationDelivery,
+  NotificationDeliveryList,
   Occasion,
+  OpsSnapshot,
   Order,
   OrderList,
   PaymentEventList,
@@ -88,6 +92,7 @@ import type {
   ProductImportResult,
   ProductList,
   PublicConfig,
+  ReadinessStatus,
   RecordConsentInput,
   ReturnTicket,
   SalesReport,
@@ -143,8 +148,8 @@ export const getHealthCheckUrl = () => {
 }
 
 /**
- * Returns server health status
- * @summary Health check
+ * Answers "is this process alive". Deliberately checks nothing else: a load balancer polls it constantly, and a liveness probe that depends on the database restarts every healthy instance during a database blip. Use /readyz to know whether the API can serve traffic.
+ * @summary Liveness probe
  */
 export const healthCheck = async ( options?: RequestInit): Promise<HealthStatus> => {
 
@@ -191,7 +196,7 @@ export type HealthCheckQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Health check
+ * @summary Liveness probe
  */
 
 export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
@@ -200,6 +205,84 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReadinessCheckUrl = () => {
+
+
+
+
+  return `/api/readyz`
+}
+
+/**
+ * Answers "can this instance serve requests". Checks its dependencies (today: the database) and returns 503 when one of them is unreachable, so an uptime monitor pointed here reports the outage instead of a cheerful 200. Point external monitoring at this endpoint, not at /healthz.
+ * @summary Readiness probe
+ */
+export const readinessCheck = async ( options?: RequestInit): Promise<ReadinessStatus> => {
+
+  return customFetch<ReadinessStatus>(getReadinessCheckUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getReadinessCheckQueryKey = () => {
+    return [
+    `/api/readyz`
+    ] as const;
+    }
+
+
+export const getReadinessCheckQueryOptions = <TData = Awaited<ReturnType<typeof readinessCheck>>, TError = ErrorType<ReadinessStatus>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof readinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getReadinessCheckQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof readinessCheck>>> = ({ signal }) => readinessCheck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof readinessCheck>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ReadinessCheckQueryResult = NonNullable<Awaited<ReturnType<typeof readinessCheck>>>
+export type ReadinessCheckQueryError = ErrorType<ReadinessStatus>
+
+
+/**
+ * @summary Readiness probe
+ */
+
+export function useReadinessCheck<TData = Awaited<ReturnType<typeof readinessCheck>>, TError = ErrorType<ReadinessStatus>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof readinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getReadinessCheckQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -5409,5 +5492,238 @@ export const useDeletePickupPoint = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getDeletePickupPointMutationOptions(options));
+    }
+
+export const getGetOpsSnapshotUrl = () => {
+
+
+
+
+  return `/api/admin/ops`
+}
+
+/**
+ * The handful of numbers that say whether the operation is healthy right now: how long the oldest unverified constancia has been waiting, how payments have been resolving, and whether notifications are going out. Separate from /admin/dashboard on purpose — that one is loaded on every visit to the panel and is about sales, this one runs heavier aggregate queries and is only read when somebody is looking at operations.
+ * @summary Operational snapshot for the day the store is running
+ */
+export const getOpsSnapshot = async ( options?: RequestInit): Promise<OpsSnapshot> => {
+
+  return customFetch<OpsSnapshot>(getGetOpsSnapshotUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOpsSnapshotQueryKey = () => {
+    return [
+    `/api/admin/ops`
+    ] as const;
+    }
+
+
+export const getGetOpsSnapshotQueryOptions = <TData = Awaited<ReturnType<typeof getOpsSnapshot>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpsSnapshot>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpsSnapshotQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpsSnapshot>>> = ({ signal }) => getOpsSnapshot({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpsSnapshot>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOpsSnapshotQueryResult = NonNullable<Awaited<ReturnType<typeof getOpsSnapshot>>>
+export type GetOpsSnapshotQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Operational snapshot for the day the store is running
+ */
+
+export function useGetOpsSnapshot<TData = Awaited<ReturnType<typeof getOpsSnapshot>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpsSnapshot>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOpsSnapshotQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListNotificationDeliveriesUrl = (params?: ListNotificationDeliveriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/notifications?${stringifiedParams}` : `/api/admin/notifications`
+}
+
+/**
+ * @summary Outbox — what was sent, what failed and what is still queued
+ */
+export const listNotificationDeliveries = async (params?: ListNotificationDeliveriesParams, options?: RequestInit): Promise<NotificationDeliveryList> => {
+
+  return customFetch<NotificationDeliveryList>(getListNotificationDeliveriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListNotificationDeliveriesQueryKey = (params?: ListNotificationDeliveriesParams,) => {
+    return [
+    `/api/admin/notifications`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListNotificationDeliveriesQueryOptions = <TData = Awaited<ReturnType<typeof listNotificationDeliveries>>, TError = ErrorType<unknown>>(params?: ListNotificationDeliveriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotificationDeliveries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListNotificationDeliveriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listNotificationDeliveries>>> = ({ signal }) => listNotificationDeliveries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listNotificationDeliveries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListNotificationDeliveriesQueryResult = NonNullable<Awaited<ReturnType<typeof listNotificationDeliveries>>>
+export type ListNotificationDeliveriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Outbox — what was sent, what failed and what is still queued
+ */
+
+export function useListNotificationDeliveries<TData = Awaited<ReturnType<typeof listNotificationDeliveries>>, TError = ErrorType<unknown>>(
+ params?: ListNotificationDeliveriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotificationDeliveries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListNotificationDeliveriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRetryNotificationDeliveryUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/notifications/${id}/retry`
+}
+
+/**
+ * Only a `fallido` record can be requeued. The usual reason a batch fails is configuration (an unverified sender domain, a missing API key), and once that is fixed those messages still need to go out — most of all the Hoja de Reclamación, which is the consumer's legal constancia of their filing.
+ * @summary Put a failed delivery back in the queue
+ */
+export const retryNotificationDelivery = async (id: string, options?: RequestInit): Promise<NotificationDelivery> => {
+
+  return customFetch<NotificationDelivery>(getRetryNotificationDeliveryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getRetryNotificationDeliveryMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryNotificationDelivery>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryNotificationDelivery>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['retryNotificationDelivery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryNotificationDelivery>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retryNotificationDelivery(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryNotificationDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof retryNotificationDelivery>>>
+
+    export type RetryNotificationDeliveryMutationError = ErrorType<Error>
+
+    /**
+ * @summary Put a failed delivery back in the queue
+ */
+export const useRetryNotificationDelivery = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryNotificationDelivery>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryNotificationDelivery>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getRetryNotificationDeliveryMutationOptions(options));
     }
 

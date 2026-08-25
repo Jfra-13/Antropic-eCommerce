@@ -6,10 +6,12 @@ import express, {
   type NextFunction,
 } from "express";
 import cors, { type CorsOptions } from "cors";
+import { randomUUID } from "node:crypto";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { reportError } from "./lib/observability";
 import { env } from "./lib/env";
 import {
   globalLimiter,
@@ -37,9 +39,23 @@ app.use(
   }),
 );
 
+// Request correlation (auditoría §5). Every request gets an id that appears in three places:
+// the log lines for that request, the X-Request-Id response header, and the body of a 500.
+// Without it, "the site broke around lunchtime" is the only evidence a customer can give and
+// the only way to find the failure is guessing at timestamps.
+//
+// The id is always generated here and an inbound X-Request-Id is deliberately NOT trusted:
+// nothing in front of this API is currently set up to mint one, and accepting a client-supplied
+// value would let anyone forge or collide log identifiers. If a CDN or gateway is ever put in
+// front and its own id is worth keeping, read it HERE and only from a trusted proxy.
 app.use(
   pinoHttp({
     logger,
+    genReqId(_req, res) {
+      const id = randomUUID();
+      res.setHeader("X-Request-Id", id);
+      return id;
+    },
     serializers: {
       req(req) {
         return {
@@ -85,6 +101,10 @@ const corsOptions: CorsOptions = {
   credentials: false,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Authorization", "Content-Type"],
+  // Without this the browser hides X-Request-Id from the frontend, so the id would exist on
+  // the wire and be unreadable by the only code that could show it to the person reporting
+  // the problem. Safe to expose: it is a random opaque id, not a session identifier.
+  exposedHeaders: ["X-Request-Id"],
   maxAge: 86_400, // cache preflights for a day
 };
 app.use(cors(corsOptions));
@@ -134,9 +154,14 @@ app.use((_req: Request, res: Response) => {
 // so every thrown/rejected error lands in one place. Log the detail server-side and
 // return an opaque 500 — never leak stack traces or internals to the client.
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  const requestId = typeof req.id === "string" ? req.id : undefined;
   req.log.error({ err }, "unhandled request error");
+  // Same error, reported through the one seam a tracking provider would plug into later.
+  reportError(err, { requestId, method: req.method, path: req.path });
   if (res.headersSent) return;
-  res.status(500).json({ code: "INTERNAL", message: "Internal server error" });
+  // The response stays opaque — no stack traces, no internals — but it carries the request id
+  // so the customer can quote it and support can find this exact failure in the logs.
+  res.status(500).json({ code: "INTERNAL", message: "Internal server error", requestId });
 });
 
 export default app;

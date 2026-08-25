@@ -95,3 +95,21 @@ export const consentPurposeEnum = pgEnum("consent_purpose", [
   "cookies_analytics",
   "cookies_marketing",
 ]);
+
+// --- Notifications (auditoría §8.3) -----------------------------------------
+// How a notification reaches its recipient. One value today: transactional email through
+// Resend. The column exists so a second channel (WhatsApp is the obvious one for a Peruvian
+// store) can be added without every query having to infer the channel from the message shape.
+export const notificationChannelEnum = pgEnum("notification_channel", ["email"]);
+
+// Delivery lifecycle of one outbox row.
+//   pendiente -> enviado    the provider accepted it
+//   pendiente -> fallido    every retry was used up, or the failure is not worth retrying
+// `fallido` is not the end of the story: the backoffice can requeue a row, which puts it back
+// to `pendiente`. That matters because the most common cause of a batch of failures is a
+// configuration problem, and once it is fixed those messages should still go out.
+export const notificationStatusEnum = pgEnum("notification_status", [
+  "pendiente",
+  "enviado",
+  "fallido",
+]);

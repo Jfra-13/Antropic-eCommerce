@@ -217,8 +217,10 @@ MSYS_NO_PATHCONV=1 PORT=5174 BASE_PATH=/ pnpm --filter @workspace/antropic-admin
 ## 5. Verificación / smoke test
 
 ```bash
-# API vivo
+# API vivo. /healthz solo dice que el proceso responde; /readyz comprueba la base y devuelve
+# 503 si no está. El monitor externo va apuntado a /readyz — ver docs/OBSERVABILIDAD.md §3.
 curl http://localhost:3000/api/healthz                              # {"status":"ok"}
+curl -w " %{http_code}\n" http://localhost:3000/api/readyz          # ...{"database":{"status":"ok"}} 200
 curl "http://localhost:3000/api/products?limit=2"                   # items + total:20
 curl "http://localhost:3000/api/products?category=denim&limit=100"  # total:2
 curl "http://localhost:3000/api/products?occasion=playa&limit=100"  # total:3
@@ -243,9 +245,16 @@ pnpm --filter @workspace/api-server run build
 # que nadie pagó se quedan en `pendiente_pago` para siempre. Ver docs/PAGOS.md §4.
 pnpm --filter @workspace/api-server run expire-orders
 node ./artifacts/api-server/dist/jobs/expire-orders.mjs 48   # ventana explícita, en horas
+
+# Reintentar los correos que no salieron (cada 5 min). Sin un scheduler, lo que falle una vez
+# se queda en la cola. Ver docs/OBSERVABILIDAD.md §4.
+pnpm --filter @workspace/api-server run retry-notifications
+node ./artifacts/api-server/dist/jobs/retry-notifications.mjs 200   # tamaño de lote explícito
 ```
 
-Es idempotente y seguro de interrumpir: cada pedido se cierra en su propia transacción.
+Los dos son idempotentes y seguros de interrumpir: `expire-orders` cierra cada pedido en su
+propia transacción, y `retry-notifications` reclama las filas con un arriendo, así que una
+corrida que muere a mitad las libera en vez de encallarlas.
 
 ---
 
@@ -288,3 +297,5 @@ Arranque diario → **sección 4** (no se repite acá para no desincronizarse).
 | Build todo | `pnpm run build` |
 | Pruebas unitarias | `pnpm run test` |
 | Caducar pedidos abandonados | `pnpm --filter @workspace/api-server run expire-orders` |
+| Reintentar correos no enviados | `pnpm --filter @workspace/api-server run retry-notifications` |
+| ¿Puede servir la API? | `curl -w " %{http_code}\n" http://localhost:3000/api/readyz` |

@@ -35,15 +35,41 @@ paths:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
+      summary: Liveness probe
+      description: >
+        Answers "is this process alive". Deliberately checks nothing else: a load balancer polls
+        it constantly, and a liveness probe that depends on the database restarts every healthy
+        instance during a database blip. Use /readyz to know whether the API can serve traffic.
       responses:
         "200":
-          description: Healthy
+          description: The process is running
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /readyz:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      summary: Readiness probe
+      description: >
+        Answers "can this instance serve requests". Checks its dependencies (today: the
+        database) and returns 503 when one of them is unreachable, so an uptime monitor pointed
+        here reports the outage instead of a cheerful 200. Point external monitoring at this
+        endpoint, not at /healthz.
+      responses:
+        "200":
+          description: Ready to serve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+        "503":
+          description: A dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
   /me:
     get:
       operationId: getMe
@@ -2016,6 +2042,93 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /admin/ops:
+    get:
+      operationId: getOpsSnapshot
+      tags: [admin]
+      summary: Operational snapshot for the day the store is running
+      description: >
+        The handful of numbers that say whether the operation is healthy right now: how long the
+        oldest unverified constancia has been waiting, how payments have been resolving, and
+        whether notifications are going out. Separate from /admin/dashboard on purpose — that
+        one is loaded on every visit to the panel and is about sales, this one runs heavier
+        aggregate queries and is only read when somebody is looking at operations.
+      responses:
+        "200":
+          description: Operational snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpsSnapshot"
+  /admin/notifications:
+    get:
+      operationId: listNotificationDeliveries
+      tags: [admin]
+      summary: Outbox — what was sent, what failed and what is still queued
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pendiente, enviado, fallido]
+        - name: relatedType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [order, complaint, return, variant]
+        - name: relatedId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Delivery records, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDeliveryList"
+  /admin/notifications/{id}/retry:
+    post:
+      operationId: retryNotificationDelivery
+      tags: [admin]
+      summary: Put a failed delivery back in the queue
+      description: >
+        Only a `fallido` record can be requeued. The usual reason a batch fails is configuration
+        (an unverified sender domain, a missing API key), and once that is fixed those messages
+        still need to go out — most of all the Hoja de Reclamación, which is the consumer's
+        legal constancia of their filing.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Requeued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDelivery"
+        "404":
+          description: Not found, or not in a state that can be requeued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -2025,12 +2138,48 @@ components:
           type: string
       required:
         - status
+    ReadinessStatus:
+      type: object
+      description: >
+        Kept deliberately small. This endpoint is reachable without authentication, so it
+        carries no version, no configuration and no connection details — only whether each
+        dependency answered and how long it took.
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        checks:
+          type: object
+          properties:
+            database:
+              $ref: "#/components/schemas/ReadinessCheck"
+          required:
+            - database
+      required:
+        - status
+        - checks
+    ReadinessCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        latencyMs:
+          type: integer
+      required:
+        - status
     Error:
       type: object
       properties:
         code:
           type: string
         message:
+          type: string
+        # Present on unexpected failures (500). It is the same id in the X-Request-Id response
+        # header and in the server log line for this request, so a customer can quote it and
+        # support can find the failure without guessing at timestamps. Never set on business
+        # errors: those are expected outcomes, not incidents.
+        requestId:
           type: string
       required:
         - code
@@ -4273,3 +4422,138 @@ components:
         - path
         - token
         - publicUrl
+    NotificationDelivery:
+      type: object
+      description: >
+        One outbox record. `bodyHtml` is deliberately NOT exposed: the rendered message holds
+        the customer's name, address and order contents, and the backoffice list does not need
+        it to answer "did this go out".
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [email]
+        kind:
+          type: string
+          description: Which notification this is (payment_approved, complaint_filed, ...)
+        recipient:
+          type: string
+        subject:
+          type: string
+        relatedType:
+          type: string
+          nullable: true
+        relatedId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          enum: [pendiente, enviado, fallido]
+        attempts:
+          type: integer
+        lastError:
+          type: string
+          nullable: true
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - channel
+        - kind
+        - recipient
+        - subject
+        - status
+        - attempts
+        - createdAt
+    NotificationDeliveryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationDelivery"
+      required:
+        - items
+    OpsSnapshot:
+      type: object
+      properties:
+        verificationQueue:
+          type: object
+          description: The manual payment queue. Waiting time here is what customers feel.
+          properties:
+            pending:
+              type: integer
+            oldestWaitingHours:
+              type: number
+              nullable: true
+              description: Null when the queue is empty — not zero, which would read as "instant"
+          required:
+            - pending
+            - oldestWaitingHours
+        payments7d:
+          type: object
+          description: Resolved payments over the last 7 days, from the payment_events history.
+          properties:
+            approved:
+              type: integer
+            rejected:
+              type: integer
+            expired:
+              type: integer
+            approvalRatePct:
+              type: number
+              nullable: true
+              description: Null when nothing was resolved; no honest ratio exists over zero
+          required:
+            - approved
+            - rejected
+            - expired
+            - approvalRatePct
+        notifications:
+          type: object
+          properties:
+            pending:
+              type: integer
+            failed:
+              type: integer
+            oldestPendingMinutes:
+              type: number
+              nullable: true
+          required:
+            - pending
+            - failed
+            - oldestPendingMinutes
+        database:
+          type: object
+          description: >
+            Connection pool of THIS instance only. Behind a load balancer each instance has its
+            own pool, so these numbers describe the process that answered the request, not the
+            deployment. Useful for spotting exhaustion; not a cluster-wide metric.
+          properties:
+            poolTotal:
+              type: integer
+            poolIdle:
+              type: integer
+            poolWaiting:
+              type: integer
+          required:
+            - poolTotal
+            - poolIdle
+            - poolWaiting
+      required:
+        - verificationQueue
+        - payments7d
+        - notifications
+        - database

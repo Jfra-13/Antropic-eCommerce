@@ -9,9 +9,43 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ReadinessStatusStatus = typeof ReadinessStatusStatus[keyof typeof ReadinessStatusStatus];
+
+
+export const ReadinessStatusStatus = {
+  ok: 'ok',
+  degraded: 'degraded',
+} as const;
+
+export type ReadinessCheckStatus = typeof ReadinessCheckStatus[keyof typeof ReadinessCheckStatus];
+
+
+export const ReadinessCheckStatus = {
+  ok: 'ok',
+  error: 'error',
+} as const;
+
+export interface ReadinessCheck {
+  status: ReadinessCheckStatus;
+  latencyMs?: number;
+}
+
+export type ReadinessStatusChecks = {
+  database: ReadinessCheck;
+};
+
+/**
+ * Kept deliberately small. This endpoint is reachable without authentication, so it carries no version, no configuration and no connection details — only whether each dependency answered and how long it took.
+ */
+export interface ReadinessStatus {
+  status: ReadinessStatusStatus;
+  checks: ReadinessStatusChecks;
+}
+
 export interface Error {
   code: string;
   message: string;
+  requestId?: string;
 }
 
 export type MeUserRole = typeof MeUserRole[keyof typeof MeUserRole];
@@ -1653,6 +1687,91 @@ export interface ConfigMediaUploadUrl {
   publicUrl: string;
 }
 
+export type NotificationDeliveryChannel = typeof NotificationDeliveryChannel[keyof typeof NotificationDeliveryChannel];
+
+
+export const NotificationDeliveryChannel = {
+  email: 'email',
+} as const;
+
+export type NotificationDeliveryStatus = typeof NotificationDeliveryStatus[keyof typeof NotificationDeliveryStatus];
+
+
+export const NotificationDeliveryStatus = {
+  pendiente: 'pendiente',
+  enviado: 'enviado',
+  fallido: 'fallido',
+} as const;
+
+/**
+ * One outbox record. `bodyHtml` is deliberately NOT exposed: the rendered message holds the customer's name, address and order contents, and the backoffice list does not need it to answer "did this go out".
+ */
+export interface NotificationDelivery {
+  id: string;
+  channel: NotificationDeliveryChannel;
+  /** Which notification this is (payment_approved, complaint_filed, ...) */
+  kind: string;
+  recipient: string;
+  subject: string;
+  relatedType?: string | null;
+  relatedId?: string | null;
+  status: NotificationDeliveryStatus;
+  attempts: number;
+  lastError?: string | null;
+  nextAttemptAt?: string | null;
+  sentAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationDeliveryList {
+  items: NotificationDelivery[];
+}
+
+/**
+ * The manual payment queue. Waiting time here is what customers feel.
+ */
+export type OpsSnapshotVerificationQueue = {
+  pending: number;
+  /** Null when the queue is empty — not zero, which would read as "instant" */
+  oldestWaitingHours: number | null;
+};
+
+/**
+ * Resolved payments over the last 7 days, from the payment_events history.
+ */
+export type OpsSnapshotPayments7d = {
+  approved: number;
+  rejected: number;
+  expired: number;
+  /** Null when nothing was resolved; no honest ratio exists over zero */
+  approvalRatePct: number | null;
+};
+
+export type OpsSnapshotNotifications = {
+  pending: number;
+  failed: number;
+  oldestPendingMinutes: number | null;
+};
+
+/**
+ * Connection pool of THIS instance only. Behind a load balancer each instance has its own pool, so these numbers describe the process that answered the request, not the deployment. Useful for spotting exhaustion; not a cluster-wide metric.
+ */
+export type OpsSnapshotDatabase = {
+  poolTotal: number;
+  poolIdle: number;
+  poolWaiting: number;
+};
+
+export interface OpsSnapshot {
+  /** The manual payment queue. Waiting time here is what customers feel. */
+  verificationQueue: OpsSnapshotVerificationQueue;
+  /** Resolved payments over the last 7 days, from the payment_events history. */
+  payments7d: OpsSnapshotPayments7d;
+  notifications: OpsSnapshotNotifications;
+  /** Connection pool of THIS instance only. Behind a load balancer each instance has its own pool, so these numbers describe the process that answered the request, not the deployment. Useful for spotting exhaustion; not a cluster-wide metric. */
+  database: OpsSnapshotDatabase;
+}
+
 export type ListCategoriesParams = {
 /**
  * When true, include categories without active products (admin views)
@@ -1930,5 +2049,35 @@ export type ListComplaintsType = typeof ListComplaintsType[keyof typeof ListComp
 export const ListComplaintsType = {
   reclamo: 'reclamo',
   queja: 'queja',
+} as const;
+
+export type ListNotificationDeliveriesParams = {
+status?: ListNotificationDeliveriesStatus;
+relatedType?: ListNotificationDeliveriesRelatedType;
+relatedId?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type ListNotificationDeliveriesStatus = typeof ListNotificationDeliveriesStatus[keyof typeof ListNotificationDeliveriesStatus];
+
+
+export const ListNotificationDeliveriesStatus = {
+  pendiente: 'pendiente',
+  enviado: 'enviado',
+  fallido: 'fallido',
+} as const;
+
+export type ListNotificationDeliveriesRelatedType = typeof ListNotificationDeliveriesRelatedType[keyof typeof ListNotificationDeliveriesRelatedType];
+
+
+export const ListNotificationDeliveriesRelatedType = {
+  order: 'order',
+  complaint: 'complaint',
+  return: 'return',
+  variant: 'variant',
 } as const;
 

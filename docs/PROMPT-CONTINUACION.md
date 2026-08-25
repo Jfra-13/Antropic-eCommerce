@@ -16,28 +16,34 @@ Contexto en una línea: Antropic es una tienda peruana (Vite SPA + Express 5 + D
 pg.Pool + Supabase solo para Auth/Storage + verificación manual de constancias Yape/Plin). Se está
 puliendo para después clonarla a una segunda marca con repo y base de datos separados.
 
-Las fases 0 a 6 están hechas y fusionadas: documento de auditoría; endurecimiento de la API (CORS,
-helmet, rate limiting, contrato de entorno); Libro de Reclamaciones + textos legales + registro de
+Las fases 0 a 7 están hechas: documento de auditoría; endurecimiento de la API (CORS, helmet, rate
+limiting, contrato de entorno); Libro de Reclamaciones + textos legales + registro de
 consentimiento; suites de pruebas bloqueantes en CI; clonabilidad (identidad de marca como dato en
 lib/brand, con una prueba en CI que impide que vuelva al código); migraciones versionadas
-(lib/db/drizzle, CI construye la base replicándolas); y arquitectura de pagos (liquidación
-agnóstica de proveedor en modules/payments/settlement.ts, interfaz PaymentProvider, tabla
-payment_events con idempotencia de webhooks, y caducidad de pedidos abandonados). docs/PAGOS.md es
-la referencia de pagos.
+(lib/db/drizzle, CI construye la base replicándolas); arquitectura de pagos (liquidación agnóstica
+de proveedor en modules/payments/settlement.ts, interfaz PaymentProvider, tabla payment_events con
+idempotencia de webhooks, y caducidad de pedidos abandonados); y observabilidad (outbox
+notification_deliveries con reintentos y job retry-notifications, id de petición extremo a extremo,
+/readyz que comprueba la base, pantalla de Operaciones en el panel y ErrorBoundary en las dos SPA).
+docs/PAGOS.md y docs/OBSERVABILIDAD.md son las referencias de esas dos fases.
+
+Ojo con las ramas: las fases 0–5 están en main, pero las fases 6 y 7 no. La 7 se construyó encima
+de la rama de la 6, así que fusionarlas fuera de orden revierte la arquitectura de pagos.
 
 El entorno de desarrollo importa: se trabaja desde Claude Code en la web, sin laptop. Ese contenedor
 puede levantar Postgres 16 local, correr las suites de integración de verdad, arrancar los dev
 servers y hacerles curl, y trae Chromium + Playwright preinstalados. Lo que NO puede: tocar el
 proyecto Supabase real, administrar el repositorio en GitHub, ni probar en un móvil real. Como las
 dos SPA autentican contra el Supabase real, las pantallas con sesión no se pueden ver en navegador
-desde aquí; la API sí se puede probar entera levantando un JWKS local y firmando un token (se hizo
-en la Fase 6, §11.6).
+desde aquí; la API sí se puede probar entera levantando un JWKS local y firmando un token, y las
+pantallas SIN sesión sí se pueden ver con Playwright (se hizo en las Fases 6 y 7, §11.6 y §11.7).
 
 REGLAS DE TRABAJO (no negociables, vienen de las fases anteriores):
 
-1. Validar ejecutando, no solo compilando. `typecheck` y `build` son el mínimo, no la prueba. Las
-   cinco veces que se ejecutó el código de verdad aparecieron defectos que compilaban
-   perfectamente. Si tocas algo delicado, levántalo y compruébalo.
+1. Validar ejecutando, no solo compilando. `typecheck` y `build` son el mínimo, no la prueba. Cada
+   vez que se ejecutó el código de verdad aparecieron defectos que compilaban perfectamente — la
+   última vez, en una prueba recién escrita que pasaba sin comprobar lo que decía comprobar. Si
+   tocas algo delicado, levántalo y compruébalo.
 2. Contrato primero. Los endpoints salen de lib/api-spec/openapi.yaml → codegen → implementación.
    Nunca edites nada bajo generated/.
 3. Nada de texto legal ni fiscal inventado. Si falta un texto legal, el sistema debe decir que no
@@ -54,8 +60,12 @@ REGLAS DE TRABAJO (no negociables, vienen de las fases anteriores):
 8. Todo lo que mueva orders.payment_status pasa por settlePaymentTx (modules/payments/
    settlement.ts). Escribir esa columna por fuera se salta a la vez la guarda de sobreventa, el
    rastro de auditoría y el índice de idempotencia de webhooks.
+9. Ningún correo se manda directamente. Todo sale por enqueueEmail (modules/notifications/
+   outbox.ts), que lo registra antes de intentarlo. Llamar al transporte por fuera devuelve el
+   sistema al estado donde un fallo de envío no dejaba rastro. Y sigue en pie la regla anterior:
+   una notificación que falla nunca puede tumbar un flujo de negocio.
 
-Antes de escribir código, dime tu plan para: <FASE QUE QUIERAS — p. ej. "la Fase 7, observabilidad">
+Antes de escribir código, dime tu plan para: <FASE QUE QUIERAS — p. ej. "la Fase 7b, SEO y rendimiento">
 ```
 
 ---
@@ -70,19 +80,16 @@ conversación entera cada vez. Dos consecuencias prácticas:
 - **No dejes vigilancia automática de PRs en sesiones largas.** Cada despertar reprocesa todo el
   historial; en una conversación corta sale a cuenta, en una larga no.
 
-## Estado operativo al cierre de la Fase 6
+## Estado operativo al cierre de la Fase 7
 
 Cosas que una sesión nueva no puede deducir del código y que cuesta caro redescubrir.
 
 ### Lo que sigue pendiente, en orden recomendado
 
-1. **Fase 7 · observabilidad, SEO y rendimiento** (§4, §5, §8.1). **Observabilidad primero**,
-   invirtiendo el orden del título de la fase: hoy toda notificación es *fire-and-forget* y cada
-   fallo se traga en un `logger.warn` —cinco `catch` en `modules/notifications/service.ts`— y no
-   hay Sentry ni equivalente en ningún paquete. Sin eso, «el aviso de constancia nueva nunca llegó
-   al backoffice» es una línea de log que nadie lee y el pedido se queda en la cola. Después: meta
-   por ruta (las 12 comparten un `<title>`), `sitemap.xml`, `robots.txt`, canónicas, JSON-LD, y
-   code-splitting con `React.lazy` — el bundle del storefront pasa los 500 kB.
+1. **Fase 7b · SEO y rendimiento** (§4, §8.1). La otra mitad del título de la Fase 7, separada a
+   propósito: meta por ruta (las 12 comparten un `<title>`, así que un producto compartido a
+   WhatsApp se ve como la home), `sitemap.xml`, `robots.txt`, canónicas, JSON-LD, y code-splitting
+   con `React.lazy` — el bundle del storefront pesa 733 kB y el propio `build` lo avisa.
 2. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
    ya está decidido: precio bruto en el catálogo y snapshot fiscal congelado en el pedido, con la
    derivación por resta para que base + impuesto cuadre siempre. Es el último cambio de esquema
@@ -103,6 +110,13 @@ Cosas que una sesión nueva no puede deducir del código y que cuesta caro redes
   pasarela: una ruta pública que aún no verifica firma es una puerta abierta.
 - **Reembolsos:** el estado `reembolsado` y su transición existen; el endpoint no, y la decisión de
   si el stock vuelve al estante es del flujo de devoluciones.
+- **Sentry:** no se monta hasta que haya cuenta y DSN. La costura está escrita
+  (`lib/observability.ts` y el `logError` de cada `ErrorBoundary`) y el ítem de §5 sigue abierto a
+  propósito. Tampoco se hace ingesta propia de errores del navegador: un endpoint público sin
+  autenticar que acepta cualquier cosa es un blanco de inundación.
+- **Retención del outbox:** `notification_deliveries` guarda el cuerpo renderizado y no se purga
+  sola. Cuánto se conserva la constancia de un reclamo lo decide el abogado, no un valor por
+  defecto en el código.
 
 ### Bloqueado por credenciales, no por código
 
@@ -110,8 +124,10 @@ Cosas que una sesión nueva no puede deducir del código y que cuesta caro redes
   Supabase real. Está escrita, sin ejecutar, y es probable que salga roja.
 - E2E con login (§9.2): depende de Supabase. Los tramos sin sesión (catálogo, Libro de
   Reclamaciones) sí son automatizables hoy con el Chromium preinstalado.
-- Render en navegador de las pantallas nuevas de la Fase 6 (historial de pago en el panel, aviso de
-  pedido vencido en la tienda): compilan y pasan el build, sin verificación visual.
+- Render en navegador de las pantallas del panel que exigen sesión: historial de pago y aviso de
+  pedido vencido (Fase 6), y la pantalla de **Operaciones** (Fase 7). Sus endpoints se probaron
+  enteros por HTTP con un token firmado; lo que falta es el render. Los `ErrorBoundary` de ambas
+  SPA sí se verificaron en Chromium, porque se disparan sin sesión.
 
 ### Bloqueado por trámites o decisiones del negocio
 
@@ -145,3 +161,13 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
    ```
 
    Detalle en `docs/PAGOS.md` §4.
+
+3. **Programar el job de reintento de correos** (Fase 7), cada 5 minutos. Sin él, un correo que
+   falle una vez se queda en la cola:
+
+   ```
+   pnpm --filter @workspace/api-server run retry-notifications
+   ```
+
+   Y apunta el monitor de uptime a `/api/readyz`, no a `/api/healthz`: el primero comprueba la
+   base y devuelve 503 cuando no responde. Detalle en `docs/OBSERVABILIDAD.md` §3 y §4.

@@ -50,6 +50,7 @@ const TABLES = [
   "categories",
   "complaints",
   "consents",
+  "notification_deliveries",
   "profiles",
 ] as const;
 

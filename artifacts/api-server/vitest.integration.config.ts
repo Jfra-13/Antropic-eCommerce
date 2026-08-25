@@ -22,6 +22,11 @@ export default defineConfig({
       LOG_LEVEL: "silent",
       SUPABASE_URL: "https://unused.supabase.co",
       SUPABASE_SERVICE_ROLE_KEY: "unused",
+      // Set so the email transport takes its real code path and calls fetch, which the outbox
+      // tests stub. Unset, it would short-circuit to "sin configurar" and those tests would
+      // pass without ever exercising delivery.
+      RESEND_API_KEY: "test-key",
+      RESEND_FROM: "Test <no-reply@example.test>",
     },
   },
 });

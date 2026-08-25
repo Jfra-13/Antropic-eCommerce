@@ -103,7 +103,9 @@ export const env = {
   // Public storefront URL used to build links in transactional email. Unset drops the
   // "ver mi pedido" button rather than rendering a broken link.
   STORE_URL: optional("STORE_URL"),
-  // Optional: email degrades to a logged no-op when unset (see lib/notify.ts).
+  // Optional: with either unset, every message is still recorded in the outbox and marked
+  // failed with "sin configurar" rather than silently dropped, so the backlog is visible and
+  // can be requeued from the backoffice once email is provisioned (see lib/notify.ts).
   RESEND_API_KEY: optional("RESEND_API_KEY"),
   RESEND_FROM: optional("RESEND_FROM"),
   ADMIN_NOTIFICATION_EMAIL: optional("ADMIN_NOTIFICATION_EMAIL"),
