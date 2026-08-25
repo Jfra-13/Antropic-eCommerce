@@ -24,7 +24,12 @@ if (!basePath) {
 
 export default defineConfig({
   base: basePath,
-  plugins: [react(), tailwindcss(), brandHtmlPlugin(brand.admin)],
+  plugins: [react(), tailwindcss(), brandHtmlPlugin(brand.admin, {
+      // The backoffice has nothing to gain from a search result and plenty to lose: staff
+      // login pages in an index are a reconnaissance gift. The `noindex` meta in the shell
+      // says the same thing, but a crawler that never fetches the page never reads a meta.
+      disallow: ["/"],
+    })],
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),

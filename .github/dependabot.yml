@@ -1,0 +1,31 @@
+# Dependency updates (auditoría §1.1).
+#
+# Why grouped and weekly rather than one PR per bump: this is a two-person project, and a
+# firehose of individual pull requests is how dependency updates end up ignored altogether —
+# which is the state this file is meant to fix. One reviewable PR per week per ecosystem gets
+# read; fifteen do not.
+#
+# Security updates are NOT grouped: those arrive on their own, immediately, and should be
+# obvious in the list rather than buried inside a "chore: bump 23 dev dependencies".
+#
+# Note on `minimumReleaseAge: 1440` in pnpm-workspace.yaml: that guard is enforced at install
+# time by pnpm, so a Dependabot PR proposing a release younger than a day fails CI at the
+# install step instead of merging. That is the intended interaction, not a conflict.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies]
+
+  # The workflow pins actions by major version; this is what notices when v4 becomes v5.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]

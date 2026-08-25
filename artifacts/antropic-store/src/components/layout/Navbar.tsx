@@ -139,13 +139,13 @@ export function Navbar() {
                     <div className="flex-1 grid grid-cols-2 gap-3">
                       {novedades && (
                         <Link href={categoryHref(novedades.name)} className="group relative aspect-[3/4] overflow-hidden bg-muted">
-                          <img src={modelo_01} alt={novedades.name} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" />
+                          <img src={modelo_01} alt={novedades.name} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
                           <span className="absolute bottom-2 left-2 bg-background/90 text-foreground text-xs font-sans font-bold px-2 py-1">{novedades.name}</span>
                         </Link>
                       )}
                       {sale && (
                         <Link href={categoryHref(sale.name)} className="group relative aspect-[3/4] overflow-hidden bg-muted">
-                          <img src={modelo_02} alt={sale.name} className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105" />
+                          <img src={modelo_02} alt={sale.name} className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async" />
                           <span className="absolute bottom-2 left-2 bg-promo text-promo-foreground text-xs font-sans font-bold px-2 py-1">{sale.name}</span>
                         </Link>
                       )}

@@ -12,10 +12,12 @@ import { useStore } from "../context/StoreContext";
 import { formatPrice, priceToNumber } from "../lib/product";
 import { orderStatusLabel } from "../lib/orders";
 import { apiErrorMessage } from "../lib/errors";
+import { useSeo } from "../lib/seo";
 
 const ORDERS_PARAMS = { page: 1, limit: 20 };
 
 export default function Profile() {
+  useSeo({ title: "Mi cuenta", noindex: true });
   const { user, logout } = useStore();
   const [, setLocation] = useLocation();
 

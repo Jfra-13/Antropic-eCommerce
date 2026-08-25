@@ -3,6 +3,7 @@ import { useCreateComplaint } from "@workspace/api-client-react";
 import type { ComplaintReceipt, CreateComplaintInput } from "@workspace/api-client-react";
 import { orderReference } from "@workspace/brand";
 import { useStoreConfig } from "../lib/config";
+import { useSeo } from "../lib/seo";
 
 // Libro de Reclamaciones Virtual — Ley 29571, D.S. 011-2011-PCM, ampliado a plataformas
 // digitales por la Ley 32495.
@@ -61,6 +62,15 @@ function Receipt({ receipt }: { receipt: ComplaintReceipt }) {
 }
 
 export default function LibroReclamaciones() {
+  // Indexable on purpose, and deliberately absent from the robots.txt disallow list: the
+  // Libro de Reclamaciones must be publicly reachable, and a consumer looking for it should
+  // find it (Ley 29571; audit §2.1).
+  useSeo({
+    title: "Libro de Reclamaciones",
+    description:
+      "Registra tu queja o reclamo. Recibirás una constancia por correo y una respuesta dentro del plazo de ley.",
+    path: "/libro-de-reclamaciones",
+  });
   const { config } = useStoreConfig();
   const business = config?.business;
   const [receipt, setReceipt] = useState<ComplaintReceipt | null>(null);

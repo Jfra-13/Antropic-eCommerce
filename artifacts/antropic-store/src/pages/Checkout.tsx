@@ -18,10 +18,12 @@ import { formatPrice, priceToNumber } from "../lib/product";
 import { apiErrorCode, apiErrorMessage } from "../lib/errors";
 import { useStoreConfig } from "../lib/config";
 import { brand } from "@workspace/brand";
+import { useSeo } from "../lib/seo";
 
 type DeliveryMethod = "delivery" | "recojo";
 
 export default function Checkout() {
+  useSeo({ title: "Finalizar compra", noindex: true });
   const { user, authLoading, cart, cartLoading } = useStore();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();

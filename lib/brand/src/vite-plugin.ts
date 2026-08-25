@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { brand, webManifest } from "./index.ts";
+import { brand, resolveSiteUrl, robotsTxt, webManifest } from "./index.ts";
 import type { BrandDocument } from "./types.ts";
 
 // The HTML shell is the one place brand identity has to exist *before* any JavaScript runs:
@@ -11,12 +11,37 @@ import type { BrandDocument } from "./types.ts";
 // checked-in file for the same reason.
 
 const MANIFEST_FILE = "manifest.webmanifest";
+const ROBOTS_FILE = "robots.txt";
 
-export function brandHtmlPlugin(doc: BrandDocument): Plugin {
+export type RobotsPolicy = {
+  /**
+   * Root-relative paths crawlers must not index. Pass the routes that are private or
+   * worthless in a search result — a cart URL in Google is a support ticket, not a visit.
+   * Pass `["/"]` for an artifact that should never be indexed at all, like the backoffice.
+   */
+  disallow: readonly string[];
+};
+
+export function brandHtmlPlugin(doc: BrandDocument, robots?: RobotsPolicy): Plugin {
   const manifest = webManifest(doc);
+
+  // Resolved in `configResolved`, not here, and this is not a style choice: Vite loads
+  // .env files into ITS OWN resolved env, never into process.env. Reading process.env at
+  // plugin construction produced a robots.txt that said "no origin configured" on a build
+  // whose bundle had the origin baked in — a disagreement that would have shipped as a
+  // silent `Disallow: /` on the live shop.
+  let robotsBody: string | null = null;
 
   return {
     name: "brand-html",
+
+    configResolved(config) {
+      if (!robots) return;
+      // config.env carries the VITE_-prefixed variables Vite actually loaded for this mode,
+      // which is the same set the client bundle sees. One source, one answer.
+      const siteUrl = resolveSiteUrl(config.env.VITE_PUBLIC_SITE_URL as string | undefined);
+      robotsBody = robotsTxt({ siteUrl, disallow: robots.disallow });
+    },
 
     transformIndexHtml: {
       // `pre` so the injected tags land before Vite's own asset injection, keeping the
@@ -56,19 +81,29 @@ export function brandHtmlPlugin(doc: BrandDocument): Plugin {
       },
     },
 
-    // Dev has no build output to emit into, so the manifest is served from memory.
+    // Dev has no build output to emit into, so these are served from memory.
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (!req.url || new URL(req.url, "http://localhost").pathname !== `/${MANIFEST_FILE}`) {
-          return next();
+        const pathname = req.url ? new URL(req.url, "http://localhost").pathname : "";
+        if (pathname === `/${MANIFEST_FILE}`) {
+          res.setHeader("Content-Type", "application/manifest+json");
+          res.end(manifest);
+          return;
         }
-        res.setHeader("Content-Type", "application/manifest+json");
-        res.end(manifest);
+        if (robotsBody !== null && pathname === `/${ROBOTS_FILE}`) {
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end(robotsBody);
+          return;
+        }
+        return next();
       });
     },
 
     generateBundle() {
       this.emitFile({ type: "asset", fileName: MANIFEST_FILE, source: manifest });
+      if (robotsBody !== null) {
+        this.emitFile({ type: "asset", fileName: ROBOTS_FILE, source: robotsBody });
+      }
     },
   };
 }

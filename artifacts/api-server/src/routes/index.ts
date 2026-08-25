@@ -11,6 +11,7 @@ import returnsRouter from "../modules/returns/router";
 import complaintsRouter from "../modules/complaints/router";
 import consentsRouter from "../modules/consents/router";
 import configRouter from "../modules/config/router";
+import seoRouter from "../modules/seo/router";
 import adminRouter from "../modules/admin/router";
 
 const router: IRouter = Router();
@@ -27,6 +28,7 @@ router.use(returnsRouter);
 router.use(complaintsRouter);
 router.use(consentsRouter);
 router.use(configRouter);
+router.use(seoRouter);
 router.use(adminRouter);
 
 export default router;

@@ -49,6 +49,21 @@ export type Brand = {
    * resolving. It is safe to choose freely for a new brand, before go-live, and only then.
    */
   orderReferencePrefix: string;
+  /**
+   * Public origin the storefront is served from, with no trailing slash
+   * ("https://tienda.example"), or null while the domain is not decided.
+   *
+   * Canonical URLs, absolute Open Graph images and the sitemap all need it, and none of
+   * them can be derived at runtime: `window.location.origin` would happily declare a
+   * preview deployment canonical, which is how a staging copy ends up outranking the shop.
+   *
+   * Null is a supported state, not a placeholder to fill in with a guess. With no origin
+   * the storefront emits no canonical, no JSON-LD and a `Disallow: /` robots.txt: a
+   * deployment that does not know its own address must not be indexed under a wrong one.
+   * `VITE_PUBLIC_SITE_URL` overrides it per environment so staging never advertises the
+   * production origin.
+   */
+  siteUrl: string | null;
   storefront: BrandDocument;
   admin: BrandDocument;
   email: {

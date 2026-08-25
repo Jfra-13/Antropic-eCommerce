@@ -33,6 +33,14 @@ export const ReadinessCheckResponse = zod.object({
 
 
 /**
+ * The sitemap lives here, and not in the storefront build, because it has to list every active product with its last-modified date — data only the database has. Generating it at build time would tie the frontend build to a database and, worse, freeze the list at the moment of the last deploy, so a product published on Tuesday would stay invisible until the next release.
+ * Serve it to crawlers at the storefront origin (`/sitemap.xml`) by rewriting that path to this endpoint at the edge; the URL a crawler is told about, in robots.txt, is the storefront one. Returns 503 when PUBLIC_SITE_URL is not configured: the document is made of absolute URLs, and emitting it against a guessed origin would submit the wrong addresses to a search engine.
+ * @summary XML sitemap of the public storefront
+ */
+export const GetSitemapResponse = zod.unknown()
+
+
+/**
  * @summary Get the authenticated caller's profile (id, email, role)
  */
 export const GetMeResponse = zod.object({

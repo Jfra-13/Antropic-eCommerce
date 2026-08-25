@@ -57,6 +57,17 @@ function validate(b: Brand): void {
       `brand.orderReferencePrefix must be 2-6 uppercase letters or digits, got "${b.orderReferencePrefix}"`,
     );
   }
+  // https only, no trailing slash, no path: every consumer concatenates a root-relative
+  // path onto it, so a stray slash produces "//producto/x" and a path segment produces a
+  // canonical that points at the wrong place. Rejecting it here beats debugging it in
+  // Search Console three weeks after launch.
+  if (b.siteUrl !== null) {
+    if (!/^https:\/\/[^/\s?#]+$/.test(b.siteUrl)) {
+      problems.push(
+        `brand.siteUrl must be null or an https origin with no trailing slash or path, got "${b.siteUrl}"`,
+      );
+    }
+  }
   checkDocument("brand.storefront", b.storefront, problems);
   checkDocument("brand.admin", b.admin, problems);
   if (!/^#[0-9a-fA-F]{6}$/.test(b.email.headerColor)) {
@@ -127,4 +138,69 @@ export function webManifest(doc: BrandDocument): string {
     null,
     2,
   );
+}
+
+// --- Public origin and SEO assets --------------------------------------------
+
+/**
+ * The origin to build canonical URLs from: the environment override when present, the brand
+ * value otherwise, and null when neither is set.
+ *
+ * The override exists so a staging or preview deployment can declare *itself* canonical
+ * instead of pointing search engines at production — the classic way a preview build ends
+ * up indexed in place of the real shop.
+ */
+export function resolveSiteUrl(override?: string | null | undefined): string | null {
+  const raw = (override ?? "").trim();
+  if (raw !== "") return raw.replace(/\/+$/, "");
+  return brand.siteUrl;
+}
+
+/** Absolute URL for a root-relative path, or null when no origin is configured. */
+export function absoluteUrl(siteUrl: string | null, path: string): string | null {
+  if (!siteUrl) return null;
+  return `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/**
+ * `robots.txt`, generated rather than checked in for the same reason as the manifest: the
+ * `Sitemap:` line carries the origin, and a checked-in copy would be a second place holding
+ * a value that only lib/brand is supposed to know.
+ *
+ * With no origin configured the whole site is disallowed. That is the conservative side of
+ * the trade: a deployment that cannot state its own address should not be indexed under
+ * whatever address it happens to answer on. Publishing the domain flips it in one edit.
+ */
+export function robotsTxt(options: { siteUrl: string | null; disallow: readonly string[] }): string {
+  const { siteUrl, disallow } = options;
+
+  // A blanket disallow is a decision about the artifact, not about the environment: the
+  // backoffice is never indexable, with or without a domain, and it must not advertise the
+  // storefront's sitemap either. Checked before the origin so that configuring a domain
+  // cannot accidentally open it up.
+  if (disallow.includes("/")) {
+    return [
+      "# Never indexed. This artifact is not a public site.",
+      "User-agent: *",
+      "Disallow: /",
+      "",
+    ].join("\n");
+  }
+
+  if (!siteUrl) {
+    return [
+      "# No public origin configured (brand.siteUrl / VITE_PUBLIC_SITE_URL).",
+      "# Nothing is indexable until the domain is published — see docs/SEO.md.",
+      "User-agent: *",
+      "Disallow: /",
+      "",
+    ].join("\n");
+  }
+  return [
+    "User-agent: *",
+    ...disallow.map((path) => `Disallow: ${path}`),
+    "",
+    `Sitemap: ${siteUrl}/sitemap.xml`,
+    "",
+  ].join("\n");
 }
