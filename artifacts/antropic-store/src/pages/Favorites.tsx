@@ -3,8 +3,10 @@ import { useProducts } from "../lib/catalog";
 import { ProductCard } from "../components/ProductCard";
 import { Link } from "wouter";
 import { FlowerIcon } from "../components/ui/icons";
+import { useSeo } from "../lib/seo";
 
 export default function Favorites() {
+  useSeo({ title: "Favoritos", noindex: true });
   const { favorites } = useStore();
   const { products } = useProducts();
   const favoriteProducts = products.filter((p) => favorites.includes(p.id));

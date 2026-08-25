@@ -2,9 +2,15 @@ import {
   useListPickupPoints,
   getListPickupPointsQueryKey,
 } from "@workspace/api-client-react";
+import { useSeo } from "../lib/seo";
 
 // Public store locator: the same active pickup points offered at checkout.
 export default function PickupPoints() {
+  useSeo({
+    title: "Puntos de recojo",
+    description: "Dónde y en qué horario puedes recoger tu pedido sin pagar envío.",
+    path: "/recojo",
+  });
   const { data, isLoading, isError } = useListPickupPoints({
     query: { queryKey: getListPickupPointsQueryKey() },
   });

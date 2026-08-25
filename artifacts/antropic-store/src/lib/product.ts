@@ -103,6 +103,18 @@ export function findVariant(
   return p.variantOptions.find((v) => v.size === size && v.color === color);
 }
 
+/**
+ * Root-relative path of a product page, with the slug percent-encoded.
+ *
+ * The slug is typed by hand in the backoffice and nothing sanitises it, so it can legally
+ * contain "&", a space or an accent. Interpolated raw into a canonical URL or a JSON-LD
+ * `url`, an "&" ends the path and starts a query string — the canonical then points at a
+ * page that does not exist, which is worse than having no canonical at all.
+ */
+export function productPath(slug: string): string {
+  return `/product/${encodeURIComponent(slug)}`;
+}
+
 export function primaryImage(p: Product): string {
   return p.images[0];
 }

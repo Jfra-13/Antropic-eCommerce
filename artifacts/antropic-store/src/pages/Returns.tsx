@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useStoreConfig } from "../lib/config";
+import { useSeo } from "../lib/seo";
 
 // Shown when the admin has not configured a policy — the page never renders empty.
 const DEFAULT_POLICY = `Aceptamos cambios y devoluciones dentro de los 7 días de recibido tu pedido.
@@ -24,6 +25,12 @@ const STEPS = [
 ];
 
 export default function Returns() {
+  useSeo({
+    title: "Cambios y devoluciones",
+    description:
+      "Cómo solicitar un cambio o una devolución, en qué plazo y en qué condiciones se acepta la prenda.",
+    path: "/devoluciones",
+  });
   const { config } = useStoreConfig();
   const policy = config?.returnsPolicy ?? DEFAULT_POLICY;
   const whatsapp = config?.contact.whatsappNumber;

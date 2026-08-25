@@ -6,6 +6,8 @@ import { ProductCard } from "../components/ProductCard";
 import { CategoryPills } from "../components/CategoryPills";
 import { Breadcrumb, type Crumb } from "../components/Breadcrumb";
 import { FlowerIcon } from "../components/ui/icons";
+import { useSeo } from "../lib/seo";
+import { breadcrumbJsonLd } from "../lib/structured-data";
 import {
   Select,
   SelectContent,
@@ -48,6 +50,33 @@ export default function Search() {
   const sortBy = (params.get("sort") as SortKey) ?? "destacados";
   const view = params.get("view") === "compact" ? "compact" : "detailed";
   const showFilters = params.get("filters") === "1";
+
+  // Faceted navigation, canonicalised the standard way.
+  //
+  //  - A page with a search term is an *internal search results* page. Those are noindex by
+  //    convention: they are generated on demand, they duplicate the catalogue, and a search
+  //    engine indexing them fills its results with our results.
+  //  - Category is a real, finite facet, so it earns its own canonical URL.
+  //  - Size, colour, occasion, sort and view are orderings and subsets of the same set. They
+  //    canonicalise back to the category (or the catalogue) instead of minting a URL per
+  //    combination, which is how a 12-product shop ends up with thousands of thin pages.
+  const canonicalPath = category ? `/search?category=${encodeURIComponent(category)}` : "/search";
+  useSeo({
+    title: q ? `Resultados para "${q}"` : category ? category : "Catálogo",
+    description: category
+      ? `Prendas de la categoría ${category}. Filtra por talla, color y ocasión.`
+      : "Explora el catálogo completo: filtra por categoría, talla, color, ocasión y precio.",
+    path: canonicalPath,
+    noindex: q !== "",
+    jsonLd: [
+      breadcrumbJsonLd([
+        { name: "Inicio", path: "/" },
+        ...(category
+          ? [{ name: "Catálogo", path: "/search" }, { name: category, path: canonicalPath }]
+          : [{ name: "Catálogo", path: "/search" }]),
+      ]),
+    ],
+  });
 
   const commit = (next: URLSearchParams, replace = false) => {
     const s = next.toString();

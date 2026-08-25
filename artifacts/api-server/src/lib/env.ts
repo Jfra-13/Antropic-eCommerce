@@ -100,8 +100,11 @@ export const env = {
   CORS_ORIGINS: parseCorsOrigins("CORS_ORIGINS", isProduction),
   TRUST_PROXY: parseTrustProxy("TRUST_PROXY"),
   LOG_LEVEL: optional("LOG_LEVEL") ?? "info",
-  // Public storefront URL used to build links in transactional email. Unset drops the
-  // "ver mi pedido" button rather than rendering a broken link.
+  // Public storefront origin. Two consumers, one value on purpose: transactional email
+  // builds its "ver mi pedido" link from it (unset drops the button rather than rendering a
+  // broken link), and the sitemap builds every <loc> from it (unset returns 503 rather than
+  // publishing URLs on a guessed origin). It overrides brand.siteUrl the same way
+  // VITE_PUBLIC_SITE_URL does in the storefront, so a staging deployment describes itself.
   STORE_URL: optional("STORE_URL"),
   // Optional: with either unset, every message is still recorded in the outbox and marked
   // failed with "sin configurar" rather than silently dropped, so the backlog is visible and

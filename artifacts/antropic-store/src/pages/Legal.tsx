@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useStoreConfig } from "../lib/config";
+import { useSeo } from "../lib/seo";
 
 // Privacy policy, terms of sale and cookie policy. The text is NOT hardcoded here: it comes
 // from store settings, editable in the backoffice.
@@ -15,7 +16,21 @@ import { useStoreConfig } from "../lib/config";
 
 type LegalKey = "privacyPolicy" | "termsOfService" | "cookiePolicy";
 
-function LegalPage({ title, intro, textKey }: { title: string; intro: string; textKey: LegalKey }) {
+function LegalPage({
+  title,
+  intro,
+  textKey,
+  path,
+}: {
+  title: string;
+  intro: string;
+  textKey: LegalKey;
+  path: string;
+}) {
+  // Indexable even while the text is unpublished. The page states plainly that the document
+  // is not available yet, and that is the honest thing for a crawler to see too; hiding it
+  // would only make the gap harder to notice.
+  useSeo({ title, description: intro, path });
   const { config, isLoading } = useStoreConfig();
   const text = config?.legal?.[textKey] ?? null;
   const version = config?.legal?.policyVersion;
@@ -60,6 +75,7 @@ export function Privacidad() {
       title="Política de privacidad"
       intro="Cómo tratamos tus datos personales, conforme a la Ley N.° 29733 y su reglamento."
       textKey="privacyPolicy"
+      path="/privacidad"
     />
   );
 }
@@ -70,6 +86,7 @@ export function Terminos() {
       title="Términos y condiciones"
       intro="Condiciones de venta aplicables a las compras realizadas en esta tienda."
       textKey="termsOfService"
+      path="/terminos"
     />
   );
 }
@@ -80,6 +97,7 @@ export function Cookies() {
       title="Política de cookies"
       intro="Qué cookies usamos, para qué, y cómo puedes cambiar tu decisión."
       textKey="cookiePolicy"
+      path="/cookies"
     />
   );
 }

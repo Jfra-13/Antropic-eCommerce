@@ -5,7 +5,7 @@ Adaptación del checklist genérico de ecommerce Perú al stack **real** de este
 **Stack real:** Vite + React (SPA) · Express 5 · Drizzle sobre `pg.Pool` · Supabase (solo Auth y
 Storage) · Resend · verificación manual de Yape/Plin.
 
-**Última actualización:** 2026-08-25 (Fase 7 — observabilidad). Todo ítem marcado `[x]` se verificó leyendo el código —o
+**Última actualización:** 2026-08-25 (Fase 7b — SEO y rendimiento). Todo ítem marcado `[x]` se verificó leyendo el código —o
 ejecutándolo, cuando la sección lo indica— y cita el archivo que lo respalda. Los ítems sin cita no
 se verificaron.
 
@@ -22,7 +22,7 @@ se verificaron.
 Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
 está en su sección; la evidencia de ejecución, en §11.
 
-### Hecho (fases 0–7)
+### Hecho (fases 0–7b)
 
 | Fase | Qué entregó | Dónde |
 |---|---|---|
@@ -34,11 +34,11 @@ está en su sección; la evidencia de ejecución, en §11.
 | **5** | Migraciones versionadas: línea base commiteada, CI construye la base replicando migraciones, y recuperación de bases preexistentes sin recrearlas | §9.3 · `lib/db/drizzle/`, `scripts/src/baseline-migrations.ts` |
 | **6** | Arquitectura de pagos: transacción de liquidación agnóstica de proveedor, interfaz `PaymentProvider`, `payment_events` con idempotencia de webhooks, estados ampliados y caducidad de pedidos abandonados | §6.2 · `docs/PAGOS.md`, `modules/payments/settlement.ts` |
 | **7** | Observabilidad: outbox de notificaciones con reintentos y visibilidad en el panel, id de petición extremo a extremo, `/readyz` que sí comprueba la base, pantalla de Operaciones y `ErrorBoundary` en las dos SPA | §5, §8.3 · `docs/OBSERVABILIDAD.md`, `modules/notifications/outbox.ts` |
+| **7b** | SEO y rendimiento: metadatos y canónicas por ruta, `robots.txt` y `sitemap.xml` generados, JSON-LD, code-splitting por ruta y presupuesto de tamaño que falla el build | §4, §8.1 · `docs/SEO.md`, `src/lib/seo.ts`, `modules/seo/` |
 
-> **Fusión:** las fases 0–5 están en `main`. Las fases **6 y 7 no lo están todavía**: la 6 vive
-> en `claude/fase-6-arquitectura-pagos-s47c8t` y la 7 se construyó **encima de esa rama**, no de
-> `main`. Fusionar la 7 sin la 6 revertiría la arquitectura de pagos entera. Orden: primero la 6,
-> después la 7 (o la 7 arrastra ambas).
+> **Fusión:** todas las fases hasta la 7 están en `main` (PR #5 la fase 6, PR #6 la fase 7, en
+> ese orden y con merge commit para no reescribir la base sobre la que estaba construida la 7).
+> `main` vuelve a ser la verdad del proyecto.
 
 **Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
 `/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
@@ -51,6 +51,13 @@ en §11.4.
 Y un quinto en la Fase 6: la guarda de idempotencia de webhooks leía `.code` del error capturado,
 pero drizzle envuelve el error del driver y deja el código de Postgres en `.cause`, así que la
 guarda **nunca se disparaba**. Compilaba, tenía buena pinta y era inerte. Detalle en §11.6.
+
+Y un sexto en la Fase 7b, del mismo tipo exacto: el plugin de marca leía
+`process.env.VITE_PUBLIC_SITE_URL` para generar el `robots.txt`, pero Vite carga los `.env` en
+**su** entorno resuelto y nunca en `process.env`. El build salía con el origen dentro del
+bundle y un `robots.txt` que decía «sin origen configurado» — es decir, `Disallow: /` sobre una
+tienda perfectamente configurada. Compilaba, pasaba typecheck y solo se vio al mirar el archivo
+generado. Detalle en §11.8.
 
 La Fase 7 no encontró un sexto defecto de ese tipo en el código existente, pero sí lo encontró en
 **una prueba recién escrita**: un caso llamado «se registra como fallido cuando el correo no está
@@ -89,9 +96,13 @@ módulo de entorno sí se puede sustituir. Detalle en §11.7.
 
 | # | Fase | Por qué en este orden |
 |---|---|---|
-| 1 | **7b · SEO y rendimiento** | La otra mitad del título de la Fase 7, aplazada a propósito para no mezclar dos problemas sin relación en una revisión. Las 12 rutas comparten un `<title>`, así que un producto compartido a WhatsApp se ve como la home; y el bundle del storefront pesa 733 kB sin code-splitting (el `build` ya lo avisa). Ver §4, §8.1 |
-| 2 | **8 · IGV y base fiscal** | Bloqueada por la confirmación del contador (§2.4). Es el último cambio de esquema que se encarece de verdad con el clon: toca catálogo, pedidos y líneas, y reinterpreta totales ya guardados |
-| 3 | **9 · Checkout de invitado** | Modelo ya decidido (§1.4). Va al final justo porque **no** es un acantilado de esquema: el perfil de invitado no obliga a migrar nada, así que cuesta lo mismo antes o después del fork |
+| 1 | **8 · IGV y base fiscal** | Bloqueada por la confirmación del contador (§2.4). Es el último cambio de esquema que se encarece de verdad con el clon: toca catálogo, pedidos y líneas, y reinterpreta totales ya guardados |
+| 2 | **9 · Checkout de invitado** | Modelo ya decidido (§1.4). Va al final justo porque **no** es un acantilado de esquema: el perfil de invitado no obliga a migrar nada, así que cuesta lo mismo antes o después del fork |
+
+La **7b (SEO y rendimiento) está hecha** (§4, §8.1, `docs/SEO.md`). Deja dos cosas abiertas que
+no son código y sin las cuales no sirve de nada: **publicar el dominio en `brand.siteUrl`** —
+con `null` la tienda es deliberadamente no indexable— y **reescribir `/sitemap.xml` hacia la
+API** en el borde.
 
 ### Bloqueado por decisiones o trámites tuyos, no por código
 
@@ -161,7 +172,8 @@ contempla). Esta es la traducción.
 - [x] GitHub Actions con typecheck + build en cada PR — `.github/workflows/ci.yml`
 - [x] Licencia acordada — `LICENSE`
 - [ ] `main` protegida: sin push directo, PR obligatorio
-- [ ] Dependabot activado
+- [x] Dependabot activado — `.github/dependabot.yml`, agrupado y semanal (npm) y mensual
+      (actions). Las actualizaciones de seguridad llegan sin agrupar, a propósito
 - [ ] Rama de staging y despliegue automático por entorno
 
 ### 1.2 🔴 BLOQUEANTE — Secretos en el historial
@@ -532,15 +544,29 @@ pasar por el Express.
 
 La §4 original asume renderizado en servidor. Estos son los equivalentes reales.
 
+**Cerrada en la Fase 7b** salvo lo que exige infraestructura o un móvil real.
+`docs/SEO.md` §5 es la referencia; las cifras medidas, en §11.8.
+
 - [x] Compresión y minificación por defecto de Vite en build de producción
 - [x] Fuente única (Inter) con `display=swap` y `preconnect` — `index.html`
-- [ ] Code-splitting por ruta con `React.lazy` — hoy todas las rutas entran en el bundle inicial
-- [ ] Análisis del bundle (`rollup-plugin-visualizer`) y presupuesto de tamaño
-- [ ] Imágenes: formatos modernos, `loading="lazy"`, `sizes` correcto, dimensiones explícitas
-      para evitar CLS
-- [ ] Imágenes servidas desde CDN, no desde el origen
-- [ ] Fuente autoalojada en vez de Google Fonts (evita una dependencia de terceros y mejora LCP)
-- [ ] Objetivos medidos en campo: LCP < 2.5 s en 4G, INP < 200 ms, CLS < 0.1, TTFB < 600 ms
+- [x] Code-splitting por ruta con `React.lazy` — `App.tsx`. La home se importa de forma ansiosa
+      a propósito (es donde aterriza la mayoría); las otras 15 rutas salieron del paquete
+      inicial. Carga inicial: **211,6 → 188,7 kB gzip**, y desaparece el aviso de Vite de
+      chunks > 500 kB
+- [x] Presupuesto de tamaño **que falla el build**, no un aviso —
+      `artifacts/antropic-store/scripts/bundle-budget.mjs`, encadenado a `build` y por tanto
+      bloqueante en CI. Mide el gzip de la carga inicial contra un tope de 225 kB e imprime el
+      desglose por chunk, que es el análisis que pedía este ítem sin añadir una dependencia
+      (`rollup-plugin-visualizer`) que solo corre a mano
+- [x] Imágenes: `loading="lazy"` y `decoding="async"` salvo el *hero*, que es el elemento LCP y
+      lleva `fetchPriority="high"`. CLS: los banners promocionales usaban `max-h-72`, que no
+      reserva espacio hasta que la imagen llega — el contenido de abajo saltaba en cada carga
+- [ ] Imágenes servidas desde CDN, no desde el origen — infraestructura. La imagen más pesada
+      del repositorio pesa 1,25 MB
+- [ ] Fuente autoalojada en vez de Google Fonts — mete binarios en `public/` y toca las dos
+      SPA; se dejó fuera para no mezclarlo con esta revisión
+- [ ] Objetivos medidos en campo: LCP < 2.5 s en 4G, INP < 200 ms, CLS < 0.1, TTFB < 600 ms —
+      exige el sitio desplegado
 - [ ] Probado en un móvil de gama media con red móvil real de Perú
 
 ---
@@ -672,18 +698,31 @@ Decisión tomada: **no se integra pasarela en este ciclo, pero se prepara la arq
 
 ### 8.1 SEO — el hueco más grande del frontend
 
-La tienda es una SPA con un `index.html` estático: **las 12 rutas comparten un único `<title>`**
-("ANTROPIC Store") y una única descripción. Un producto compartido a WhatsApp se ve como la home.
+**Cerrada en la Fase 7b**, con una dependencia externa explícita: nada de esto se activa
+hasta que el dominio esté decidido. `docs/SEO.md` es la referencia.
 
-- [x] `robots` correcto en el backoffice (`noindex, nofollow`)
-- [x] Open Graph y Twitter Card presentes a nivel de sitio — `index.html:9-13`
-- [ ] Meta título y descripción dinámicos por ruta
-- [ ] `sitemap.xml` generado incluyendo productos
-- [ ] `robots.txt` bloqueando carrito, checkout y cuenta
-- [ ] URLs canónicas
-- [ ] JSON-LD: `Product`, `Offer`, `BreadcrumbList`, `Organization`
-- [ ] Google Search Console verificado
-- `n/a` Vistas previas ricas en WhatsApp/Instagram por producto — requieren HTML pre-renderizado;
+- [x] `robots` correcto en el backoffice (`noindex, nofollow`), ahora también con su propio
+      `robots.txt` (`Disallow: /`): un rastreador que nunca pide la página tampoco lee su meta
+- [x] Open Graph y Twitter Card presentes a nivel de sitio — inyectados desde `lib/brand`
+- [x] Meta título y descripción dinámicos por ruta — `src/lib/seo.ts`, las 16 rutas
+- [x] `sitemap.xml` generado incluyendo productos — `GET /api/sitemap.xml`, desde la base y no
+      desde el build, porque el build congelaría la lista en el último despliegue
+- [x] `robots.txt` bloqueando carrito, checkout, cuenta, favoritos, login y detalle de pedido —
+      generado por el plugin de marca. `/libro-de-reclamaciones` queda fuera de la lista a
+      propósito: la ley exige que sea accesible, así que que se encuentre es parte de cumplir
+- [x] URLs canónicas, con la navegación por facetas canonicalizada (`docs/SEO.md` §2): la
+      búsqueda con término va `noindex`, la categoría tiene canónica propia, y talla/color/
+      orden canonicalizan hacia arriba en vez de acuñar una URL por combinación
+- [x] JSON-LD: `Product`, `Offer`, `BreadcrumbList`, `Organization`, `WebSite` —
+      `src/lib/structured-data.ts`. La disponibilidad del `Offer` sale del stock real
+- [ ] 🔴 **Publicar el dominio en `brand.siteUrl`.** Con `null` la tienda es deliberadamente no
+      indexable: `Disallow: /`, sin canónicas, sin JSON-LD y sitemap en 503. Es una línea, y
+      hasta que se escriba nada de lo anterior tiene efecto
+- [ ] Reescritura `/sitemap.xml → /api/sitemap.xml` en el borde. Sin ella el documento es
+      correcto pero nadie lo pide, porque el `robots.txt` lo anuncia en el origen de la tienda
+- [ ] Google Search Console verificado — trámite externo, requiere el dominio
+- `n/a` Vistas previas ricas en WhatsApp/Instagram por producto — sus rastreadores no ejecutan
+  JavaScript, así que los metadatos por ruta no las arreglan; requieren HTML pre-renderizado,
   descartado por decisión de alcance
 
 ### 8.2 Analítica
@@ -1100,7 +1139,80 @@ abiertas en Chromium con Playwright.
 > cuánto se conserva la constancia de un reclamo es una decisión del abogado, no un valor por
 > defecto elegido en el código. Ver `docs/OBSERVABILIDAD.md` §5.
 
-### 11.8 Pendiente
+### 11.8 Recogida en la Fase 7b
+
+Todo lo de abajo se obtuvo **ejecutando**: build real, Postgres 16 local con el catálogo
+sembrado, la API sirviendo, y Chromium conducido por Playwright contra el build servido —
+no contra el dev server, porque lo que se despliega es el build.
+
+**Un defecto real, del tipo que compila.** El plugin de marca generaba el `robots.txt` leyendo
+`process.env.VITE_PUBLIC_SITE_URL`. Vite **no** carga los `.env` en `process.env`, sino en su
+propio entorno resuelto. Resultado: un build con el origen correcto dentro del bundle y, junto a
+él, un `robots.txt` que decía «sin origen configurado» y `Disallow: /`. Typecheck limpio, build
+limpio, y la tienda entera fuera de Google. Se vio al abrir el archivo generado, no antes.
+Corregido leyendo `config.env` en el hook `configResolved`, que es el mismo conjunto de
+variables que ve el bundle.
+
+**Un segundo defecto, encontrado en el navegador.** La canónica de una ficha interpolaba el slug
+sin codificar. Con un slug que contiene `&` —posible, porque el slug se escribe a mano en el
+backoffice y nada lo sanea— la canónica salía
+`https://tienda.example/product/blusa&rayas`: el `&` termina la ruta, así que la canónica
+apuntaba a una página inexistente. Corregido en los tres sitios que construyen URLs de producto
+(canónica, JSON-LD y sitemap), con prueba de regresión en
+`modules/seo/sitemap.integration.test.ts`.
+
+**Metadatos por ruta, leídos del DOM en Chromium** (origen configurado a `https://tienda.example`):
+
+| Ruta | `robots` | `<title>` | Canónica |
+|---|---|---|---|
+| `/` | `index, follow` | `ANTROPIC Store` | `https://tienda.example/` |
+| `/search` | `index, follow` | `Catálogo · …` | `…/search` |
+| `/search?category=Tops` | `index, follow` | `Tops · …` | `…/search?category=Tops` |
+| `/search?q=blusa` | `noindex, nofollow` | `Resultados para "blusa" · …` | ninguna |
+| `/product/blusa%26rayas` | `index, follow` | `Bikini Tropical · …` | `…/product/blusa%26rayas` |
+| `/libro-de-reclamaciones` | `index, follow` | `Libro de Reclamaciones · …` | `…/libro-de-reclamaciones` |
+| `/cart`, `/checkout`, `/login` | `noindex, nofollow` | su propio título | ninguna |
+| ruta inexistente | `noindex, nofollow` | `Página no encontrada · …` | ninguna |
+
+En todas: **una sola** `<meta name="description">` y **una sola** `<link rel="canonical">`. Era
+el riesgo concreto de escribir en un `<head>` que ya trae etiquetas inyectadas en build; se
+comprobó contando nodos, no leyendo el código.
+
+JSON-LD presente y parseable: `Organization` + `WebSite` en la home, `Product` +
+`BreadcrumbList` en la ficha, `BreadcrumbList` en el catálogo.
+
+**Sitemap contra la base real** (`GET /api/sitemap.xml`, 20 productos sembrados):
+
+- Sin origen configurado: **503** con `SITE_URL_NOT_CONFIGURED`, no un documento con URLs
+  inventadas.
+- Con origen: **29 `<url>`** = 9 rutas estáticas + 20 productos, XML válido según
+  `xml.etree`, `Content-Type: application/xml`, `Cache-Control: public, max-age=86400`.
+- Al desactivar un producto: **28**. Comprobado desactivándolo de verdad y volviendo a pedir el
+  documento, no razonando sobre la consulta.
+- Slug con `&`: `…/product/blusa%26rayas`, y ningún `&` suelto en el documento.
+
+**La prueba de escapado se verificó por mutación**: rompiendo `escapeXml` a propósito, el caso
+falla; restaurado, pasa. Una prueba que no se ha visto fallar no se ha probado.
+
+**Tamaño del paquete, medido en el build:**
+
+| | Antes | Después |
+|---|---|---|
+| Carga inicial JS | 733,5 kB · **211,6 kB gzip**, un solo archivo | **188,7 kB gzip**, 4 archivos |
+| Rutas en el paquete inicial | 16 | 1 (la home, ansiosa a propósito) |
+| Aviso de Vite «> 500 kB» | sí | no |
+
+El presupuesto (225 kB gzip) corre encadenado a `build`, así que es bloqueante en CI: no es un
+número en un documento.
+
+**Puertas completas en verde**, con Postgres 16 local: `typecheck`, 63 pruebas unitarias
+(46 API + 17 marca), 53 de integración y `build` de los cuatro artefactos.
+
+**Lo que este entorno no puede dar, y por eso sigue abierto:** Lighthouse móvil con red 4G real,
+métricas de campo (LCP/INP/CLS), y la comprobación de que un buscador realmente indexa —
+requiere dominio, despliegue y Search Console.
+
+### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
 pendiente**. La suite de pruebas ya no es el bloqueo (§9.2); lo que falta depende de

@@ -6,8 +6,19 @@ import { ProductCarousel } from "../components/ProductCarousel";
 import { CategoryPills } from "../components/CategoryPills";
 import modelo_01 from "../assets/modelo_01.webp";
 import modelo_02 from "../assets/modelo_02.webp";
+import { useSeo } from "../lib/seo";
+import { organizationJsonLd, webSiteJsonLd } from "../lib/structured-data";
 
 export default function Home() {
+  useSeo({
+    description:
+      "Ropa y accesorios de mujer para el día a día y para ocasiones especiales. Novedades, lo más vendido y entrega a domicilio.",
+    path: "/",
+    // Organization and WebSite belong on the home page only: repeating them on every route
+    // does not strengthen the signal, it just duplicates it.
+    jsonLd: [organizationJsonLd(), webSiteJsonLd()],
+  });
+
   // The API orders featured products first, so the top 8 are the "most wanted".
   const { products } = useProducts();
   const { categories } = useCategories();
@@ -38,7 +49,16 @@ export default function Home() {
       {/* 1. Hero — one strong color block, 3-level type hierarchy */}
       <section className="flex flex-col md:flex-row w-full max-h-[800px] overflow-hidden">
         <div className="md:order-2 w-full md:w-1/2 h-[60vw] md:h-[600px] relative bg-muted">
-          <img src={heroImage} alt="Nueva colección" className="w-full h-full object-cover object-top" />
+          {/* The hero is the largest contentful paint on the page a visitor lands on. It is
+              deliberately NOT lazy — lazy-loading the LCP element delays the metric it
+              defines — and asks the browser to fetch it ahead of the rest. */}
+          <img
+            src={heroImage}
+            alt="Nueva colección"
+            className="w-full h-full object-cover object-top"
+            fetchPriority="high"
+            decoding="async"
+          />
         </div>
         <div className="md:order-1 w-full md:w-1/2 bg-primary text-primary-foreground flex flex-col justify-center items-center md:items-start text-center md:text-left p-12 md:p-20 lg:p-24">
           <span className="font-sans text-sm uppercase tracking-[0.25em] mb-4 text-primary-foreground/80">{heroSubtitle}</span>
@@ -65,11 +85,15 @@ export default function Home() {
       {promoBanners.length > 0 && (
         <section className="px-4 max-w-6xl mx-auto flex flex-col gap-4">
           {promoBanners.map((b) => (
-            <Link key={b.imageUrl} href="/search" className="block overflow-hidden">
+            // h-72 rather than max-h-72: a max height reserves nothing until the image
+            // arrives, so the content below jumped every time a banner loaded.
+            <Link key={b.imageUrl} href="/search" className="block overflow-hidden h-72">
               <img
                 src={b.imageUrl}
                 alt="Promoción"
-                className="w-full max-h-72 object-cover hover:scale-[1.02] transition-transform duration-500"
+                className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-500"
+                loading="lazy"
+                decoding="async"
               />
             </Link>
           ))}
@@ -81,7 +105,13 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row-reverse items-center gap-10">
           <div className="w-full md:w-1/2">
             <div className="aspect-[4/5] md:aspect-square overflow-hidden">
-              <img src={editorialImage} alt={editorialTitle} className="w-full h-full object-cover object-center" />
+              <img
+                src={editorialImage}
+                alt={editorialTitle}
+                className="w-full h-full object-cover object-center"
+                loading="lazy"
+                decoding="async"
+              />
             </div>
           </div>
           <div className="w-full md:w-1/2 flex flex-col items-center md:items-start text-center md:text-left text-foreground">

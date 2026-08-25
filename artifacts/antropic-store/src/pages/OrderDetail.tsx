@@ -19,11 +19,13 @@ import { fulfillmentStatusLabel, paymentStatusLabel } from "../lib/orders";
 import { apiErrorMessage } from "../lib/errors";
 import { supabase } from "../lib/supabase";
 import NotFound from "./not-found";
+import { useSeo } from "../lib/seo";
 
 const PROOF_BUCKET = "payment-proofs";
 const VERIFICATION_POLL_MS = 5000;
 
 export default function OrderDetail() {
+  useSeo({ title: "Detalle del pedido", noindex: true });
   const [, params] = useRoute("/orders/:id");
   const orderId = params?.id ?? "";
   const { user, authLoading } = useStore();

@@ -32,6 +32,7 @@ export function ProductCard({ product, compact = false, showPrice = true }: Prod
           alt={product.name}
           className="w-full h-full object-cover object-center transition-opacity duration-500 group-hover:opacity-0"
           loading="lazy"
+          decoding="async"
         />
         {hoverImage && (
           <img
@@ -40,6 +41,7 @@ export function ProductCard({ product, compact = false, showPrice = true }: Prod
             aria-hidden="true"
             className="absolute inset-0 w-full h-full object-cover object-center opacity-0 transition-opacity duration-500 group-hover:opacity-100"
             loading="lazy"
+            decoding="async"
           />
         )}
 

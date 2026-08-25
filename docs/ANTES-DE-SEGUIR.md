@@ -1,9 +1,9 @@
 # Antes de seguir con la siguiente fase
 
-Siete fases de auditoría están escritas, probadas y commiteadas. **Ninguna ha tocado todavía un
-entorno real.** Este documento es la lista de lo que hay que hacer antes de abrir la Fase 8, en el
-orden en que conviene hacerlo, y es corta a propósito: son seis cosas, cuatro de ellas no son
-código.
+Ocho fases de auditoría están escritas, probadas y fusionadas en `main`. **Ninguna ha tocado
+todavía un entorno real.** Este documento es la lista de lo que hay que hacer antes de abrir la
+Fase 8, en el orden en que conviene hacerlo, y es corta a propósito: casi nada de lo que queda
+es código.
 
 La razón de que exista: el valor de la Fase 7 es cero hasta que se despliega. Un outbox que nadie
 ejecuta no hace visible nada, y un `/readyz` al que no apunta ningún monitor es una ruta más en el
@@ -11,28 +11,14 @@ router. Lo mismo, en distinto grado, vale para las seis fases anteriores.
 
 ---
 
-## 1. Fusionar las ramas 6 y 7 — y en ese orden
+## 1. ~~Fusionar las ramas 6 y 7~~ — hecho
 
-**Es lo más urgente y lo único que empeora solo con el tiempo.**
+Las dos están en `main`, en el orden correcto: PR #5 (fase 6) primero, PR #6 (fase 7) después,
+las dos con *merge commit*. Un squash de la 6 habría reescrito los commits sobre los que estaba
+construida la 7 y habría reintroducido el problema que este apartado avisaba.
 
-| Rama | Contenido | ¿En `main`? |
-|---|---|---|
-| `claude/fase-6-arquitectura-pagos-s47c8t` | Arquitectura de pagos (§6.2) | **No** |
-| `claude/fase-7-observabilidad-yrdioe` | Observabilidad (§5, §8.3) — construida **encima** de la 6 | **No** |
-
-La Fase 7 no parte de `main`: parte de la punta de la Fase 6. Es decir, la rama de la 7 ya
-**contiene** los dos commits de la 6.
-
-Consecuencias prácticas:
-
-- Fusiona **primero la 6, después la 7**. Al revés, o solo la 7, el historial queda incoherente.
-- No fusiones la 7 esperando que sea un cambio pequeño: arrastra las dos fases.
-- Si alguna vez alguien rehace la rama de la 7 sobre `main` "para limpiarla", **revierte la
-  arquitectura de pagos entera**. Es el tipo de error que no da error: compila, pasa CI y devuelve
-  el código a un estado anterior sin que nadie lo note hasta que un pedido se aprueba dos veces.
-
-Cuando las dos estén en `main`, `main` vuelve a ser la verdad del proyecto y todo lo demás de esta
-lista se puede hacer contra un solo sitio.
+`main` vuelve a ser la verdad del proyecto, así que todo lo que sigue se hace contra un solo
+sitio.
 
 ---
 
@@ -155,13 +141,43 @@ habla con Postgres, pero **PostgREST está expuesto sobre la misma base**.
 
 ---
 
+## 7. Encender el SEO: dos cosas fuera del código
+
+La Fase 7b dejó el mecanismo entero montado y **apagado a propósito**, porque no hay dominio.
+
+1. **Publica el dominio** en `lib/brand/src/brand.ts`:
+   ```ts
+   siteUrl: "https://<el-dominio-real>",   // hoy: null
+   ```
+   Con `null`, el `robots.txt` sale `Disallow: /`, no se emite ninguna canónica ni JSON-LD y el
+   sitemap responde 503. Es el comportamiento correcto para un despliegue que no sabe su
+   dirección, y también significa que **hasta esa línea nada del SEO tiene efecto**.
+
+2. **Reescribe `/sitemap.xml` hacia la API** en el proxy inverso o en el hosting:
+   ```
+   /sitemap.xml  ->  /api/sitemap.xml
+   ```
+   El `robots.txt` anuncia el sitemap en el origen de la tienda, que es donde un rastreador lo
+   busca. Sin la reescritura el documento existe, es correcto, y nadie lo pide nunca.
+
+Después: verificar la propiedad en Google Search Console y enviarle el sitemap. Es trámite, y
+necesita el dominio ya publicado.
+
+---
+
 ## Y después, ¿qué fase?
 
-- **Si el contador responde pronto → Fase 8 (IGV).** Por lo caro que se vuelve después del clon.
-- **Si tarda → Fase 7b (SEO y rendimiento).** Es independiente de todo lo demás y no se encarece por
-  esperar: meta título y descripción por ruta, `sitemap.xml`, URLs canónicas, JSON-LD y
-  code-splitting. Hoy las 12 rutas comparten un `<title>` y un producto compartido a WhatsApp se ve
-  como la home, y eso cuesta ventas desde el primer día.
+La **7b (SEO y rendimiento) ya está hecha** — ver `docs/SEO.md`. Se eligió precisamente porque
+no dependía de ninguna respuesta externa. Dos cosas suyas quedan abiertas y **no son código**:
+publicar el dominio en `brand.siteUrl` y reescribir `/sitemap.xml` hacia la API en el borde.
+Hasta la primera, la tienda es deliberadamente no indexable.
 
-Si hubiera que elegir una sola cosa de todo este documento: **fusiona y despliega**. El código
-auditado que vive solo en ramas no protege a nadie.
+Queda entonces:
+
+- **Si el contador responde → Fase 8 (IGV).** Por lo caro que se vuelve después del clon: toca
+  `products`, `orders`, `order_items` y reinterpreta todos los totales ya guardados.
+- **Si no → Fase 9 (checkout de invitado).** El modelo ya está decidido (§1.4) y no es un
+  acantilado de esquema, así que cuesta lo mismo antes o después del fork.
+
+Si hubiera que elegir una sola cosa de todo este documento: **despliega**. El código auditado
+que nadie ejecuta no protege a nadie.

@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useStore } from "../context/StoreContext";
 import { useLocation } from "wouter";
 import { brand } from "@workspace/brand";
+import { useSeo } from "../lib/seo";
 
 export default function Login() {
+  useSeo({ title: "Iniciar sesión", noindex: true });
   const { signInWithGoogle, sendMagicLink, user } = useStore();
   const [, setLocation] = useLocation();
 

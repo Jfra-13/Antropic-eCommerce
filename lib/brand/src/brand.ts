@@ -33,6 +33,11 @@ export const brand: Brand = {
   deliveryZone: "La Molina",
   orderReferencePrefix: "ANT",
 
+  // No domain published yet. Set it to the real origin (no trailing slash) before launch:
+  // until then the storefront is deliberately not indexable. See types.ts for what depends
+  // on it, and docs/SEO.md §1 for the one-line change and how to verify it.
+  siteUrl: null,
+
   storefront: {
     title: "ANTROPIC Store",
     description: "Tienda de moda ANTROPIC.",

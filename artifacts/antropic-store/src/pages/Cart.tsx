@@ -11,10 +11,12 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { brand } from "@workspace/brand";
+import { useSeo } from "../lib/seo";
 
 type ShippingMode = "envio" | "recojo";
 
 export default function Cart() {
+  useSeo({ title: "Carrito", noindex: true });
   const { cart, cartLoading, updateQty, removeFromCart, user } = useStore();
   const { config } = useStoreConfig();
   const [, setLocation] = useLocation();

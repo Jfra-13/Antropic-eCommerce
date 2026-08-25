@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/accordion";
 import { useStoreConfig } from "../lib/config";
 import { brand } from "@workspace/brand";
+import { useSeo } from "../lib/seo";
 
 // Shown when the admin has not configured any FAQ entries — the page never renders empty.
 const DEFAULT_FAQ = [
@@ -37,6 +38,12 @@ const DEFAULT_FAQ = [
 ];
 
 export default function Faq() {
+  useSeo({
+    title: "Preguntas frecuentes",
+    description:
+      "Envíos, tallas, medios de pago y plazos de entrega: las dudas más comunes, respondidas.",
+    path: "/faq",
+  });
   const { config } = useStoreConfig();
   const entries = config?.faq && config.faq.length > 0 ? config.faq : DEFAULT_FAQ;
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { useCreateStockAlert } from "@workspace/api-client-react";
-import { findVariant, productStock, ALL_SIZES } from "../lib/product";
+import { findVariant, productPath, productStock, ALL_SIZES } from "../lib/product";
 import { useProduct, useProducts } from "../lib/catalog";
 import { useStore } from "../context/StoreContext";
 import { apiErrorMessage } from "../lib/errors";
@@ -10,6 +10,8 @@ import { ProductCarousel } from "../components/ProductCarousel";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import NotFound from "./not-found";
+import { metaDescription, useSeo } from "../lib/seo";
+import { breadcrumbJsonLd, productJsonLd } from "../lib/structured-data";
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:slug");
@@ -35,6 +37,32 @@ export default function ProductDetail() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [imageCount]);
+
+  // Called before the early returns below: hooks must run on every render, and this one has
+  // to describe both outcomes anyway — a slug that resolves to nothing is a 404 and must not
+  // be indexed under the product URL somebody mistyped.
+  useSeo(
+    product
+      ? {
+          title: product.name,
+          description: metaDescription(product.details, `${product.name} · ${product.category}`),
+          path: productPath(product.slug),
+          image: product.images[0],
+          jsonLd: [
+            productJsonLd(product),
+            breadcrumbJsonLd([
+              { name: "Inicio", path: "/" },
+              { name: "Catálogo", path: "/search" },
+              {
+                name: product.category,
+                path: `/search?category=${encodeURIComponent(product.category)}`,
+              },
+              { name: product.name, path: productPath(product.slug) },
+            ]),
+          ],
+        }
+      : { title: "Producto no encontrado", noindex: true },
+  );
 
   if (isLoading) {
     return (
