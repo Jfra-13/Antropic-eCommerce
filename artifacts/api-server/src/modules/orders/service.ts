@@ -85,6 +85,10 @@ type PricedOrder = {
 
 type Priced = { ok: true; priced: PricedOrder } | { ok: false; error: OrderFailure };
 
+function refuse(status: number, code: string, message: string): Priced {
+  return { ok: false, error: err(status, code, message) };
+}
+
 // Everything between "these are the lines" and "write the order", shared by account and guest
 // checkout so the two cannot drift: the delivery rules, the stock check and above all the
 // totals. A guest path that priced its own way would be a second place to get money wrong.
@@ -92,29 +96,29 @@ async function priceOrder(input: Placement, lines: CheckoutLine[]): Promise<Pric
   // Delivery method requirements.
   if (input.deliveryMethod === "delivery") {
     if (!input.shippingAddress?.trim()) {
-      return { ok: false, error: err(400, "SHIPPING_ADDRESS_REQUIRED", "shippingAddress is required for delivery") };
+      return refuse(400, "SHIPPING_ADDRESS_REQUIRED", "shippingAddress is required for delivery");
     }
   } else {
     if (!input.pickupPointId) {
-      return { ok: false, error: err(400, "PICKUP_POINT_REQUIRED", "pickupPointId is required for recojo") };
+      return refuse(400, "PICKUP_POINT_REQUIRED", "pickupPointId is required for recojo");
     }
     const pickup = await getActivePickupPoint(input.pickupPointId);
     if (!pickup) {
-      return { ok: false, error: err(400, "PICKUP_POINT_INVALID", "pickupPointId is not a valid active pickup point") };
+      return refuse(400, "PICKUP_POINT_INVALID", "pickupPointId is not a valid active pickup point");
     }
   }
 
   if (lines.length === 0) {
-    return { ok: false, error: err(409, "EMPTY_CART", "Cart is empty") };
+    return refuse(409, "EMPTY_CART", "Cart is empty");
   }
 
   // Validate stock but do NOT decrement — decrement happens at payment approval (fase 5).
   for (const line of lines) {
     if (!line.active) {
-      return { ok: false, error: err(409, "OUT_OF_STOCK", `Variant ${line.variantId} is no longer available`) };
+      return refuse(409, "OUT_OF_STOCK", `Variant ${line.variantId} is no longer available`);
     }
     if (line.stock < line.quantity) {
-      return { ok: false, error: err(409, "OUT_OF_STOCK", `Insufficient stock for SKU ${line.sku}`) };
+      return refuse(409, "OUT_OF_STOCK", `Insufficient stock for SKU ${line.sku}`);
     }
   }
 
@@ -130,7 +134,7 @@ async function priceOrder(input: Placement, lines: CheckoutLine[]): Promise<Pric
   let couponCode: string | null = null;
   if (input.couponCode) {
     const validation = await validateCoupon(input.couponCode, subtotalCents);
-    if (!validation.ok) return { ok: false, error: err(422, validation.error, "Coupon is not valid") };
+    if (!validation.ok) return refuse(422, validation.error, "Coupon is not valid");
     discountCents = validation.discountCents;
     couponId = validation.coupon.id;
     couponCode = validation.coupon.code;
@@ -248,7 +252,9 @@ export async function createOrder(
 
 // --- Guest checkout (auditoría §1.4) ---------------------------------------------------------
 
-export type GuestOrderResult = { ok: true; status: number; receipt: GuestOrderReceipt } | OrderFailure;
+export type GuestOrderResult =
+  | { ok: true; status: number; receipt: GuestOrderReceipt }
+  | OrderFailure;
 
 async function guestReceipt(order: Order): Promise<GuestOrderReceipt> {
   return { order: await buildOrderDto(order), accessToken: order.guestAccessToken! };
@@ -317,7 +323,9 @@ export async function createGuestOrder(input: CreateGuestOrderInput): Promise<Gu
     if (input.idempotencyKey && isUniqueViolation(e)) {
       const replay = await replayGuestOrder(input.idempotencyKey, email);
       // The key exists but not on a guest order: it is an account's key, and not ours to replay.
-      return replay ?? err(409, "IDEMPOTENCY_KEY_REUSED", "This idempotency key belongs to another order");
+      return (
+        replay ?? err(409, "IDEMPOTENCY_KEY_REUSED", "This idempotency key belongs to another order")
+      );
     }
     throw e;
   }

@@ -45,7 +45,9 @@ declare global {
 // generated for getGuestOrder validate all of them.
 export const requireGuestOrder: RequestHandler = async (req, res, next) => {
   const params = GetGuestOrderParams.safeParse(req.params);
-  const headers = GetGuestOrderHeader.safeParse({ [GUEST_TOKEN_HEADER]: req.get(GUEST_TOKEN_HEADER) });
+  const headers = GetGuestOrderHeader.safeParse({
+    [GUEST_TOKEN_HEADER]: req.get(GUEST_TOKEN_HEADER),
+  });
   const notFound = () => res.status(404).json({ code: "NOT_FOUND", message: "Order not found" });
   if (!params.success || !headers.success) {
     notFound();
@@ -55,7 +57,8 @@ export const requireGuestOrder: RequestHandler = async (req, res, next) => {
   const order = await getOrderById(params.data.id);
   // An order claimed into an account keeps its token on purpose: the links already sitting in
   // the customer's inbox have to keep working on a device where they are not logged in.
-  if (!order?.guestAccessToken || !tokensMatch(headers.data[GUEST_TOKEN_HEADER], order.guestAccessToken)) {
+  const presented = headers.data[GUEST_TOKEN_HEADER];
+  if (!order?.guestAccessToken || !tokensMatch(presented, order.guestAccessToken)) {
     notFound();
     return;
   }
