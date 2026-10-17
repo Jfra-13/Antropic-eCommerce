@@ -20,6 +20,8 @@ import {
   useRemoveCartItem,
   useMergeCart,
   getGetCartQueryKey,
+  useClaimGuestOrders,
+  getListOrdersQueryKey,
 } from '@workspace/api-client-react';
 import { supabase } from '../lib/supabase';
 import { useProducts } from '../lib/catalog';
@@ -57,6 +59,9 @@ interface StoreContextType {
   addToCart: (variantId: string, qty?: number) => void;
   removeFromCart: (variantId: string) => void;
   updateQty: (variantId: string, qty: number) => void;
+  // Empties the browser-side cart once a guest order has been placed from it. Logged in, the
+  // server clears its own cart inside the order transaction, so there is nothing to do.
+  clearGuestCart: () => void;
   user: AuthUser | null;
   authLoading: boolean;
   signInWithGoogle: () => Promise<AuthResult>;
@@ -112,7 +117,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(GUEST_CART_KEY, JSON.stringify(guestCart));
   }, [guestCart, user]);
 
-  const { products } = useProducts();
+  const { products, isLoading: productsLoading } = useProducts();
 
   const cartQuery = useGetCart({
     query: { enabled: !!user, queryKey: getGetCartQueryKey() },
@@ -170,7 +175,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const cart = user ? serverLines : guestLines;
-  const cartLoading = user ? cartQuery.isLoading : false;
+  // A guest cart is only ids until the catalogue arrives; reporting it as empty meanwhile would
+  // bounce a guest who lands straight on /checkout back to an "empty" cart.
+  const cartLoading = user ? cartQuery.isLoading : guestCart.length > 0 && productsLoading;
 
   const addToCart = (variantId: string, qty = 1) => {
     if (!user) {
@@ -213,6 +220,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateCartItem.mutate({ variantId, data: { quantity: qty } }, { onSuccess: writeCart });
   };
 
+  const clearGuestCart = () => {
+    localStorage.removeItem(GUEST_CART_KEY);
+    setGuestCart([]);
+  };
+
   // Merge the guest cart into the server cart once per login (sums quantities, clamps to
   // stock server-side). Mirrors the wishlist merge below.
   const cartMergedForUser = useRef<string | null>(null);
@@ -236,6 +248,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setGuestCart([]);
       });
     // mergeCart/queryClient are stable; merge is keyed on the user id only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Guest orders placed with this account's email become the account's orders once per login
+  // (auditoría §1.4), so "mis pedidos" shows them. The API only does it for a session that
+  // proves the email — magic link or Google, the only two ways in — and answers 403 otherwise;
+  // either way it is best-effort, because the emailed link keeps opening the order regardless.
+  const claimGuestOrders = useClaimGuestOrders();
+  const claimedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) {
+      claimedForUser.current = null;
+      return;
+    }
+    if (claimedForUser.current === user.id) return;
+    claimedForUser.current = user.id;
+
+    claimGuestOrders
+      .mutateAsync()
+      .then(({ claimed }) => {
+        if (claimed > 0) queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      })
+      .catch(() => {});
+    // claimGuestOrders/queryClient are stable; the claim is keyed on the user id only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -356,7 +392,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, addToCart, removeFromCart, updateQty, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
+    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, addToCart, removeFromCart, updateQty, clearGuestCart, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
       {children}
     </StoreContext.Provider>
   );

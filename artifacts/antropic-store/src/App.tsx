@@ -23,6 +23,7 @@ const Favorites = lazy(() => import("./pages/Favorites"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const OrderDetail = lazy(() => import("./pages/OrderDetail"));
+const GuestOrder = lazy(() => import("./pages/GuestOrder"));
 const Login = lazy(() => import("./pages/Login"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Faq = lazy(() => import("./pages/Faq"));
@@ -67,6 +68,7 @@ function Router() {
           <Route path="/cart" component={Cart} />
           <Route path="/checkout" component={Checkout} />
           <Route path="/orders/:id" component={OrderDetail} />
+          <Route path="/pedido/:id" component={GuestOrder} />
           <Route path="/login" component={Login} />
           <Route path="/profile" component={Profile} />
           <Route path="/faq" component={Faq} />

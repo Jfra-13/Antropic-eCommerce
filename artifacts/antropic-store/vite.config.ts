@@ -39,7 +39,7 @@ export default defineConfig({
     // is somebody's address. `/libro-de-reclamaciones` is deliberately NOT here: it is
     // legally required to be publicly reachable, and being findable is the point.
     brandHtmlPlugin(brand.storefront, {
-      disallow: ["/cart", "/checkout", "/profile", "/orders/", "/favorites", "/login"],
+      disallow: ["/cart", "/checkout", "/profile", "/orders/", "/pedido/", "/favorites", "/login"],
     }),
   ],
   resolve: {
