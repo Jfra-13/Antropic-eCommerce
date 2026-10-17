@@ -81,6 +81,18 @@ export const UpdateMeResponse = zod.object({
 
 
 /**
+ * @summary Move the guest orders placed with the caller's email into the caller's account. Only when the session proves control of that email (magic link or OAuth).
+ */
+export const claimGuestOrdersResponseClaimedMin = 0;
+
+
+
+export const ClaimGuestOrdersResponse = zod.object({
+  "claimed": zod.number().min(claimGuestOrdersResponseClaimedMin)
+})
+
+
+/**
  * @summary List categories (by default only those with at least one active product)
  */
 export const listCategoriesQueryIncludeEmptyDefault = false;
@@ -693,6 +705,222 @@ export const AttachPaymentProofResponse = zod.object({
 
 
 /**
+ * @summary Preview server-side totals for a guest cart sent in the body (no account)
+ */
+export const guestCheckoutQuoteBodyItemsItemQuantityMax = 99;
+
+export const guestCheckoutQuoteBodyItemsMax = 50;
+
+
+
+export const GuestCheckoutQuoteBody = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1).max(guestCheckoutQuoteBodyItemsItemQuantityMax)
+})).min(1).max(guestCheckoutQuoteBodyItemsMax),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "couponCode": zod.string().nullish()
+})
+
+export const GuestCheckoutQuoteResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "name": zod.string(),
+  "variantLabel": zod.string(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+})),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable()
+})
+
+
+/**
+ * @summary Place an order without an account (totals computed server-side). Returns the order and the access token that reaches it afterwards.
+ */
+export const createGuestOrderBodyEmailMax = 254;
+
+export const createGuestOrderBodyFullNameMax = 120;
+
+export const createGuestOrderBodyPhoneMax = 30;
+
+export const createGuestOrderBodyItemsItemQuantityMax = 99;
+
+export const createGuestOrderBodyItemsMax = 50;
+
+export const createGuestOrderBodyShippingAddressMax = 500;
+
+export const createGuestOrderBodyIdempotencyKeyMax = 128;
+
+
+
+export const CreateGuestOrderBody = zod.object({
+  "email": zod.string().email().max(createGuestOrderBodyEmailMax),
+  "fullName": zod.string().min(1).max(createGuestOrderBodyFullNameMax),
+  "phone": zod.string().min(1).max(createGuestOrderBodyPhoneMax),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1).max(createGuestOrderBodyItemsItemQuantityMax)
+})).min(1).max(createGuestOrderBodyItemsMax),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "shippingAddress": zod.string().max(createGuestOrderBodyShippingAddressMax).nullish().describe('Required when deliveryMethod is delivery'),
+  "pickupPointId": zod.string().uuid().nullish().describe('Required when deliveryMethod is recojo'),
+  "couponCode": zod.string().nullish(),
+  "idempotencyKey": zod.string().max(createGuestOrderBodyIdempotencyKeyMax).nullish().describe('Client-supplied key; a repeated key (with the same email) returns the same order')
+})
+
+export const CreateGuestOrderResponse = zod.object({
+  "order": zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+}),
+  "accessToken": zod.string().describe('Opens this order through the \/guest\/orders endpoints. The client keeps it; the customer also receives it inside the link of the confirmation email.')
+})
+
+
+/**
+ * @summary Get a guest order with its access token (used for payment status polling)
+ */
+export const GetGuestOrderParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const getGuestOrderHeaderXOrderTokenMax = 128;
+
+
+
+export const GetGuestOrderHeader = zod.object({
+  "X-Order-Token": zod.string().min(1).max(getGuestOrderHeaderXOrderTokenMax).describe('Access token of a guest order, as returned by createGuestOrder and emailed to the customer. A header and not a query parameter so it never lands in access logs.')
+})
+
+export const GetGuestOrderResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
+ * @summary Get a signed URL to upload a guest order's payment proof to private Storage
+ */
+export const CreateGuestPaymentProofUploadUrlParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const createGuestPaymentProofUploadUrlHeaderXOrderTokenMax = 128;
+
+
+
+export const CreateGuestPaymentProofUploadUrlHeader = zod.object({
+  "X-Order-Token": zod.string().min(1).max(createGuestPaymentProofUploadUrlHeaderXOrderTokenMax).describe('Access token of a guest order, as returned by createGuestOrder and emailed to the customer. A header and not a query parameter so it never lands in access logs.')
+})
+
+export const CreateGuestPaymentProofUploadUrlResponse = zod.object({
+  "uploadUrl": zod.string().describe('PUT the file to this URL (direct to private Storage)'),
+  "path": zod.string().describe('Storage object path to send back when attaching the proof'),
+  "token": zod.string()
+})
+
+
+/**
+ * @summary Attach an uploaded payment proof to a guest order and move it to verification
+ */
+export const AttachGuestPaymentProofParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const attachGuestPaymentProofHeaderXOrderTokenMax = 128;
+
+
+
+export const AttachGuestPaymentProofHeader = zod.object({
+  "X-Order-Token": zod.string().min(1).max(attachGuestPaymentProofHeaderXOrderTokenMax).describe('Access token of a guest order, as returned by createGuestOrder and emailed to the customer. A header and not a query parameter so it never lands in access logs.')
+})
+
+export const AttachGuestPaymentProofBody = zod.object({
+  "path": zod.string().describe('Storage object path returned by the upload-url endpoint'),
+  "amountReported": zod.string().nullish()
+})
+
+export const AttachGuestPaymentProofResponse = zod.object({
+  "id": zod.string().uuid(),
+  "orderNumber": zod.number(),
+  "referenceCode": zod.string(),
+  "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
+  "paymentMethod": zod.enum(['manual_yape']),
+  "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
+  "deliveryMethod": zod.enum(['delivery', 'recojo']),
+  "pickupPointId": zod.string().uuid().nullable(),
+  "shippingAddress": zod.string().nullable(),
+  "subtotal": zod.string(),
+  "shippingCost": zod.string(),
+  "discountAmount": zod.string(),
+  "total": zod.string(),
+  "couponCode": zod.string().nullable(),
+  "paymentProofStatus": zod.union([zod.literal('pendiente'),zod.literal('aprobado'),zod.literal('rechazado'),zod.literal(null)]).nullable(),
+  "createdAt": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid().nullable(),
+  "productName": zod.string(),
+  "variantLabel": zod.string().nullable(),
+  "sku": zod.string().nullable(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "lineTotal": zod.string()
+}))
+})
+
+
+/**
  * @summary List orders awaiting payment verification (oldest first), with a signed proof URL
  */
 export const listPaymentVerificationQueueQueryPageDefault = 1;
@@ -755,6 +983,7 @@ export const ListAdminOrdersResponse = zod.object({
   "referenceCode": zod.string(),
   "customerEmail": zod.string(),
   "customerName": zod.string().nullable(),
+  "customerIsGuest": zod.boolean().describe('The order was placed without an account (guest checkout). The customer reaches it through the link in their email, not by logging in.'),
   "deliveryMethod": zod.enum(['delivery', 'recojo']),
   "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),
@@ -781,6 +1010,7 @@ export const GetAdminOrderResponse = zod.object({
   "customerEmail": zod.string(),
   "customerName": zod.string().nullable(),
   "customerPhone": zod.string().nullable(),
+  "customerIsGuest": zod.boolean().describe('The order was placed without an account (guest checkout). The customer reaches it through the link in their email, not by logging in.'),
   "paymentStatus": zod.enum(['pendiente_pago', 'en_verificacion', 'pagado', 'rechazado', 'autorizado', 'expirado', 'reembolsado']),
   "paymentMethod": zod.enum(['manual_yape']),
   "fulfillmentStatus": zod.union([zod.literal('en_preparacion'),zod.literal('enviado'),zod.literal('entregado'),zod.literal('recojo_pendiente'),zod.literal('recogido'),zod.literal('cancelado'),zod.literal(null)]).nullable(),

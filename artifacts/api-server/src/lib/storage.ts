@@ -42,6 +42,18 @@ export function createProofUploadUrl(orderId: string): Promise<SignedUpload> {
   return signUpload(PROOF_BUCKET, `${orderId}/${randomUUID()}`);
 }
 
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const PROOF_PATH = new RegExp(`^(${UUID})/${UUID}$`, "i");
+
+// Whether `path` has the exact shape createProofUploadUrl issues for `orderId`. Attaching a
+// proof stores whatever path the client sends, and staff then open it as THIS order's
+// constancia — so a path under another order (or anywhere else in the bucket) would let one
+// order be "paid" with somebody else's receipt.
+export function isProofPathForOrder(path: string, orderId: string): boolean {
+  const match = PROOF_PATH.exec(path);
+  return match !== null && match[1]!.toLowerCase() === orderId.toLowerCase();
+}
+
 // Public read URL for an object in the public bucket (Yape QR, banners). No signing needed.
 export function publicMediaUrl(path: string): string {
   if (!SUPABASE_URL) throw new Error("SUPABASE_URL must be set to build public media URLs.");

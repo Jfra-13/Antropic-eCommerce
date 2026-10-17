@@ -10,6 +10,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { canTransitionPayment } from "../../lib/order-state";
 import type { Tx } from "../../lib/tx";
 import { providerFor } from "./providers";
+import { isUniqueViolation } from "../../lib/pg-errors";
 
 type PaymentStatus = Order["paymentStatus"];
 type PaymentMethod = Order["paymentMethod"];
@@ -73,21 +74,10 @@ class OutOfStockError extends Error {
 // event has been applied before.
 class DuplicateEventError extends Error {}
 
-// Postgres unique_violation (SQLSTATE 23505). The insert has to be allowed to fail rather than
+// The event insert has to be allowed to fail on payment_events_provider_event_idx rather than
 // be preceded by a SELECT: checking first and inserting second is a race, the constraint is not.
-//
-// The cause chain is walked deliberately. Drizzle wraps driver errors in a DrizzleQueryError
-// whose own `code` is undefined and hangs the pg error off `cause`, so reading `.code` on the
-// caught value alone returns nothing and the guard silently never fires — which is exactly how
-// this was found: the integration test below replayed an event, the index rejected it in
-// Postgres, and the "duplicate" result never came back because the wrapper hid the code.
-function isUniqueViolation(e: unknown): boolean {
-  for (let cur = e, depth = 0; cur != null && depth < 5; depth++) {
-    if (typeof cur === "object" && (cur as { code?: string }).code === "23505") return true;
-    cur = (cur as { cause?: unknown }).cause;
-  }
-  return false;
-}
+// isUniqueViolation walks the cause chain — see lib/pg-errors.ts for how this guard was once
+// silently inert.
 
 // THE critical transaction (planeación §2.5, §5.4; auditoría §6.2). Everything that moves an
 // order's payment status goes through here, whoever triggered it — a staff member approving a

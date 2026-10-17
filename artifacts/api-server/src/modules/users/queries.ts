@@ -9,13 +9,16 @@ export async function listProfiles(
   page: number,
   limit: number,
 ): Promise<{ rows: Profile[]; total: number }> {
-  const conds: SQL[] = [];
+  // Guest profiles are contact records behind guest orders, not accounts: nobody can log in as
+  // one, so they have no place in a list staff use to manage access. Their orders are found
+  // from the orders board.
+  const conds: SQL[] = [eq(profiles.isGuest, false)];
   if (role) conds.push(eq(profiles.role, role));
   if (q) {
     const like = `%${q}%`;
     conds.push(or(ilike(profiles.email, like), ilike(profiles.fullName, like))!);
   }
-  const where = conds.length ? and(...conds) : undefined;
+  const where = and(...conds);
   const offset = (page - 1) * limit;
 
   const rows = await db

@@ -22,6 +22,10 @@ tags:
     description: Order operations (create from cart, list/get own orders)
   - name: payments
     description: Payment proof upload (Yape/Plin constancia, owner-scoped)
+  - name: guest
+    description: >-
+      Checkout without an account. A guest order is reached with the access token returned when
+      it is placed (and emailed to the customer), sent in the X-Order-Token header.
   - name: admin
     description: Backoffice operations (employee/admin only)
   - name: config
@@ -139,6 +143,32 @@ paths:
                 $ref: "#/components/schemas/Me"
         "401":
           description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /me/guest-orders/claim:
+    post:
+      operationId: claimGuestOrders
+      tags: [auth]
+      summary: >-
+        Move the guest orders placed with the caller's email into the caller's account. Only
+        when the session proves control of that email (magic link or OAuth).
+      responses:
+        "200":
+          description: How many orders were moved (0 when there were none)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestOrderClaim"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: The session does not prove control of the email (e.g. password login)
           content:
             application/json:
               schema:
@@ -618,6 +648,188 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Order"
+        "400":
+          description: The path is not an upload issued for this order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Order not in a state that accepts a proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /guest/checkout/quote:
+    post:
+      operationId: guestCheckoutQuote
+      tags: [guest]
+      summary: Preview server-side totals for a guest cart sent in the body (no account)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestCheckoutQuoteInput"
+      responses:
+        "200":
+          description: Quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutQuote"
+        "409":
+          description: A line refers to a variant that is no longer sold
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Coupon invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /guest/orders:
+    post:
+      operationId: createGuestOrder
+      tags: [guest]
+      summary: >-
+        Place an order without an account (totals computed server-side). Returns the order and
+        the access token that reaches it afterwards.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGuestOrderInput"
+      responses:
+        "200":
+          description: Repeated idempotency key — the order it already created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestOrderReceipt"
+        "201":
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestOrderReceipt"
+        "400":
+          description: Invalid body (missing address/pickup point)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: The email belongs to a blocked account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Out of stock, or idempotency key reused with a different email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Coupon invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /guest/orders/{id}:
+    get:
+      operationId: getGuestOrder
+      tags: [guest]
+      summary: Get a guest order with its access token (used for payment status polling)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/OrderTokenHeader"
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found, or the token does not open this order (indistinguishable on purpose)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /guest/orders/{id}/payment-proof/upload-url:
+    post:
+      operationId: createGuestPaymentProofUploadUrl
+      tags: [guest]
+      summary: Get a signed URL to upload a guest order's payment proof to private Storage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/OrderTokenHeader"
+      responses:
+        "200":
+          description: Signed upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentProofUploadUrl"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /guest/orders/{id}/payment-proof:
+    post:
+      operationId: attachGuestPaymentProof
+      tags: [guest]
+      summary: Attach an uploaded payment proof to a guest order and move it to verification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/OrderTokenHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachPaymentProofInput"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: The path is not an upload issued for this order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
           description: Order not found
           content:
@@ -2162,6 +2374,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 components:
+  parameters:
+    OrderTokenHeader:
+      name: X-Order-Token
+      in: header
+      required: true
+      description: >-
+        Access token of a guest order, as returned by createGuestOrder and emailed to the
+        customer. A header and not a query parameter so it never lands in access logs.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
   schemas:
     HealthStatus:
       type: object
@@ -2631,6 +2855,101 @@ components:
           description: Client-supplied key; a repeated key returns the same order
       required:
         - deliveryMethod
+    GuestOrderItemInput:
+      type: object
+      properties:
+        variantId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 99
+      required:
+        - variantId
+        - quantity
+    GuestCheckoutQuoteInput:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/GuestOrderItemInput"
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        couponCode:
+          type: [string, "null"]
+      required:
+        - items
+        - deliveryMethod
+    CreateGuestOrderInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 30
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/GuestOrderItemInput"
+        deliveryMethod:
+          type: string
+          enum: [delivery, recojo]
+        shippingAddress:
+          type: [string, "null"]
+          maxLength: 500
+          description: Required when deliveryMethod is delivery
+        pickupPointId:
+          type: [string, "null"]
+          format: uuid
+          description: Required when deliveryMethod is recojo
+        couponCode:
+          type: [string, "null"]
+        idempotencyKey:
+          type: [string, "null"]
+          maxLength: 128
+          description: Client-supplied key; a repeated key (with the same email) returns the same order
+      required:
+        - email
+        - fullName
+        - phone
+        - items
+        - deliveryMethod
+    GuestOrderReceipt:
+      type: object
+      properties:
+        order:
+          $ref: "#/components/schemas/Order"
+        accessToken:
+          type: string
+          description: >-
+            Opens this order through the /guest/orders endpoints. The client keeps it; the
+            customer also receives it inside the link of the confirmation email.
+      required:
+        - order
+        - accessToken
+    GuestOrderClaim:
+      type: object
+      properties:
+        claimed:
+          type: integer
+          minimum: 0
+      required:
+        - claimed
     OrderItem:
       type: object
       properties:
@@ -2790,6 +3109,11 @@ components:
           type: string
         customerName:
           type: [string, "null"]
+        customerIsGuest:
+          type: boolean
+          description: >-
+            The order was placed without an account (guest checkout). The customer reaches it
+            through the link in their email, not by logging in.
         deliveryMethod:
           type: string
           enum: [delivery, recojo]
@@ -2810,6 +3134,7 @@ components:
         - referenceCode
         - customerEmail
         - customerName
+        - customerIsGuest
         - deliveryMethod
         - paymentStatus
         - fulfillmentStatus
@@ -2849,6 +3174,11 @@ components:
           type: [string, "null"]
         customerPhone:
           type: [string, "null"]
+        customerIsGuest:
+          type: boolean
+          description: >-
+            The order was placed without an account (guest checkout). The customer reaches it
+            through the link in their email, not by logging in.
         paymentStatus:
           type: string
           enum: [pendiente_pago, en_verificacion, pagado, rechazado, autorizado, expirado, reembolsado]
@@ -2900,6 +3230,7 @@ components:
         - customerEmail
         - customerName
         - customerPhone
+        - customerIsGuest
         - paymentStatus
         - paymentMethod
         - fulfillmentStatus

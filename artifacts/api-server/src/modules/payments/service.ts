@@ -7,7 +7,11 @@ import { getOrderForUser } from "../orders/queries";
 import { buildOrderDto } from "../orders/service";
 import { referenceCode } from "../orders/mappers";
 import { canTransitionPayment } from "../../lib/order-state";
-import { createProofUploadUrl, createProofDownloadUrl } from "../../lib/storage";
+import {
+  createProofUploadUrl,
+  createProofDownloadUrl,
+  isProofPathForOrder,
+} from "../../lib/storage";
 import * as notifications from "../notifications/service";
 import {
   attachProofAndVerify,
@@ -47,6 +51,15 @@ export async function attachProof(
 ): Promise<AttachResult> {
   const order = await getOrderForUser(userId, orderId);
   if (!order) return { ok: false, status: 404, code: "NOT_FOUND", message: "Order not found" };
+
+  if (!isProofPathForOrder(path, orderId)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "INVALID_PROOF_PATH",
+      message: "path is not an upload issued for this order",
+    };
+  }
 
   // Cheap pre-check for a clear error message. The binding check is inside the transaction
   // (settlePaymentTx), which is what makes two simultaneous uploads safe rather than lucky.

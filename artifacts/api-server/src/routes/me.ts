@@ -1,8 +1,14 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, profiles } from "@workspace/db";
-import { GetMeResponse, UpdateMeBody, UpdateMeResponse } from "@workspace/api-zod";
+import {
+  GetMeResponse,
+  UpdateMeBody,
+  UpdateMeResponse,
+  ClaimGuestOrdersResponse,
+} from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
+import { claimGuestOrders } from "../modules/orders/service";
 
 const router: IRouter = Router();
 
@@ -39,6 +45,17 @@ router.patch("/me", requireAuth, async (req, res) => {
     user.shippingAddress = p.shippingAddress;
   }
   res.json(UpdateMeResponse.parse({ user }));
+});
+
+// Called by the storefront once per login: guest orders placed with this email become the
+// account's orders (auditoría §1.4). Idempotent — a second call finds nothing left to move.
+router.post("/me/guest-orders/claim", requireAuth, async (req, res) => {
+  const result = await claimGuestOrders(req.user!);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.json(ClaimGuestOrdersResponse.parse({ claimed: result.claimed }));
 });
 
 export default router;

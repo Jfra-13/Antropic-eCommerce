@@ -52,6 +52,7 @@ import { toCategoryDto, toOccasionDto, toProductDto, toAdminProductDto } from ".
 import * as notifications from "../notifications/service";
 import { deletePublicMediaObjects } from "../../lib/storage";
 import { logger } from "../../lib/logger";
+import { pgErrorCode } from "../../lib/pg-errors";
 
 export async function getCategories(includeEmpty = false, includeInactive = false) {
   return (await selectCategories(includeEmpty, includeInactive)).map(toCategoryDto);
@@ -84,12 +85,6 @@ export async function getProductBySlug(slug: string) {
 export type AdminCatalogResult =
   | { ok: true; status: number; product: AdminProductDto }
   | { ok: false; status: number; code: string; message: string };
-
-function pgErrorCode(e: unknown): string | undefined {
-  return typeof e === "object" && e !== null && "code" in e
-    ? (e as { code?: string }).code
-    : undefined;
-}
 
 // name -> url-safe slug. Accents stripped, non-alphanumerics collapsed to single dashes.
 function slugify(name: string): string {

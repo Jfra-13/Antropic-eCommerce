@@ -25,7 +25,35 @@ export type AuthUser = {
   fullName: string | null;
   phone: string | null;
   shippingAddress: string | null;
+  // Whether THIS session proves the caller controls `email`. Not part of any response — it
+  // gates the one thing that hands data over by email alone: claiming guest orders.
+  emailProven: boolean;
 };
+
+// Sign-in methods that only succeed for whoever controls the mailbox: a magic link / OTP is
+// delivered to it, and the OAuth provider (Google) vouches for an address it has verified.
+// A password proves nothing about the address — with email confirmation switched off in the
+// Supabase dashboard, anyone can register any address — so it is deliberately absent, and an
+// anonymous session never qualifies.
+const EMAIL_PROVING_METHODS = new Set(["otp", "magiclink", "oauth"]);
+
+// Supabase writes `amr` either as RFC 8176 strings or as {method, timestamp} entries (custom
+// access-token hooks may emit either). Anything else, or no claim at all, is "not proven":
+// failing closed only costs a guest order that stays reachable through its emailed link.
+export function sessionProvesEmail(payload: Record<string, unknown>): boolean {
+  if (payload["is_anonymous"] === true) return false;
+  const amr = payload["amr"];
+  if (!Array.isArray(amr)) return false;
+  return amr.some((entry: unknown) => {
+    const method =
+      typeof entry === "string"
+        ? entry
+        : typeof entry === "object" && entry !== null
+          ? (entry as { method?: unknown }).method
+          : undefined;
+    return typeof method === "string" && EMAIL_PROVING_METHODS.has(method);
+  });
+}
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -72,6 +100,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
 
   let sub: string;
   let email: string;
+  let emailProven: boolean;
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: ISSUER,
@@ -83,6 +112,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     }
     sub = payload.sub;
     email = typeof payload["email"] === "string" ? payload["email"] : "";
+    emailProven = sessionProvesEmail(payload);
   } catch {
     res.status(401).json({ code: "UNAUTHENTICATED", message: "Invalid or expired token" });
     return;
@@ -101,6 +131,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     fullName: profile.fullName,
     phone: profile.phone,
     shippingAddress: profile.shippingAddress,
+    emailProven,
   };
   next();
 };

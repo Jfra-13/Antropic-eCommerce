@@ -182,7 +182,10 @@ export default function Orders() {
                     <td className="px-4 py-3 font-medium">{o.referenceCode}</td>
                     <td className="px-4 py-3 text-slate-600">{fecha(o.createdAt)}</td>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-slate-900">{o.customerName ?? "—"}</div>
+                      <div className="font-medium text-slate-900">
+                        {o.customerName ?? "—"}
+                        {o.customerIsGuest && <GuestBadge />}
+                      </div>
                       <div className="text-xs text-slate-500">{o.customerEmail}</div>
                     </td>
                     <td className="px-4 py-3 capitalize text-slate-600">{o.deliveryMethod}</td>
@@ -257,6 +260,11 @@ function OrderDetail({ id, onClose }: { id: string; onClose: () => void }) {
               <DetailRow label="Fecha" value={fecha(data.createdAt)} />
               <DetailRow label="Cliente" value={data.customerName ?? "—"} />
               <DetailRow label="Correo" value={data.customerEmail} />
+              {data.customerIsGuest && (
+                // Staff answering this customer must not send them to "inicia sesión": there is
+                // no account. Their way in is the link in the order email.
+                <DetailRow label="Cuenta" value="Sin cuenta — compró como invitado" />
+              )}
               {data.customerPhone && <DetailRow label="Teléfono" value={data.customerPhone} />}
               <DetailRow label="Pago" value={PAYMENT_LABEL[data.paymentStatus]} />
               <DetailRow
@@ -374,5 +382,13 @@ function PaymentHistory({ orderId }: { orderId: string }) {
         </ol>
       )}
     </div>
+  );
+}
+
+function GuestBadge() {
+  return (
+    <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+      Invitado
+    </span>
   );
 }

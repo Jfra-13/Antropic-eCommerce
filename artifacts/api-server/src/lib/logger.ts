@@ -8,6 +8,8 @@ export const logger = pino({
   redact: [
     "req.headers.authorization",
     "req.headers.cookie",
+    // A guest order's access token is as good as a session for that order.
+    'req.headers["x-order-token"]',
     "res.headers['set-cookie']",
   ],
   ...(isProduction
