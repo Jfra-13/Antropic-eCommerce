@@ -22,7 +22,7 @@ se verificaron.
 Resumen ejecutivo para retomar el trabajo sin leer el documento entero. El detalle de cada punto
 está en su sección; la evidencia de ejecución, en §11.
 
-### Hecho (fases 0–7b)
+### Hecho (fases 0–7b y 9)
 
 | Fase | Qué entregó | Dónde |
 |---|---|---|
@@ -35,6 +35,7 @@ está en su sección; la evidencia de ejecución, en §11.
 | **6** | Arquitectura de pagos: transacción de liquidación agnóstica de proveedor, interfaz `PaymentProvider`, `payment_events` con idempotencia de webhooks, estados ampliados y caducidad de pedidos abandonados | §6.2 · `docs/PAGOS.md`, `modules/payments/settlement.ts` |
 | **7** | Observabilidad: outbox de notificaciones con reintentos y visibilidad en el panel, id de petición extremo a extremo, `/readyz` que sí comprueba la base, pantalla de Operaciones y `ErrorBoundary` en las dos SPA | §5, §8.3 · `docs/OBSERVABILIDAD.md`, `modules/notifications/outbox.ts` |
 | **7b** | SEO y rendimiento: metadatos y canónicas por ruta, `robots.txt` y `sitemap.xml` generados, JSON-LD, code-splitting por ruta y presupuesto de tamaño que falla el build | §4, §8.1 · `docs/SEO.md`, `src/lib/seo.ts`, `modules/seo/` |
+| **9** | Checkout de invitado: perfil de invitado por pedido, token de acceso en el enlace del correo, subida de constancia sin cuenta, enlace de los pedidos a la cuenta al iniciar sesión (solo con correo probado), y aviso «Invitado» en el panel | §1.4 · `modules/orders/guest-access.ts`, `modules/orders/service.ts`, `pages/GuestOrder.tsx` |
 
 > **Fusión:** todas las fases hasta la 7 están en `main` (PR #5 la fase 6, PR #6 la fase 7, en
 > ese orden y con merge commit para no reescribir la base sobre la que estaba construida la 7).
@@ -58,6 +59,16 @@ Y un sexto en la Fase 7b, del mismo tipo exacto: el plugin de marca leía
 bundle y un `robots.txt` que decía «sin origen configurado» — es decir, `Disallow: /` sobre una
 tienda perfectamente configurada. Compilaba, pasaba typecheck y solo se vio al mirar el archivo
 generado. Detalle en §11.8.
+
+Y en la Fase 9, **la misma familia que la Fase 6, dos veces más**: el `isUniqueViolation` de
+pedidos y el `pgErrorCode` del catálogo leían `.code` del error, que drizzle deja en `.cause`.
+El doble clic en «Confirmar» con la misma clave de idempotencia respondía **500** en vez de
+devolver el pedido, y un slug o SKU duplicado en el backoffice, **500** en vez de 409. Ahora hay
+un solo helper que recorre la cadena (`lib/pg-errors.ts`). Al probar la otra intercalación del
+mismo doble clic apareció un tercero: si la segunda petición leía el carrito justo después de
+que la primera lo vaciara, respondía `EMPTY_CART`. Y un cuarto, de seguridad: la constancia se
+adjuntaba con **cualquier** ruta que mandara el cliente, así que un pedido podía «pagarse» con la
+constancia subida para otro. Detalle en §11.10.
 
 La Fase 7 no encontró un sexto defecto de ese tipo en el código existente, pero sí lo encontró en
 **una prueba recién escrita**: un caso llamado «se registra como fallido cuando el correo no está
@@ -97,7 +108,12 @@ módulo de entorno sí se puede sustituir. Detalle en §11.7.
 | # | Fase | Por qué en este orden |
 |---|---|---|
 | 1 | **8 · IGV y base fiscal** | Bloqueada por la confirmación del contador (§2.4). Es el último cambio de esquema que se encarece de verdad con el clon: toca catálogo, pedidos y líneas, y reinterpreta totales ya guardados |
-| 2 | **9 · Checkout de invitado** | Modelo ya decidido (§1.4). Va al final justo porque **no** es un acantilado de esquema: el perfil de invitado no obliga a migrar nada, así que cuesta lo mismo antes o después del fork |
+
+La **9 (checkout de invitado) está hecha** (§1.4, §11.10). Deja dos cosas fuera del código:
+**`STORE_URL` pasa a ser imprescindible** —sin ella el correo de confirmación de un invitado sale
+sin el botón «Ver mi pedido», y su único camino de vuelta es la memoria del navegador donde
+compró— y **probar el enlace de pedidos a la cuenta contra el Supabase real**, porque depende del
+claim `amr` del token y aquí solo se pudo verificar con tokens firmados en local.
 
 La **7b (SEO y rendimiento) está hecha** (§4, §8.1, `docs/SEO.md`). Deja dos cosas abiertas que
 no son código y sin las cuales no sirve de nada: **publicar el dominio en `brand.siteUrl`** —
@@ -240,8 +256,8 @@ la evidencia de ejecución, en §11.4.
 - [x] Búsqueda con overlay y página dedicada — `SearchOverlay.tsx`, `pages/Search.tsx`
 - [x] Filtros por categoría — `CategoryPills.tsx`
 - [x] Costo de envío calculado en servidor antes de confirmar — `checkout/service.ts:35`
-- [~] Checkout como invitado: **hoy exige cuenta** (`orders` tiene `user_id NOT NULL`). Modelo
-      decidido y **aplazado a propósito** — ver la nota al final de esta sección
+- [x] Checkout como invitado — **Fase 9**, con el modelo decidido abajo. Detalle de lo que se
+      hizo y de dónde se apartó de la nota original en «Implementado» al final de esta sección
 - [ ] Indicador de progreso en el checkout
 - [ ] Guía de tallas
 - [ ] Stock visible tipo "últimas 3 unidades"
@@ -279,6 +295,45 @@ por el que el cliente reencuentra su pedido.
 Lo que costará cuando se haga: enlazar por correo el perfil de invitado con la cuenta que ese mismo
 correo cree después (si no, los pedidos quedan huérfanos), y reutilizar el perfil existente en la
 segunda compra — `profiles.email` **no** tiene constraint `UNIQUE` hoy.
+
+#### Implementado (Fase 9, octubre 2026)
+
+El modelo es el de arriba: **perfil de invitado**, `orders.user_id` sigue `NOT NULL` y los
+`innerJoin(profiles, …)` no se tocaron. Lo que añade y por qué:
+
+- **Migración `0003_guest_checkout`**: `profiles.is_guest` (con índice parcial sobre
+  `lower(email)`) y `orders.guest_access_token`. Columnas nuevas con valor por defecto: no
+  reinterpretan nada de lo guardado.
+- **El camino de vuelta es un token, no una cuenta.** Al crear el pedido se emite un token de 256
+  bits que abre **ese** pedido —verlo y subir su constancia— y nada más. Viaja en la cabecera
+  `X-Order-Token`, nunca en la URL de la API, y en el correo va en el `#fragmento` del enlace
+  (`/pedido/:id#token`), que el navegador no envía a ningún servidor. Cualquier fallo —pedido
+  inexistente, pedido de cuenta, token ausente o equivocado— es el mismo 404, para no revelar qué
+  pedidos existen.
+- **Se guarda tal cual, no como hash**, a propósito: cada correo posterior (constancia recibida,
+  pago confirmado, enviado…) tiene que reconstruir el mismo enlace, y un hash no se puede
+  deshacer. Protege lo mismo que la fila en la que está.
+- **Se apartó de la nota original en un punto: NO se reutiliza el perfil por correo.** Un perfil
+  por pedido. El correo es texto escrito en un formulario y el contacto vive en el perfil, así que
+  reutilizarlo permitía a cualquiera reescribir el nombre y el teléfono que el personal ve en el
+  pedido pendiente de un desconocido, solo con poner su correo. El coste son contactos duplicados,
+  que el enlace a la cuenta fusiona después.
+- **Enlace a la cuenta (`POST /me/guest-orders/claim`)**: al iniciar sesión, la tienda mueve los
+  pedidos de invitado con ese correo a la cuenta (`orders.user_id` y `coupon_redemptions`) y copia
+  el contacto del invitado **solo en los campos vacíos** de la cuenta. **Solo si la sesión prueba
+  el control del correo** (`amr` = `otp`, `magiclink` u `oauth`): con una contraseña y la
+  confirmación de correo apagada, cualquiera podría registrar el correo ajeno y llevarse pedidos,
+  dirección y teléfono. Los perfiles de invitado no se borran: `payment_events.actor_id` los
+  sigue señalando como quien subió la constancia.
+- **Una cuenta bloqueada no se salta comprando como invitado**: el correo de una cuenta bloqueada
+  recibe 403.
+- **Devoluciones**: siguen exigiendo cuenta. Al invitado se le indica que ingrese con el mismo
+  correo; el enlace le trae el pedido y desde ahí puede abrir la solicitud.
+- **Panel**: aviso «Invitado» en pedidos y en el detalle (para no mandar a nadie a «inicia
+  sesión»), y los perfiles de invitado no aparecen en Usuarios, que es una lista de cuentas.
+- **Abuso**: el pedido de invitado comparte los límites del pedido con cuenta (`writeLimiter`,
+  `quoteLimiter`, `uploadUrlLimiter`). Manda un correo a la dirección que se escriba, así que no
+  podía tener un presupuesto más holgado que el de una cuenta.
 
 ---
 
@@ -797,6 +852,10 @@ Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en com
       romper CI — `lib/brand/src/no-hardcoded-brand.test.ts`. Verificada por mutación (§11.4).
       El paso de CI dejó de filtrarse a `api-server` y corre `pnpm run test` sobre todo el
       workspace, para que una suite nueva en cualquier paquete sea bloqueante por defecto
+- [x] **Checkout de invitado** (Fase 9): 23 pruebas de integración + 10 unitarias sobre el
+      token, el enlace a la cuenta, la idempotencia y la ruta de la constancia, más 2 de regresión
+      para las violaciones de unicidad que respondían 500. Las siete guardas nuevas, **verificadas
+      por mutación**: rota cada una, falla exactamente su prueba (§11.10)
 - [ ] **Prueba de RLS**: leer pedidos de otro usuario con la anon key debe fallar. La sonda está
       escrita (§3.2) pero necesita credenciales de Supabase; no se puede ejecutar en CI todavía
 - [ ] E2E con Playwright del flujo completo. El login depende de Supabase (magic link / OAuth), que
@@ -1212,6 +1271,84 @@ número en un documento.
 métricas de campo (LCP/INP/CLS), y la comprobación de que un buscador realmente indexa —
 requiere dominio, despliegue y Search Console.
 
+### 11.10 Recogida en la Fase 9
+
+Todo se obtuvo **ejecutando**: Postgres 16 local, migraciones replicadas, catálogo sembrado, la
+API construida y sirviendo, el storefront en Chromium conducido por Playwright, y —para lo que
+exige sesión— un JWKS local que firma tokens con la forma de los de Supabase, incluido `amr`.
+
+**Cuatro defectos reales, ninguno visible al compilar:**
+
+1. **Doble clic en «Confirmar» → 500.** `isUniqueViolation` en `orders/service.ts` leía `.code`,
+   pero drizzle cuelga el error de Postgres de `.cause`: la guarda de idempotencia nunca se
+   disparaba y la segunda petición caía al manejador de errores. Es el defecto de la Fase 6, en
+   otro archivo. Lo destapó la prueba de concurrencia del pedido de invitado, y se confirmó que el
+   pedido **con cuenta** tenía el mismo fallo.
+2. **Slug o SKU duplicado en el backoffice → 500 en vez de 409**, por el mismo motivo en
+   `catalog/service.ts`. Los dos usan ahora `lib/pg-errors.ts`, que recorre la cadena de causas.
+3. **La otra intercalación del mismo doble clic → `EMPTY_CART`.** Si la segunda petición leía el
+   carrito después de que la primera lo vaciara, respondía «carrito vacío» en vez del pedido que
+   la clave promete. Ahora vuelve a buscar la clave antes de responder eso. La prueba repite la
+   carrera cinco veces para que salgan las dos intercalaciones; sin el arreglo falla en cada
+   corrida.
+4. **Constancia de otro pedido.** `attachProof` guardaba cualquier ruta que enviara el cliente.
+   Con eso, un pedido podía «pagarse» con la constancia subida para otro, y el personal la
+   revisaría como propia. Ahora la ruta tiene que ser exactamente `{pedido}/{uuid}`, la forma que
+   emite el endpoint de subida para ese pedido.
+
+**Verificación por mutación** de las guardas nuevas: cada una se rompió a propósito y se corrió
+la suite de invitado. Falla exactamente la prueba que la cubre y ninguna otra.
+
+| Guarda rota | Prueba que falla |
+|---|---|
+| `emailProven` en el enlace a la cuenta | «refuses when the session does not prove the email» |
+| Ruta de la constancia | «refuses a path that was issued for another order» |
+| Comparación del token | «answers the same 404 for a wrong token, …» |
+| Correo de cuenta bloqueada | «refuses an email whose account staff have blocked» |
+| Correo en la repetición por clave | «will not hand an order and its token to a caller with a different email» |
+| No sobrescribir el contacto de la cuenta | «never overwrites what the customer already put in their account» |
+| Filtro de invitados en Usuarios | «lists accounts only» |
+
+Y el helper de `.cause`: al revertirlo a la lectura antigua fallan cinco pruebas, entre ellas la
+de idempotencia de webhooks de la Fase 6.
+
+**Por HTTP, contra la API construida:**
+
+- Pedido de invitado `201`, mismo cuerpo con la misma clave `200`, correo inválido `400`,
+  recojo sin punto `400`.
+- `GET /guest/orders/:id` con el token `200`; con token equivocado, sin token o sobre un pedido
+  de cuenta, `404` idéntico. La ruta de cuenta sin sesión sigue en `401`.
+- El preflight CORS admite `X-Order-Token`.
+- El token **no aparece en el log** de la API (se buscó literalmente).
+- El correo de confirmación queda en el outbox como `guest_order_placed` con el enlace
+  `/pedido/{id}#{token}` (sale «fallido» porque aquí no hay Resend, que es lo esperado).
+- Enlace a la cuenta con tokens firmados: sesión de **contraseña → 403**; sesión de **enlace
+  mágico → `{"claimed":2}`**, los dos pedidos pasan a `GET /orders`, el perfil vacío recibe
+  nombre, teléfono y dirección del invitado; un segundo intento → `{"claimed":0}`; y el enlace
+  viejo del correo **sigue abriendo** el pedido.
+- El panel recibe `customerIsGuest: true` en un pedido de invitado y `false` después del enlace.
+
+**En Chromium (Playwright):** compra completa de invitado desde el carrito, aterrizaje en
+`/pedido/:id` con las instrucciones de Yape y el código `ANT-n`, carrito vaciado, recarga que
+conserva el pedido; el enlace del correo abierto en otro dispositivo (390 px) abre el pedido y
+borra el `#token` de la barra de direcciones; sin token pide el enlace del correo; con token
+equivocado lo rechaza; sin desbordamiento horizontal en móvil. Con una sesión inyectada: el
+enlace a la cuenta se dispara solo al entrar, «Mis pedidos» muestra el pedido que era de
+invitado, y un **checkout con cuenta** completo sigue funcionando después del refactor.
+
+**Un defecto encontrado en el navegador:** pegar el enlace del correo en una pestaña que ya
+mostraba `/pedido/:id` sin token solo cambia el fragmento. No hay navegación ni remontaje, así
+que la página seguía pidiendo el enlace. Ahora escucha `hashchange`.
+
+**Puertas completas en verde**, con Postgres 16 local: `typecheck`, 74 pruebas unitarias
+(56 API + 18 marca), 78 de integración y `build` de los cuatro artefactos. Carga inicial del
+storefront: 189,2 kB gzip (presupuesto 225 kB; antes 188,7 kB).
+
+**Lo que este entorno no puede dar:** el enlace a la cuenta contra el **Supabase real**. Depende
+de que el token de acceso traiga `amr` con `otp`/`magiclink`/`oauth`. Los tipos de
+`@supabase/auth-js` lo declaran así y si el claim no está la guarda falla cerrada: el pedido
+sigue accesible por su enlace. Aun así, conviene verlo una vez con un inicio de sesión de verdad.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
@@ -1244,9 +1381,8 @@ Actualizadas respecto al documento original, descartando las que ya tienen respu
    IGV— ya tiene respuesta: en B2C peruano el precio exhibido es el total, y el modelo de
    almacenamiento está decidido en §2.4. Lo que queda es **de tu contador**: el régimen tributario
    determina si hay algo que desagregar. Bloquea la implementación de §2.4.
-4. ~~**¿El checkout debe permitir invitados?**~~ **Respondida:** sí, con perfil de invitado, y
-   aplazada a propósito. Ver §1.4. No es un acantilado de esquema, así que no se encarece con el
-   clon.
+4. ~~**¿El checkout debe permitir invitados?**~~ **Respondida e implementada (Fase 9):** sí,
+   con perfil de invitado. Ver §1.4 y §11.10.
 5. **¿Quién concilia los Yape recibidos contra los pedidos aprobados, y con qué frecuencia?** Es el
    punto ciego del flujo manual: un pedido aprobado por error no lo detecta nadie.
 6. **¿El stock de la web es el mismo que el de la tienda física?** Si sí, quién actualiza qué y cada
@@ -1260,5 +1396,5 @@ Actualizadas respecto al documento original, descartando las que ya tienen respu
 
 ---
 
-**Última revisión de código:** 2026-08-19 · **Normativa citada:** vigente a agosto de 2026.
+**Última revisión de código:** 2026-10-17 · **Normativa citada:** vigente a agosto de 2026.
 Verificar cada punto legal con un abogado antes de lanzar.

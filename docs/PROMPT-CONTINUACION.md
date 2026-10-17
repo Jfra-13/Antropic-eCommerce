@@ -16,7 +16,7 @@ Contexto en una línea: Antropic es una tienda peruana (Vite SPA + Express 5 + D
 pg.Pool + Supabase solo para Auth/Storage + verificación manual de constancias Yape/Plin). Se está
 puliendo para después clonarla a una segunda marca con repo y base de datos separados.
 
-Las fases 0 a 7 están hechas: documento de auditoría; endurecimiento de la API (CORS, helmet, rate
+Las fases 0 a 7b y la 9 están hechas: documento de auditoría; endurecimiento de la API (CORS, helmet, rate
 limiting, contrato de entorno); Libro de Reclamaciones + textos legales + registro de
 consentimiento; suites de pruebas bloqueantes en CI; clonabilidad (identidad de marca como dato en
 lib/brand, con una prueba en CI que impide que vuelva al código); migraciones versionadas
@@ -25,10 +25,14 @@ de proveedor en modules/payments/settlement.ts, interfaz PaymentProvider, tabla 
 idempotencia de webhooks, y caducidad de pedidos abandonados); y observabilidad (outbox
 notification_deliveries con reintentos y job retry-notifications, id de petición extremo a extremo,
 /readyz que comprueba la base, pantalla de Operaciones en el panel y ErrorBoundary en las dos SPA).
-docs/PAGOS.md y docs/OBSERVABILIDAD.md son las referencias de esas dos fases.
+docs/PAGOS.md y docs/OBSERVABILIDAD.md son las referencias de esas dos fases. La 7b dejó SEO
+por ruta, sitemap y code-splitting (docs/SEO.md). La 9, checkout de invitado: un perfil de
+invitado por pedido, un token de acceso que abre ese pedido (cabecera X-Order-Token, #fragmento
+en el enlace del correo), y el paso de esos pedidos a la cuenta al iniciar sesión, solo si la
+sesión prueba el correo (AUDITORIA §1.4 y §11.10).
 
-Ojo con las ramas: las fases 0–5 están en main, pero las fases 6 y 7 no. La 7 se construyó encima
-de la rama de la 6, así que fusionarlas fuera de orden revierte la arquitectura de pagos.
+Todo lo fusionado vive en main. Lo único pendiente de código es la Fase 8 (IGV), bloqueada por
+el contador.
 
 El entorno de desarrollo importa: se trabaja desde Claude Code en la web, sin laptop. Ese contenedor
 puede levantar Postgres 16 local, correr las suites de integración de verdad, arrancar los dev
@@ -80,23 +84,20 @@ conversación entera cada vez. Dos consecuencias prácticas:
 - **No dejes vigilancia automática de PRs en sesiones largas.** Cada despertar reprocesa todo el
   historial; en una conversación corta sale a cuenta, en una larga no.
 
-## Estado operativo al cierre de la Fase 7
+## Estado operativo al cierre de la Fase 9
 
 Cosas que una sesión nueva no puede deducir del código y que cuesta caro redescubrir.
 
 ### Lo que sigue pendiente, en orden recomendado
 
-1. **Fase 7b · SEO y rendimiento** (§4, §8.1). La otra mitad del título de la Fase 7, separada a
-   propósito: meta por ruta (las 12 comparten un `<title>`, así que un producto compartido a
-   WhatsApp se ve como la home), `sitemap.xml`, `robots.txt`, canónicas, JSON-LD, y code-splitting
-   con `React.lazy` — el bundle del storefront pesa 733 kB y el propio `build` lo avisa.
-2. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
+1. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
    ya está decidido: precio bruto en el catálogo y snapshot fiscal congelado en el pedido, con la
    derivación por resta para que base + impuesto cuadre siempre. Es el último cambio de esquema
    que se encarece de verdad con el clon.
-3. **Fase 9 · checkout de invitado** (§1.4). Modelo ya decidido: perfil de invitado sin cuenta de
-   Supabase, **no** `user_id` nullable. Va al final justo porque no necesita migración y por tanto
-   no se encarece con el fork.
+
+Las fases 7b (SEO y rendimiento) y 9 (checkout de invitado) están hechas. Lo que dejan abierto
+no es código: dominio en `brand.siteUrl` y reescritura de `/sitemap.xml` (7b), y `STORE_URL`
+configurada más una prueba del enlace a la cuenta con un inicio de sesión real (9).
 
 ### Decisiones ya tomadas que NO hay que volver a discutir
 
@@ -105,6 +106,11 @@ Cosas que una sesión nueva no puede deducir del código y que cuesta caro redes
 - **Invitados:** perfil de invitado. Se descartó `user_id` nullable porque hay cinco
   `innerJoin(profiles, …)` sobre `orders.user_id` y un pedido de invitado desaparecería de la cola
   de verificación. Motivo en §1.4.
+- **Un perfil de invitado por pedido, nunca reutilizado por correo** (Fase 9): reutilizarlo
+  permitía reescribir el contacto del pedido pendiente de un desconocido escribiendo su correo.
+- **Los pedidos de invitado pasan a la cuenta solo si la sesión prueba el correo** (`amr` =
+  `otp`/`magiclink`/`oauth`). Una contraseña no prueba nada sobre el correo. Se mueve
+  `orders.user_id`; no se añade una segunda vía de propiedad que cada consulta tenga que conocer.
 - **Pasarela de pago:** no se integra ninguna en este ciclo. La arquitectura está lista y el
   contrato del webhook documentado en `docs/PAGOS.md` §5. **No crear el endpoint** hasta que haya
   pasarela: una ruta pública que aún no verifica firma es una puerta abierta.
@@ -162,7 +168,10 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
 
    Detalle en `docs/PAGOS.md` §4.
 
-3. **Programar el job de reintento de correos** (Fase 7), cada 5 minutos. Sin él, un correo que
+3. **`STORE_URL` en la API** (Fase 9). Sin ella, el correo de un pedido de invitado sale sin el
+   enlace que es su único camino de vuelta.
+
+4. **Programar el job de reintento de correos** (Fase 7), cada 5 minutos. Sin él, un correo que
    falle una vez se queda en la cola:
 
    ```
