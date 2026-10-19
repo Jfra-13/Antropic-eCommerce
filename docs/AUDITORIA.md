@@ -1480,6 +1480,66 @@ Matiz aceptado: en `POST /guest/orders` el secreto es la `idempotencyKey`, no el
 lo es). El contrato no le exige longitud mínima; la tienda la genera con `crypto.randomUUID()`,
 y una clave débil solo expone el pedido de quien la eligió.
 
+**Backoffice y operaciones (Fase C)**
+
+En `/admin/*` los ids son de recursos del negocio, no de un cliente, así que la pregunta deja
+de ser «¿es tuyo?» y pasa a ser «¿tu rol puede?». La base es una sola línea:
+`router.use("/admin", requireAuth, requireRole("employee", "admin"))` en
+`modules/admin/router.ts`. `adminRouter` se monta el último y ningún otro router declara rutas
+bajo `/admin`, así que no hay ruta que llegue antes que el filtro. El rol se lee de
+`profiles.role` en cada petición, no de un claim del JWT: degradar o bloquear a alguien surte
+efecto en su siguiente petición, sin esperar a que caduque el token.
+
+| Ruta | Id | Control | Prueba |
+|---|---|---|---|
+| todas las `/admin/*` | — | `requireAuth` + `requireRole("employee", "admin")`; un `customer` = 403, sin token = 401, bloqueado = 403 | sin prueba |
+| `GET /admin/payments/queue`, `POST /admin/orders/:id/{approve,reject}`, `GET /admin/orders/:id/payment-events` | URL | personal (filtro global); el cambio de estado pasa por `settlePaymentTx` | sin prueba del rol |
+| `GET /admin/orders[/:id]`, `GET /admin/shipments`, `POST /admin/orders/:id/fulfillment` | URL | personal | sin prueba del rol |
+| `GET/POST /admin/products`, `PATCH /admin/products/:id`, `POST /admin/products/:id/{variants,media}`, `POST /admin/products/import`, `PATCH /admin/variants/:id`, `DELETE /admin/media/:id` | URL | personal | sin prueba del rol |
+| `POST/PATCH /admin/{categories,occasions}[/:id]` | URL | personal | sin prueba del rol |
+| `DELETE /admin/{products,categories,occasions}/:id` | URL | `requireRole("admin")` por ruta; más estricto que la matriz (que deja al empleado editar catálogo), a propósito: borrar no se deshace | sin prueba |
+| `GET/POST/PATCH/DELETE /admin/coupons[/:id]` | URL | `adminOnly` | sin prueba |
+| `GET/PATCH /admin/returns[/:id]` | URL | personal | sin prueba del rol |
+| `GET/PATCH /admin/complaints[/:id]` | URL | personal; responder es un acto legal, ver decisión abierta abajo | sin prueba del rol |
+| `GET/POST /admin/users`, `PATCH /admin/users/:id` | URL | `adminOnly`; `updateUser` rechaza cambiar el rol o el bloqueo propios (`SELF_MODIFY`), así que siempre queda al menos el admin que actúa | sin prueba |
+| `GET/PUT /admin/config`, `POST /admin/config/media/upload-url`, `GET/POST/PATCH/DELETE /admin/pickup-points[/:id]` | URL | `adminOnly` | sin prueba |
+| `GET /admin/reports` | — | `adminOnly` | sin prueba |
+| `GET /admin/dashboard` | — | personal, **mismo cuerpo para los dos roles** | **hueco**, ver abajo |
+| `GET /admin/ops`, `GET /admin/notifications`, `POST /admin/notifications/:id/retry` | URL | personal. La lista del outbox no expone el cuerpo renderizado (solo destinatario, asunto, estado); el reintento solo acepta un envío `fallido` | sin prueba del rol |
+
+Las rutas públicas de este bloque (`GET /config`, `GET /pickup-points`, `/sitemap.xml`,
+`/healthz`, `/readyz`) no reciben ids ni escriben. `GET /config` devuelve una proyección
+(`getPublicConfig`), no la configuración de administración.
+
+Huecos (para la Fase D):
+
+- **El empleado recibe las cifras financieras del dashboard.** `getDashboard()` no conoce el
+  rol: `salesToday`, `salesTodayDeltaPct` y `avgTicket` salen igual para un empleado que para
+  el admin. La matriz (requerimientos §6, `FLUJOS-ROLES-Y-MEJORAS.md` §3) da al empleado una
+  vista limitada, sin cifras financieras, y pone ventas del día y ticket promedio en el
+  dashboard del admin. Ocultarlo en el panel no corrige nada: el dato ya viajó en la respuesta.
+  Corrección elegida: la API arma la respuesta según el rol (`getDashboard(role)`), y en el
+  contrato `kpis` pasa a ser nulable. Se descartó un endpoint separado por rol, porque obliga a
+  duplicar la consulta y cada métrica nueva tendría que decidir a cuál de los dos va.
+- **Ningún filtro de rol tiene prueba.** Si alguien borra el `router.use` o un `adminOnly`,
+  ninguna prueba falla. La Fase D no añade una prueba por ruta, que se queda vieja con la
+  primera ruta nueva. Añade una sola que recorre las rutas registradas en el router de admin y
+  exige que cada una esté clasificada como «personal» o «solo admin»: comprueba que un
+  `customer` recibe 403 en todas, y un `employee` 403 en las de solo admin. Una ruta nueva sin
+  clasificar hace fallar la prueba, así que la decisión de rol no se puede saltar.
+
+Decisión abierta (negocio, no código): **quién responde los reclamos.** Hoy un empleado puede
+contestar un reclamo (`PATCH /admin/complaints/:id`), y esa respuesta es la que se le envía al
+consumidor como parte de la Hoja de Reclamación. La matriz de roles es anterior al Libro de
+Reclamaciones y no lo menciona, y «quién responde en 30 días» ya figura como trámite pendiente.
+Si el negocio lo restringe al admin, el cambio es un `adminOnly` en esa ruta y una línea en la
+clasificación de la prueba.
+
+Observación: `PATCH /admin/users/:id` también acepta el id de un perfil de invitado. Cambiarle
+el rol o el bloqueo no tiene efecto, porque detrás no hay una cuenta con la que iniciar sesión.
+Corregirle el nombre o el teléfono actualiza el contacto de sus pedidos abiertos, que es lo que
+se espera cuando el personal arregla un dato.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
