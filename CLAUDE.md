@@ -12,6 +12,7 @@ pnpm run build                                        # typecheck + build all pa
 pnpm run typecheck                                    # tsc --build libs, then typecheck artifacts/scripts
 pnpm run test                                         # vitest unit tests (no database)
 pnpm run test:integration                             # vitest against real Postgres (requires DATABASE_URL)
+pnpm run test:integration:local                       # same, against a Docker Postgres it starts + migrates
 pnpm --filter @workspace/api-server run build          # required before `start` after any API change
 pnpm --filter @workspace/api-server run start          # run API server (requires PORT, DATABASE_URL)
 pnpm --filter @workspace/api-server run expire-orders   # scheduled job: close unpaid abandoned orders
@@ -45,7 +46,9 @@ Quality gates are `typecheck`, `test`, `test:integration` and `build`, and CI ru
 Integration tests **truncate tables**. The harness (`artifacts/api-server/src/test/db.ts`) refuses
 to run against any host other than localhost, so point `DATABASE_URL` at a throwaway database and
 apply the schema first with `pnpm --filter @workspace/db run migrate`. There is no default
-`DATABASE_URL` for them on purpose.
+`DATABASE_URL` for them on purpose. Locally, `pnpm run test:integration:local` does all of it
+against the throwaway Postgres in `docker-compose.test.yml` (same image as CI, port 5433, data
+in tmpfs); `pnpm run test:db:down` stops it.
 
 Tests live next to the code they cover: `*.test.ts` for unit, `*.integration.test.ts` for the ones
 that need a database.

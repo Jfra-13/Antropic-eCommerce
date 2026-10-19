@@ -34,9 +34,10 @@ nunca por correo (AUDITORIA §1.4 y §11.10).
 Todo lo fusionado vive en main. Lo único pendiente de código es la Fase 8 (IGV), bloqueada por
 el contador.
 
-El entorno de desarrollo importa: se trabaja desde Claude Code en Windows (Git Bash), SIN
-Postgres local. Las pruebas de integración solo corren en CI: push y esperar el run en verde es
-parte de validar. Build local: `MSYS_NO_PATHCONV=1 PORT=3000 BASE_PATH=/`. No existe `rtk`; usa
+El entorno de desarrollo importa: se trabaja desde Claude Code en Windows (Git Bash). Hay
+Docker Desktop (arráncalo si el daemon no responde): `pnpm run test:integration:local` levanta un
+Postgres desechable igual al de CI, aplica las migraciones y corre la integración. Córrelo ANTES
+de cada push; CI es la confirmación, no el primer lugar donde se ejecuta una prueba. Build local: `MSYS_NO_PATHCONV=1 PORT=3000 BASE_PATH=/`. No existe `rtk`; usa
 los comandos normales. Tampoco hay acceso al proyecto Supabase real ni a la administración del
 repositorio en GitHub, así que las pantallas con sesión no se pueden ver en navegador; la API sí
 se puede probar levantando un JWKS local y firmando un token (se hizo en las Fases 6, 7 y 9).
