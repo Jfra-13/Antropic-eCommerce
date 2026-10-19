@@ -277,9 +277,17 @@ async function guestReceipt(order: Order): Promise<GuestOrderReceipt> {
 
 // A repeated idempotency key returns the order it already created — and its token — only to a
 // caller presenting the same email. Anything else is somebody else's key.
+//
+// Once the order has been claimed into an account it is never handed back here (the account's
+// email would be the only check left, and the token would leave anonymously), but it is still
+// reported as placed: the retry comes from the browser that placed it, typically after a lost
+// response, and an answer that reads as "try again" ends in a reload, a new key and a duplicate.
 async function replayGuestOrder(key: string, email: string): Promise<GuestOrderResult | null> {
   const existing = await getGuestOrderByIdempotencyKey(key);
   if (!existing) return null;
+  if (existing.claimed) {
+    return err(409, "ORDER_CLAIMED", "This order was placed and now belongs to an account");
+  }
   if (existing.email.toLowerCase() !== email) {
     return err(409, "IDEMPOTENCY_KEY_REUSED", "This idempotency key belongs to another order");
   }

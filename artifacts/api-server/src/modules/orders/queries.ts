@@ -177,23 +177,17 @@ export async function getOrderByIdempotencyKey(
 // is never returned to an anonymous caller, whatever key they hold.
 export async function getGuestOrderByIdempotencyKey(
   key: string,
-): Promise<{ order: Order; email: string } | undefined> {
+): Promise<{ order: Order; email: string; claimed: boolean } | undefined> {
   const rows = await db
-    .select({ order: orders, email: profiles.email })
+    .select({ order: orders, email: profiles.email, isGuest: profiles.isGuest })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
-    // is_guest: once a claim re-points the order to an account, its profile is the account's
-    // and the order stops being replayable. Otherwise anyone holding the key plus the account
-    // email could get the claimed order and its access token back anonymously.
-    .where(
-      and(
-        eq(orders.idempotencyKey, key),
-        isNotNull(orders.guestAccessToken),
-        eq(profiles.isGuest, true),
-      ),
-    )
+    // Placed as a guest (it has a token), whoever owns it now: a claimed order must still be
+    // found, or the guest's own retry would read as a fresh key and place it twice.
+    .where(and(eq(orders.idempotencyKey, key), isNotNull(orders.guestAccessToken)))
     .limit(1);
-  return rows[0];
+  const row = rows[0];
+  return row && { order: row.order, email: row.email, claimed: !row.isGuest };
 }
 
 // Whether an ACCOUNT with this email has been blocked by staff. Guest checkout asks so that

@@ -20,6 +20,7 @@ const CODE_MESSAGES: Record<string, string> = {
   IN_STOCK: "¡Esta variante ya tiene stock! Recarga la página.",
   EMAIL_REQUIRED: "Ingresa tu correo para avisarte.",
   BLOCKED: "No podemos procesar pedidos con este correo. Escríbenos para revisarlo.",
+  ORDER_CLAIMED: "Tu pedido ya quedó registrado y está en tu cuenta. Inicia sesión para verlo.",
   IDEMPOTENCY_KEY_REUSED: "Hubo un problema al confirmar tu pedido. Recarga la página e inténtalo de nuevo.",
   INVALID_PROOF_PATH: "No pudimos asociar la constancia a tu pedido. Vuelve a subirla.",
 };
