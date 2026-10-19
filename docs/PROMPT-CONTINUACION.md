@@ -90,8 +90,10 @@ abierta: quién responde reclamos) · D (los tres huecos corregidos con su prueb
 de dos usuarios y el barrido de rutas de admin; evidencia en §11.11; PR #23 en borrador con CI
 en verde) · E (scripts/check-client-bundle.mjs al final de `pnpm run build`: dist/ sin el
 nombre de la variable, sin `sb_secret_` y sin JWT con role=service_role; probado plantando
-secretos falsos, evidencia en §11.11). Sigue:
-F cierre de AUDITORIA §3.1/§3.2, PR y revisión con contexto limpio.
+secretos falsos, evidencia en §11.11) · F (§3.1/§3.2 cerrados en lo que no necesita
+credenciales, revisión con contexto limpio sin hallazgos bloqueantes, prueba de roles
+endurecida, PR #23 listo para revisión). Lo que queda de §3.2 (RLS, vistas y RPC) necesita el
+proyecto Supabase real.
 
 Antes de escribir código, dime tu plan.
 ```
@@ -129,8 +131,8 @@ Matices de esa última revisión, aceptados a sabiendas (no son defectos):
 
 ### Lo que sigue pendiente, en orden recomendado
 
-1. **Seguridad sin credenciales** (§3.1 IDOR, §3.2 service role en el bundle). Es lo siguiente
-   que se puede hacer hoy; el prompt de arriba ya apunta ahí.
+1. **Seguridad sin credenciales** (§3.1 IDOR, §3.2 service role en el bundle): hecha, PR #23.
+   Falta fusionarlo.
 2. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
    ya está decidido: precio bruto en el catálogo y snapshot fiscal congelado en el pedido, con la
    derivación por resta para que base + impuesto cuadre siempre. Es el último cambio de esquema

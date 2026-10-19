@@ -36,6 +36,7 @@ está en su sección; la evidencia de ejecución, en §11.
 | **7** | Observabilidad: outbox de notificaciones con reintentos y visibilidad en el panel, id de petición extremo a extremo, `/readyz` que sí comprueba la base, pantalla de Operaciones y `ErrorBoundary` en las dos SPA | §5, §8.3 · `docs/OBSERVABILIDAD.md`, `modules/notifications/outbox.ts` |
 | **7b** | SEO y rendimiento: metadatos y canónicas por ruta, `robots.txt` y `sitemap.xml` generados, JSON-LD, code-splitting por ruta y presupuesto de tamaño que falla el build | §4, §8.1 · `docs/SEO.md`, `src/lib/seo.ts`, `modules/seo/` |
 | **9** | Checkout de invitado: perfil de invitado por pedido, token de acceso en el enlace del correo, subida de constancia sin cuenta, paso de los pedidos a la cuenta presentando el token de cada uno (nunca por correo), contacto del pedido como única fuente de lectura, y aviso «Invitado» en el panel | §1.4 · `modules/orders/guest-access.ts`, `modules/orders/service.ts`, `pages/GuestOrder.tsx` |
+| **Seg.** | Revisión de seguridad sin credenciales: tabla ruta → control → prueba de cada endpoint que recibe un id, tres huecos corregidos con su prueba (referencia de pedido inexistente en reclamos, cifras financieras al empleado, filtros de rol sin prueba), prueba de dos clientes por HTTP, y comprobación en el build de que ningún secreto de service role llega al bundle | §3.1, §3.2, §11.11 · `routes/ownership.integration.test.ts`, `modules/admin/roles.integration.test.ts`, `scripts/check-client-bundle.mjs` |
 
 > **Fusión:** todas las fases hechas están en `main` (PR #5 la fase 6, PR #6 la fase 7, PR #7 la
 > 7b y PR #21 la 9, con merge commit). La 9 se fusionó tras tres rondas de revisión y una cuarta
@@ -508,7 +509,8 @@ aplicabilidad no. Sin esa confirmación no se escribe el cálculo.
 
 ### 3.1 🔴 BLOQUEANTE — Superficie de la API
 
-**Cerrado en la Fase 1** salvo los dos últimos ítems. Cada punto se verificó ejecutando el servidor,
+**Cerrado en la Fase 1** salvo los dos últimos ítems; la revisión de IDOR se cerró en la revisión
+de seguridad (§11.11). Solo queda el captcha. Cada punto se verificó ejecutando el servidor,
 no solo compilándolo; la evidencia está en §11.1.
 
 - [x] **Allowlist de CORS** por entorno vía `CORS_ORIGINS` — `app.ts`. Producción falla al arrancar
@@ -537,7 +539,10 @@ no solo compilándolo; la evidencia está en §11.1.
       todos los visitantes en un mismo cubo y un solo cliente ruidoso bloquea a todos; con `true`
       a ciegas, un atacante forja `X-Forwarded-For` y estrena cubo en cada petición
 - [ ] Captcha o equivalente en formularios públicos
-- [ ] Endpoints revisados uno por uno para IDOR
+- [x] Endpoints revisados uno por uno para IDOR — tabla ruta → control → prueba en §11.11. Los
+      tres huecos encontrados se corrigieron con su prueba de integración; quedan dos latentes
+      documentados (`returns.photo_path`, `consents.email`) que se vuelven hueco con un cambio
+      concreto, y una decisión de negocio abierta (quién responde los reclamos)
 
 **Hallazgo lateral de la Fase 1:** `STORE_URL` se usaba en `modules/notifications/templates.ts` sin
 estar documentada en ningún `.env.example`. Ya está en el contrato como opcional.
@@ -547,6 +552,9 @@ estar documentada en ningún `.env.example`. Ya está en el contrato como opcion
 Aquí RLS no es el control principal, pero **PostgREST está expuesto sobre la misma base de datos**
 y la anon key es pública por diseño. Sin RLS, cualquiera puede leer las tablas directamente sin
 pasar por el Express.
+
+Lo que se puede cerrar desde el código está cerrado (la clave fuera del bundle). Los otros tres
+ítems necesitan el proyecto Supabase real y siguen abiertos: no se marcan por inferencia.
 
 - [ ] RLS habilitado en todas las tablas, verificado tabla por tabla
 - [~] Probado con la anon key desde fuera de la app. **La sonda está escrita y sin ejecutar**:
@@ -1543,6 +1551,11 @@ Huecos (corregidos en la Fase D):
   mismo esquema pero es solo admin. El panel omite la fila de KPIs y la columna de ingreso cuando
   vienen en `null`. Prueba (HTTP, para que un router que pasara el rol equivocado también falle):
   «keeps sales figures out of an employee's dashboard, and gives them to the admin».
+
+  Matiz aceptado (revisión de la Fase F): lo que se le quita al empleado son los **agregados**.
+  El total de cada pedido sigue llegándole en `/admin/orders[/:id]` y en la cola de pagos,
+  porque aprobar un pago es justamente comparar el monto de la constancia con ese total. Con
+  paciencia podría sumarlos; impedirlo le impediría verificar pagos, que es su trabajo.
 - **Ningún filtro de rol tiene prueba.** Si alguien borra el `router.use` o un `adminOnly`,
   ninguna prueba falla. La Fase D no añade una prueba por ruta, que se queda vieja con la
   primera ruta nueva. Añade una sola que recorre las rutas registradas en el router de admin y
@@ -1556,6 +1569,12 @@ Huecos (corregidos en la Fase D):
   «answers 403 to an employee on admin-only routes, and lets them through the staff ones»: la
   segunda mitad detecta también una ruta de personal que quedara solo para admin. Los `:id` se
   sustituyen por un uuid que no existe, así que el barrido no escribe nada.
+
+  Endurecida tras la revisión con contexto limpio (Fase F): la enumeración solo ve rutas
+  declaradas directamente en `adminRouter`, así que la prueba ahora rechaza cualquier
+  sub-router montado con `use` (sus rutas escaparían del barrido; verificado plantando uno: la
+  prueba falla). Y en las rutas de personal exige además `< 500`: una ruta que pasa el filtro
+  pero revienta es igual de inservible para el equipo.
 
 Decisión abierta (negocio, no código): **quién responde los reclamos.** Hoy un empleado puede
 contestar un reclamo (`PATCH /admin/complaints/:id`), y esa respuesta es la que se le envía al
