@@ -31,7 +31,8 @@ const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Checkout() {
   useSeo({ title: "Finalizar compra", noindex: true });
-  const { user, authLoading, cart, cartLoading, clearGuestCart } = useStore();
+  const { user, authLoading, cart, cartLoading, clearGuestCart, unresolvedCartItems, removeFromCart } =
+    useStore();
   // Without a session this is a guest checkout (auditoría §1.4): same screen, same server-side
   // totals, plus an email field — the order's way back to the customer, since there is no
   // account to find it in.
@@ -109,6 +110,11 @@ export default function Checkout() {
   useEffect(() => {
     if (authLoading || cartLoading) return;
     if (isGuest && guestItems.length === 0) return;
+    // Never quote (or order) a partial cart: the totals would omit the unavailable lines.
+    if (isGuest && unresolvedCartItems.length > 0) {
+      setQuote(null);
+      return;
+    }
     const handlers = {
       onSuccess: (q: CheckoutQuote) => {
         setQuote(q);
@@ -141,12 +147,12 @@ export default function Checkout() {
     }
     // The mutation objects are recreated per render; re-quote only on real input changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, cartLoading, deliveryMethod, appliedCoupon, isGuest ? cartKey : ""]);
+  }, [user, authLoading, cartLoading, deliveryMethod, appliedCoupon, isGuest ? cartKey : "", unresolvedCartItems.length]);
 
   if (authLoading || cartLoading) {
     return <Centered>Cargando…</Centered>;
   }
-  if (cart.length === 0 && !createOrder.isSuccess) {
+  if (cart.length === 0 && unresolvedCartItems.length === 0 && !createOrder.isSuccess) {
     setLocation("/cart");
     return null;
   }
@@ -159,6 +165,7 @@ export default function Checkout() {
 
   const canConfirm =
     quote !== null &&
+    unresolvedCartItems.length === 0 &&
     !createOrder.isPending &&
     !updateMe.isPending &&
     fullName.trim().length > 0 &&
@@ -487,6 +494,27 @@ export default function Checkout() {
                     </div>
                   </div>
                 </>
+              )}
+
+              {unresolvedCartItems.length > 0 && (
+                <div className="text-sm text-destructive mt-4">
+                  <p className="font-bold">Algunos productos de tu carrito ya no están disponibles.</p>
+                  <p className="mb-2">Quítalos para continuar; no los incluiremos en tu pedido.</p>
+                  <ul>
+                    {unresolvedCartItems.map((item) => (
+                      <li key={item.variantId} className="flex items-center justify-between gap-2">
+                        <span>Producto no disponible (x{item.qty})</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFromCart(item.variantId)}
+                          className="underline"
+                        >
+                          Quitar
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
 
               {quoteError && (

@@ -56,6 +56,10 @@ interface StoreContextType {
   toggleFavorite: (id: string) => void;
   cart: CartLine[];
   cartLoading: boolean;
+  // Guest cart variants the loaded catalogue no longer knows (deactivated product). They are
+  // not in `cart`, so an order built from `cart` would silently omit them; checkout uses this
+  // to refuse to proceed until the customer removes them explicitly.
+  unresolvedCartItems: { variantId: string; qty: number }[];
   addToCart: (variantId: string, qty?: number) => void;
   removeFromCart: (variantId: string) => void;
   updateQty: (variantId: string, qty: number) => void;
@@ -132,7 +136,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Guest lines hydrated from the cached catalog. A variant not in the catalog anymore
-  // (deactivated product) is silently dropped from display; merge skips it server-side too.
+  // (deactivated product) is left out here and reported via `unresolvedCartItems`; the stored
+  // line is never deleted behind the customer's back. Merge skips it server-side too.
   const guestLines = useMemo<CartLine[]>(() => {
     const lines: CartLine[] = [];
     for (const item of guestCart) {
@@ -173,6 +178,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })),
     [cartQuery.data],
   );
+
+  const unresolvedCartItems = useMemo(() => {
+    if (user || productsLoading) return [];
+    const resolved = new Set(guestLines.map((l) => l.variantId));
+    return guestCart.filter((i) => !resolved.has(i.variantId));
+  }, [user, productsLoading, guestCart, guestLines]);
 
   const cart = user ? serverLines : guestLines;
   // A guest cart is only ids until the catalogue arrives; reporting it as empty meanwhile would
@@ -392,7 +403,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, addToCart, removeFromCart, updateQty, clearGuestCart, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
+    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, unresolvedCartItems, addToCart, removeFromCart, updateQty, clearGuestCart, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
       {children}
     </StoreContext.Provider>
   );
