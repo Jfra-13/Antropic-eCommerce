@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, complaints } from "@workspace/db";
 import * as service from "./service";
 import { LEGAL_RESPONSE_DAYS } from "./mappers";
-import { resetDatabase, seedProfile } from "../../test/db";
+import { resetDatabase, seedProfile, seedOrderInState } from "../../test/db";
 
 // The Libro de Reclamaciones is the most heavily fined thing in this codebase. These tests pin
 // the properties INDECOPI would check, so that a refactor that quietly breaks one fails here
@@ -32,6 +32,28 @@ describe("filing a complaint", () => {
 
     expect(first.ok && first.receipt.code).toBe("LR-000001");
     expect(second.ok && second.receipt.code).toBe("LR-000002");
+  });
+
+  it("drops an order reference that does not exist, without a 500 or a gap in the correlativo", async () => {
+    // Anyone can file without a session, so an invented uuid must not be able to burn a
+    // complaint_number: the sequence does not give a value back on rollback.
+    const userId = await seedProfile();
+    const orderId = await seedOrderInState(userId, "pagado");
+
+    const first = await service.createComplaint({ ...validInput, orderId }, null);
+    const bogus = await service.createComplaint(
+      { ...validInput, orderId: crypto.randomUUID() },
+      null,
+    );
+    const third = await service.createComplaint(validInput, null);
+
+    expect([first, bogus, third].map((r) => r.ok && r.receipt.code)).toEqual([
+      "LR-000001",
+      "LR-000002",
+      "LR-000003",
+    ]);
+    const rows = await db.select().from(complaints).orderBy(complaints.complaintNumber);
+    expect(rows.map((r) => r.orderId)).toEqual([orderId, null, null]);
   });
 
   it("accepts a complaint with no account behind it", async () => {
