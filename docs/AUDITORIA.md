@@ -1355,6 +1355,24 @@ de que el token de acceso traiga `amr` con `otp`/`magiclink`/`oauth`. Los tipos 
 `@supabase/auth-js` lo declaran así y si el claim no está la guarda falla cerrada: el pedido
 sigue accesible por su enlace. Aun así, conviene verlo una vez con un inicio de sesión de verdad.
 
+**Revisión posterior de la Fase 9 (hallazgos 3 a 9):** corregidos sin cambiar la forma de ninguna
+respuesta.
+
+- Clave de consulta de `/pedido/:id` ahora incluye el token: un token nuevo vuelve a pedir el
+  pedido en vez de reutilizar un 404 en caché.
+- Un pedido reclamado deja de ser reproducible por su clave de idempotencia
+  (`profiles.is_guest = true` en la búsqueda); prueba «stops replaying a guest order once it has
+  been claimed».
+- Una clave ya usada por un pedido de invitado da **409 `IDEMPOTENCY_KEY_CONFLICT`** en el checkout
+  con cuenta, no 500; el storefront regenera la clave al cambiar de sesión. Prueba de integración.
+- Los errores de cotización que no son de cupón ya no aparecen bajo el campo del cupón ni dejan el
+  botón bloqueado sin explicación; `OUT_OF_STOCK` enlaza al carrito.
+- Un carrito de invitado con líneas que el catálogo ya no conoce **no se convierte en pedido**:
+  el checkout lo bloquea y deja quitarlas de forma explícita.
+- Índice parcial `profiles_blocked_account_email_idx` (migración `0005`) para `isEmailBlocked`,
+  que corre en cada checkout de invitado.
+- Comentario de `profiles.is_guest` apuntaba a un archivo inexistente.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
