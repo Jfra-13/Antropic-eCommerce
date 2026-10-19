@@ -179,8 +179,7 @@ ninguna respuesta externa. Lo que dejan abierto **no es código**:
 - 7b: publicar el dominio en `brand.siteUrl` y reescribir `/sitemap.xml` hacia la API en el
   borde. Hasta lo primero, la tienda es deliberadamente no indexable.
 - 9: configurar `STORE_URL` (punto 4 de §4) y comprobar **una vez, con un inicio de sesión
-  real**, que los pedidos de invitado pasan a la cuenta. Depende del claim `amr` del token de
-  Supabase, que aquí solo se pudo probar con tokens firmados en local.
+  real**, que los pedidos de invitado pasan a la cuenta (por el token de cada pedido).
 
 Queda **la Fase 8 (IGV)**, que sigue esperando al contador. Por lo caro que se vuelve después del
 clon —toca `products`, `orders` y `order_items` y reinterpreta todos los totales guardados— es

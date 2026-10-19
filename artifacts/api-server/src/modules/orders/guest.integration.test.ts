@@ -55,6 +55,11 @@ async function placeGuestOrder(input: CreateGuestOrderInput) {
   return result.receipt;
 }
 
+// What the storefront sends to claim an order: its id plus the token it was issued.
+function pair(receipt: { order: { id: string }; accessToken: string }) {
+  return { orderId: receipt.order.id, accessToken: receipt.accessToken };
+}
+
 // requireGuestOrder is Express middleware; driving it with a minimal req/res is enough to see
 // what it lets through without standing up the whole app.
 async function openWithToken(orderId: string, token: string | undefined) {
@@ -244,7 +249,7 @@ describe("guest idempotency", () => {
     const { variantId } = await seedVariant(5);
     const receipt = await placeGuestOrder(guestInput(variantId, { idempotencyKey: "key-claimed" }));
     const account = await seedProfile({ email: "invitada@example.test" });
-    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
+    await claimGuestOrders(account, [pair(receipt)]);
 
     const replay = await createGuestOrder(
       guestInput(variantId, { idempotencyKey: "key-claimed", email: "invitada@example.test" }),
@@ -405,13 +410,13 @@ describe("claiming guest orders into an account", () => {
     return { first, second, unrelated };
   }
 
-  it("moves every guest order under that email — and nothing else — into the account", async () => {
+  it("moves exactly the orders whose tokens are presented — and nothing else", async () => {
     const { first, second, unrelated } = await seedGuestHistory();
     const accountId = await seedProfile({ email: "invitada@example.test" });
 
-    const result = await claimGuestOrders({ id: accountId, provenEmail: "Invitada@example.test" });
+    const claimed = await claimGuestOrders(accountId, [pair(first), pair(second)]);
 
-    expect(result).toEqual({ ok: true, claimed: 2 });
+    expect(claimed).toBe(2);
     // Staff now see an account customer, not a guest.
     const board = await listAdminOrders({}, 1, 20);
     expect(board.rows.find((r) => r.order.id === first.order.id)!.customerIsGuest).toBe(false);
@@ -426,13 +431,51 @@ describe("claiming guest orders into an account", () => {
     expect((await openWithToken(first.order.id, first.accessToken)).passed).toBe(true);
   });
 
+  it("ignores the email entirely: same address, no token, nothing moves", async () => {
+    // The bypass this replaces: a session's email can be changed to a victim's address, and
+    // with confirmation off the refreshed JWT still looks proven. The email is no evidence.
+    const { first, unrelated } = await seedGuestHistory();
+    const attacker = await seedProfile({ email: "invitada@example.test" });
+
+    const claimed = await claimGuestOrders(attacker, [pair(unrelated)]);
+
+    expect(claimed).toBe(1);
+    const victimOrder = await db.select().from(orders).where(eq(orders.id, first.order.id));
+    expect(victimOrder[0]!.userId).not.toBe(attacker);
+  });
+
+  it("refuses a wrong token, and a token presented for another order", async () => {
+    const { first, second } = await seedGuestHistory();
+    const account = await seedProfile();
+
+    const claimed = await claimGuestOrders(account, [
+      { orderId: first.order.id, accessToken: "not-the-token" },
+      { orderId: first.order.id, accessToken: second.accessToken },
+    ]);
+
+    expect(claimed).toBe(0);
+    const row = await db.select().from(orders).where(eq(orders.id, first.order.id));
+    expect(row[0]!.userId).not.toBe(account);
+  });
+
+  it("never takes an order out of another account with a forwarded link", async () => {
+    const { first } = await seedGuestHistory();
+    const owner = await seedProfile();
+    const other = await seedProfile();
+    await claimGuestOrders(owner, [pair(first)]);
+
+    expect(await claimGuestOrders(other, [pair(first)])).toBe(0);
+    const row = await db.select().from(orders).where(eq(orders.id, first.order.id));
+    expect(row[0]!.userId).toBe(owner);
+  });
+
   it("never copies guest contact data into the account profile", async () => {
-    // Anyone can create a guest profile under any email, so its name/phone/address are
-    // unverified. They stay on the guest record; the claim only re-points orders.
-    await seedGuestHistory();
+    // The guest profile's name/phone/address were typed at checkout and are unverified. They
+    // stay on the guest record; the claim only re-points orders.
+    const { first, second } = await seedGuestHistory();
     const emptyAccount = await seedProfile({ email: "invitada@example.test" });
 
-    await claimGuestOrders({ id: emptyAccount, provenEmail: "invitada@example.test" });
+    await claimGuestOrders(emptyAccount, [pair(first), pair(second)]);
 
     const [after] = await db.select().from(profiles).where(eq(profiles.id, emptyAccount));
     expect(after!.fullName?.trim() ?? "").toBe("");
@@ -441,56 +484,27 @@ describe("claiming guest orders into an account", () => {
   });
 
   it("never overwrites what the customer already put in their account", async () => {
-    await seedGuestHistory();
+    const { first } = await seedGuestHistory();
     const account = await seedProfile({
       email: "invitada@example.test",
       fullName: "Ana Cuenta",
       phone: "123",
     });
 
-    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
+    await claimGuestOrders(account, [pair(first)]);
 
     const [kept] = await db.select().from(profiles).where(eq(profiles.id, account));
     expect(kept).toMatchObject({ fullName: "Ana Cuenta", phone: "123" });
   });
 
-  it("refuses when the session does not prove the email, and moves nothing", async () => {
-    // A password signup with confirmation off proves nothing about the address. Without this
-    // gate, registering someone's email would hand over their orders, address and phone.
-    const { first } = await seedGuestHistory();
-    const account = await seedProfile({ email: "invitada@example.test" });
-
-    const result = await claimGuestOrders({ id: account, provenEmail: null });
-
-    expect(result.ok).toBe(false);
-    const row = await db.select().from(orders).where(eq(orders.id, first.order.id));
-    expect(row[0]!.userId).not.toBe(account);
-  });
-
-  it("claims by the email the session proves, not by the stale profile email", async () => {
-    // profiles.email is written once and never synced. An attacker can sign up with a password
-    // as the victim's address, switch the auth email, then sign in with a magic link: the token
-    // proves the NEW address while the profile still says the victim's.
-    const { first, unrelated } = await seedGuestHistory();
-    const attacker = await seedProfile({ email: "invitada@example.test" });
-
-    const result = await claimGuestOrders({ id: attacker, provenEmail: "otra@example.test" });
-
-    expect(result).toEqual({ ok: true, claimed: 1 });
-    const victimOrder = await db.select().from(orders).where(eq(orders.id, first.order.id));
-    expect(victimOrder[0]!.userId).not.toBe(attacker);
-    const proven = await db.select().from(orders).where(eq(orders.id, unrelated.order.id));
-    expect(proven[0]!.userId).toBe(attacker);
-  });
-
   it("keeps the guest's name and phone on the order after a claim into an empty profile", async () => {
-    // Contact is read for logistics; the claim no longer copies it into the account, so the
-    // order itself must carry it.
+    // Contact is read for logistics; the claim never copies it into the account, so the order
+    // itself must carry it.
     const { variantId } = await seedVariant(5);
     const receipt = await placeGuestOrder(guestInput(variantId));
     const account = await seedProfile({ email: "invitada@example.test" });
 
-    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
+    await claimGuestOrders(account, [pair(receipt)]);
 
     const { rows } = await listAdminOrders({}, 1, 20);
     const row = rows.find((r) => r.order.id === receipt.order.id)!;
@@ -500,12 +514,11 @@ describe("claiming guest orders into an account", () => {
   });
 
   it("is idempotent: a second claim finds nothing left to move", async () => {
-    await seedGuestHistory();
-    const account = await seedProfile({ email: "invitada@example.test" });
-    const user = { id: account, provenEmail: "invitada@example.test" };
+    const { first, second } = await seedGuestHistory();
+    const account = await seedProfile();
 
-    await claimGuestOrders(user);
-    expect(await claimGuestOrders(user)).toEqual({ ok: true, claimed: 0 });
+    await claimGuestOrders(account, [pair(first), pair(second)]);
+    expect(await claimGuestOrders(account, [pair(first), pair(second)])).toBe(0);
   });
 
   it("keeps the guest profiles, because the payment history still points at them", async () => {
@@ -515,7 +528,7 @@ describe("claiming guest orders into an account", () => {
     await attachProof(guest!.id, receipt.order.id, `${receipt.order.id}/${crypto.randomUUID()}`, null);
     const account = await seedProfile({ email: "invitada@example.test" });
 
-    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
+    await claimGuestOrders(account, [pair(receipt)]);
 
     expect(await guestProfilesFor("invitada@example.test")).toHaveLength(1);
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, receipt.order.id));

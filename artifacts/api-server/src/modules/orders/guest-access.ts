@@ -22,7 +22,7 @@ export function generateGuestAccessToken(): string {
 
 // Constant time over equal-length digests, so neither the content nor the length of the
 // stored token leaks through how long a wrong guess takes to be refused.
-function tokensMatch(presented: string, stored: string): boolean {
+export function tokensMatch(presented: string, stored: string): boolean {
   const a = createHash("sha256").update(presented).digest();
   const b = createHash("sha256").update(stored).digest();
   return timingSafeEqual(a, b);

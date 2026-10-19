@@ -63,6 +63,7 @@ import type {
   GetSalesReportParams,
   GuestCheckoutQuoteInput,
   GuestOrderClaim,
+  GuestOrderClaimRequest,
   GuestOrderReceipt,
   HealthStatus,
   ListAdminOrdersParams,
@@ -534,16 +535,16 @@ export const getClaimGuestOrdersUrl = () => {
 }
 
 /**
- * @summary Move the guest orders placed with the caller's email into the caller's account. Only when the session proves control of that email (magic link or OAuth).
+ * @summary Move guest orders into the caller's account. Each order is identified by its id plus the access token issued when it was placed (the one in the confirmation email link). Holding the token is the proof of ownership; the caller's email plays no part.
  */
-export const claimGuestOrders = async ( options?: RequestInit): Promise<GuestOrderClaim> => {
+export const claimGuestOrders = async (guestOrderClaimRequest: GuestOrderClaimRequest, options?: RequestInit): Promise<GuestOrderClaim> => {
 
   return customFetch<GuestOrderClaim>(getClaimGuestOrdersUrl(),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(guestOrderClaimRequest)
   }
 );}
 
@@ -551,8 +552,8 @@ export const claimGuestOrders = async ( options?: RequestInit): Promise<GuestOrd
 
 
 export const getClaimGuestOrdersMutationOptions = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,void, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,{data: BodyType<GuestOrderClaimRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,{data: BodyType<GuestOrderClaimRequest>}, TContext> => {
 
 const mutationKey = ['claimGuestOrders'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -564,10 +565,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimGuestOrders>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimGuestOrders>>, {data: BodyType<GuestOrderClaimRequest>}> = (props) => {
+          const {data} = props ?? {};
 
-
-          return  claimGuestOrders(requestOptions)
+          return  claimGuestOrders(data,requestOptions)
         }
 
 
@@ -578,18 +579,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type ClaimGuestOrdersMutationResult = NonNullable<Awaited<ReturnType<typeof claimGuestOrders>>>
-
+    export type ClaimGuestOrdersMutationBody = BodyType<GuestOrderClaimRequest>
     export type ClaimGuestOrdersMutationError = ErrorType<Error>
 
     /**
- * @summary Move the guest orders placed with the caller's email into the caller's account. Only when the session proves control of that email (magic link or OAuth).
+ * @summary Move guest orders into the caller's account. Each order is identified by its id plus the access token issued when it was placed (the one in the confirmation email link). Holding the token is the proof of ownership; the caller's email plays no part.
  */
 export const useClaimGuestOrders = <TError = ErrorType<Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,{data: BodyType<GuestOrderClaimRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof claimGuestOrders>>,
         TError,
-        void,
+        {data: BodyType<GuestOrderClaimRequest>},
         TContext
       > => {
       return useMutation(getClaimGuestOrdersMutationOptions(options));

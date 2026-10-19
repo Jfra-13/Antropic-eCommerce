@@ -34,6 +34,15 @@ export function guestOrderToken(orderId: string): string | null {
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
+// What POST /me/guest-orders/claim takes: holding an order's token is what proves it is yours.
+// Capped at the API's limit (50), newest first — older orders stay reachable by their link.
+export function guestOrderPairs(): { orderId: string; accessToken: string }[] {
+  return Object.entries(read())
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0)
+    .slice(-50)
+    .map(([orderId, accessToken]) => ({ orderId, accessToken }));
+}
+
 // The header the /guest/orders endpoints read. Sent as a header, never in the URL, so the token
 // stays out of server logs (see the API's modules/orders/guest-access.ts).
 export function guestOrderRequest(token: string): RequestInit {

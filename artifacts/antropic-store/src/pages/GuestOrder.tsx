@@ -6,6 +6,8 @@ import {
   getGetGuestOrderQueryKey,
   useCreateGuestPaymentProofUploadUrl,
   useAttachGuestPaymentProof,
+  useClaimGuestOrders,
+  getListOrdersQueryKey,
 } from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
 import { OrderView, type ProofActions } from "../components/OrderView";
@@ -48,6 +50,22 @@ export default function GuestOrder() {
     rememberGuestOrder(orderId, token);
     history.replaceState(history.state, "", window.location.pathname + window.location.search);
   }, [token, orderId]);
+
+  // Opened while logged in: this link is the proof the order is the customer's, so it joins
+  // the account — the only way an order placed on another device gets there (auditoría §1.4).
+  const queryClient = useQueryClient();
+  const claim = useClaimGuestOrders();
+  useEffect(() => {
+    if (!user || !token || !orderId) return;
+    claim
+      .mutateAsync({ data: { orders: [{ orderId, accessToken: token }] } })
+      .then(({ claimed }) => {
+        if (claimed > 0) queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      })
+      .catch(() => {});
+    // claim/queryClient are stable; one attempt per user + link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, token, orderId]);
 
   const request = token ? guestOrderRequest(token) : undefined;
   const { data: order, isLoading, isError } = useGetGuestOrder(orderId, {
@@ -109,7 +127,7 @@ export default function GuestOrder() {
                 ? "Para pedir un cambio o devolución, "
                 : "Si quieres ver todos tus pedidos en un solo lugar, "}
               <Link href="/login" className="text-primary underline">
-                ingresa con el mismo correo
+                inicia sesión en este navegador
               </Link>{" "}
               y este pedido aparecerá en tu cuenta.
             </p>

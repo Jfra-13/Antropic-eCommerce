@@ -140,10 +140,12 @@ sees guest orders unchanged. One guest profile per order, never looked up by ema
 details live on the profile, and reuse would let anyone overwrite a stranger's order contact.
 
 A guest order is opened by `orders.guest_access_token`, sent in the `X-Order-Token` header
-(`modules/orders/guest-access.ts`); every failure is the same 404. On login the storefront calls
-`POST /me/guest-orders/claim`, which re-points `orders.user_id` to the account — only when the
-session's `amr` proves control of the email (`emailProven` in `lib/auth.ts`). Ownership stays a
-single column: do not add a second path by which an order can belong to someone.
+(`modules/orders/guest-access.ts`); every failure is the same 404. `POST /me/guest-orders/claim`
+re-points `orders.user_id` to the account for each `{orderId, accessToken}` pair that matches an
+order still owned by a guest profile — the storefront sends the tokens it remembers on login, and
+the emailed link's token when opened while logged in. **Never claim by email**: a session can
+change its email and `amr` does not prove the current one. Ownership stays a single column: do
+not add a second path by which an order can belong to someone.
 
 ### db (Drizzle)
 

@@ -28,8 +28,8 @@ notification_deliveries con reintentos y job retry-notifications, id de petició
 docs/PAGOS.md y docs/OBSERVABILIDAD.md son las referencias de esas dos fases. La 7b dejó SEO
 por ruta, sitemap y code-splitting (docs/SEO.md). La 9, checkout de invitado: un perfil de
 invitado por pedido, un token de acceso que abre ese pedido (cabecera X-Order-Token, #fragmento
-en el enlace del correo), y el paso de esos pedidos a la cuenta al iniciar sesión, solo si la
-sesión prueba el correo (AUDITORIA §1.4 y §11.10).
+en el enlace del correo), y el paso de esos pedidos a la cuenta presentando el token de cada uno,
+nunca por correo (AUDITORIA §1.4 y §11.10).
 
 Todo lo fusionado vive en main. Lo único pendiente de código es la Fase 8 (IGV), bloqueada por
 el contador.
@@ -94,7 +94,7 @@ La rama `claude/fase-9-checkout-invitado` pasó dos revisiones. La primera dejó
 corregidos (commits `9577d75` a `0ea4cd8`, CI en verde, evidencia en AUDITORIA §11.10). La segunda
 revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguiente, **sin corregir**:
 
-1. **Seguridad — el traspaso de pedidos sigue confiando en el correo.** `provenEmail` (lib/auth.ts)
+1. **[corregido]** **Seguridad — el traspaso de pedidos sigue confiando en el correo.** `provenEmail` (lib/auth.ts)
    combina el `email` actual del JWT con `amr`, pero `amr` dice cómo se inició la sesión, no que el
    correo *actual* se haya probado. Con la confirmación de correo desactivada en Supabase, alguien
    entra por magic link con su correo, lo cambia con `updateUser({email: víctima})` y el JWT
@@ -150,8 +150,8 @@ configurada más una prueba del enlace a la cuenta con un inicio de sesión real
   de verificación. Motivo en §1.4.
 - **Un perfil de invitado por pedido, nunca reutilizado por correo** (Fase 9): reutilizarlo
   permitía reescribir el contacto del pedido pendiente de un desconocido escribiendo su correo.
-- **Los pedidos de invitado pasan a la cuenta solo si la sesión prueba el correo** (`amr` =
-  `otp`/`magiclink`/`oauth`). Una contraseña no prueba nada sobre el correo. Se mueve
+- **Los pedidos de invitado pasan a la cuenta presentando el token de acceso de cada pedido**,
+  nunca por correo: `amr` no prueba el correo actual de la sesión (tercera revisión). Se mueve
   `orders.user_id`; no se añade una segunda vía de propiedad que cada consulta tenga que conocer.
 - **Pasarela de pago:** no se integra ninguna en este ciclo. La arquitectura está lista y el
   contrato del webhook documentado en `docs/PAGOS.md` §5. **No crear el endpoint** hasta que haya

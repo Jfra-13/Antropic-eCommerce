@@ -5,6 +5,7 @@ import {
   GetMeResponse,
   UpdateMeBody,
   UpdateMeResponse,
+  ClaimGuestOrdersBody,
   ClaimGuestOrdersResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
@@ -47,15 +48,17 @@ router.patch("/me", requireAuth, async (req, res) => {
   res.json(UpdateMeResponse.parse({ user }));
 });
 
-// Called by the storefront once per login: guest orders placed with this email become the
-// account's orders (auditoría §1.4). Idempotent — a second call finds nothing left to move.
+// Called by the storefront on login with the guest orders it holds tokens for, and when a
+// logged-in customer opens an emailed order link (auditoría §1.4). Idempotent — a second call
+// finds nothing left to move.
 router.post("/me/guest-orders/claim", requireAuth, async (req, res) => {
-  const result = await claimGuestOrders(req.user!);
-  if (!result.ok) {
-    res.status(result.status).json({ code: result.code, message: result.message });
+  const body = ClaimGuestOrdersBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: body.error.message });
     return;
   }
-  res.json(ClaimGuestOrdersResponse.parse({ claimed: result.claimed }));
+  const claimed = await claimGuestOrders(req.user!.id, body.data.orders);
+  res.json(ClaimGuestOrdersResponse.parse({ claimed }));
 });
 
 export default router;

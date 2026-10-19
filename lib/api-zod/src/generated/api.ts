@@ -81,8 +81,21 @@ export const UpdateMeResponse = zod.object({
 
 
 /**
- * @summary Move the guest orders placed with the caller's email into the caller's account. Only when the session proves control of that email (magic link or OAuth).
+ * @summary Move guest orders into the caller's account. Each order is identified by its id plus the access token issued when it was placed (the one in the confirmation email link). Holding the token is the proof of ownership; the caller's email plays no part.
  */
+export const claimGuestOrdersBodyOrdersItemAccessTokenMax = 128;
+
+export const claimGuestOrdersBodyOrdersMax = 50;
+
+
+
+export const ClaimGuestOrdersBody = zod.object({
+  "orders": zod.array(zod.object({
+  "orderId": zod.string().uuid(),
+  "accessToken": zod.string().min(1).max(claimGuestOrdersBodyOrdersItemAccessTokenMax)
+})).min(1).max(claimGuestOrdersBodyOrdersMax)
+})
+
 export const claimGuestOrdersResponseClaimedMin = 0;
 
 

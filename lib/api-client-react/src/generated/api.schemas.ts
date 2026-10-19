@@ -462,6 +462,23 @@ export interface GuestOrderReceipt {
   accessToken: string;
 }
 
+export type GuestOrderClaimRequestOrdersItem = {
+  orderId: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  accessToken: string;
+};
+
+export interface GuestOrderClaimRequest {
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  orders: GuestOrderClaimRequestOrdersItem[];
+}
+
 export interface GuestOrderClaim {
   /** @minimum 0 */
   claimed: number;

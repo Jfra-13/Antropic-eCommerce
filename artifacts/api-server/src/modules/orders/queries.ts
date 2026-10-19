@@ -34,6 +34,8 @@ import {
 import type { Tx } from "../../lib/tx";
 import { canTransitionFulfillment } from "../../lib/order-state";
 import { parseOrderReference } from "@workspace/brand";
+// Function-only import cycle (guest-access reads getOrderById from here): safe, nothing runs at load.
+import { tokensMatch } from "./guest-access";
 
 type FulfillmentStatus = NonNullable<Order["fulfillmentStatus"]>;
 
@@ -227,8 +229,14 @@ export async function getOrderById(orderId: string): Promise<Order | undefined> 
   return rows[0];
 }
 
-// Moves every order placed as a guest with `email` into the account `accountId`, in one
-// transaction. Returns how many orders moved.
+// Moves the guest orders named by `pairs` into the account `accountId`, in one transaction.
+// Returns how many orders moved.
+//
+// Ownership is proven by the order's access token, never by email (auditoría §1.4): the token
+// is the capability that already opens the order, while an email in the JWT only says which
+// address the account has NOW — Supabase lets a session change it, and with confirmation off
+// nothing proves the new one. A pair moves only when the token matches AND the order still
+// belongs to a guest profile, so a forwarded link cannot take an order out of another account.
 //
 // The orders are re-pointed rather than looked up through the guest profile forever after:
 // once `orders.user_id` is the account, "mis pedidos", the constancia upload and returns all
@@ -239,28 +247,32 @@ export async function getOrderById(orderId: string): Promise<Order | undefined> 
 // who uploaded the constancia, and the audit trail must keep saying so.
 //
 // Only orders.user_id moves. Guest profile fields (name, phone, address) are never copied into
-// the account: anyone can create a guest profile under any email, so that data is unverified
-// and would let a stranger write into a victim's profile.
-export async function claimGuestOrdersTx(accountId: string, email: string): Promise<number> {
+// the account: they were typed at checkout and are unverified, and the order keeps its own
+// contact snapshot anyway.
+export async function claimGuestOrdersTx(
+  accountId: string,
+  pairs: { orderId: string; accessToken: string }[],
+): Promise<number> {
+  const tokens = new Map(pairs.map((p) => [p.orderId.toLowerCase(), p.accessToken]));
   return db.transaction(async (tx) => {
-    const guests = await tx
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(and(eq(profiles.isGuest, true), sql`lower(${profiles.email}) = lower(${email})`));
-    if (guests.length === 0) return 0;
-    const ids = guests.map((g) => g.id);
+    const candidates = await tx
+      .select({ id: orders.id, userId: orders.userId, token: orders.guestAccessToken })
+      .from(orders)
+      .innerJoin(profiles, eq(profiles.id, orders.userId))
+      .where(and(inArray(orders.id, [...tokens.keys()]), eq(profiles.isGuest, true)))
+      .for("update", { of: orders });
+    const matched = candidates.filter(
+      (c) => c.token !== null && tokensMatch(tokens.get(c.id.toLowerCase()) ?? "", c.token),
+    );
+    if (matched.length === 0) return 0;
 
-    const moved = await tx
-      .update(orders)
-      .set({ userId: accountId })
-      .where(inArray(orders.userId, ids))
-      .returning({ id: orders.id });
+    const ids = matched.map((m) => m.id);
+    await tx.update(orders).set({ userId: accountId }).where(inArray(orders.id, ids));
     await tx
       .update(couponRedemptions)
       .set({ userId: accountId })
-      .where(inArray(couponRedemptions.userId, ids));
-
-    return moved.length;
+      .where(inArray(couponRedemptions.orderId, ids));
+    return ids.length;
   });
 }
 

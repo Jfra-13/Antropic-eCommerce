@@ -112,8 +112,7 @@ módulo de entorno sí se puede sustituir. Detalle en §11.7.
 La **9 (checkout de invitado) está hecha** (§1.4, §11.10). Deja dos cosas fuera del código:
 **`STORE_URL` pasa a ser imprescindible** —sin ella el correo de confirmación de un invitado sale
 sin el botón «Ver mi pedido», y su único camino de vuelta es la memoria del navegador donde
-compró— y **probar el enlace de pedidos a la cuenta contra el Supabase real**, porque depende del
-claim `amr` del token y aquí solo se pudo verificar con tokens firmados en local.
+compró— y **probar el enlace de pedidos a la cuenta con un inicio de sesión real**.
 
 La **7b (SEO y rendimiento) está hecha** (§4, §8.1, `docs/SEO.md`). Deja dos cosas abiertas que
 no son código y sin las cuales no sirve de nada: **publicar el dominio en `brand.siteUrl`** —
@@ -318,15 +317,19 @@ El modelo es el de arriba: **perfil de invitado**, `orders.user_id` sigue `NOT N
   reutilizarlo permitía a cualquiera reescribir el nombre y el teléfono que el personal ve en el
   pedido pendiente de un desconocido, solo con poner su correo. El coste son contactos duplicados,
   que el enlace a la cuenta fusiona después.
-- **Enlace a la cuenta (`POST /me/guest-orders/claim`)**: al iniciar sesión, la tienda mueve los
-  pedidos de invitado con ese correo a la cuenta (`orders.user_id` y `coupon_redemptions`) y **no
-  copia** el contacto del invitado al perfil de la cuenta (cualquiera puede crear un invitado con
-  un correo ajeno, así que esos datos no están verificados). **Solo si la sesión prueba el control
-  del correo** (`amr` = `otp`, `magiclink` u `oauth`) y **buscando por el correo del propio JWT**,
-  no por `profiles.email`, que no se sincroniza y puede quedar desfasado tras un cambio de correo: con una contraseña y la
-  confirmación de correo apagada, cualquiera podría registrar el correo ajeno y llevarse pedidos,
-  dirección y teléfono. Los perfiles de invitado no se borran: `payment_events.actor_id` los
-  sigue señalando como quien subió la constancia.
+- **Enlace a la cuenta (`POST /me/guest-orders/claim`)**: la tienda manda el id y el **token de
+  acceso** de cada pedido de invitado que conoce —los guardados en ese navegador al iniciar
+  sesión, y el del enlace del correo cuando se abre con la sesión iniciada— y la API mueve a la
+  cuenta (`orders.user_id` y `coupon_redemptions`) los que casan y siguen siendo de un invitado.
+  **El correo no interviene.** Antes se buscaba por el correo del JWT si `amr` decía
+  `otp`/`magiclink`/`oauth`, pero `amr` dice cómo se abrió la sesión, no que el correo *actual*
+  esté probado: una sesión puede cambiarlo con `updateUser` y, con la confirmación apagada, el JWT
+  refrescado conserva `amr=otp` con el correo de la víctima. El token ya abre el pedido, así que
+  no da nada nuevo a quien lo tiene, y no depende de la configuración de Supabase. Costo: un
+  pedido hecho en otro dispositivo se vincula al abrir su enlace con la sesión iniciada. Tampoco
+  se **copia** el contacto del invitado al perfil de la cuenta (lo escribió quien compró y no
+  está verificado). Los perfiles de invitado no se borran: `payment_events.actor_id` los sigue
+  señalando como quien subió la constancia.
   Cada pedido guarda además una **copia del contacto** (`orders.contact_name` y `contact_phone`,
   migración `0004`), para que logística no dependa del perfil del dueño actual: tras el enlace, la
   cuenta puede tener el perfil vacío. Los pedidos anteriores a la migración no la tienen y siguen
@@ -1350,10 +1353,9 @@ que la página seguía pidiendo el enlace. Ahora escucha `hashchange`.
 (56 API + 18 marca), 78 de integración y `build` de los cuatro artefactos. Carga inicial del
 storefront: 189,2 kB gzip (presupuesto 225 kB; antes 188,7 kB).
 
-**Lo que este entorno no puede dar:** el enlace a la cuenta contra el **Supabase real**. Depende
-de que el token de acceso traiga `amr` con `otp`/`magiclink`/`oauth`. Los tipos de
-`@supabase/auth-js` lo declaran así y si el claim no está la guarda falla cerrada: el pedido
-sigue accesible por su enlace. Aun así, conviene verlo una vez con un inicio de sesión de verdad.
+**Lo que este entorno no puede dar:** el enlace a la cuenta con un inicio de sesión de verdad.
+Desde la tercera revisión ya no depende de ningún claim del JWT (va por el token de cada pedido),
+pero conviene verlo una vez de punta a punta.
 
 **Revisión posterior de la Fase 9 (hallazgos 3 a 9):** corregidos sin cambiar la forma de ninguna
 respuesta.

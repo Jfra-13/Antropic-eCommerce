@@ -89,6 +89,8 @@ export * from './getSalesReportParams';
 export * from './guestCheckoutQuoteInput';
 export * from './guestCheckoutQuoteInputDeliveryMethod';
 export * from './guestOrderClaim';
+export * from './guestOrderClaimRequest';
+export * from './guestOrderClaimRequestOrdersItem';
 export * from './guestOrderItemInput';
 export * from './guestOrderReceipt';
 export * from './healthStatus';

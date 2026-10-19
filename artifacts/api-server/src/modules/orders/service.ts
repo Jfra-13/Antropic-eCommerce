@@ -345,28 +345,14 @@ export async function createGuestOrder(input: CreateGuestOrderInput): Promise<Gu
   }
 }
 
-export type ClaimResult = { ok: true; claimed: number } | OrderFailure;
-
-// Brings the guest orders placed under the caller's email into their account.
-//
-// Matching on email is only safe when the session proves the caller controls that mailbox —
-// otherwise registering someone else's address would hand over their orders, address and phone
-// included. `provenEmail` is the address the JWT itself vouches for (lib/auth.ts), NOT the
-// profile's copy: profiles.email is never synced, so after an email change it can still hold an
-// address the caller never proved in this session.
-export async function claimGuestOrders(user: {
-  id: string;
-  provenEmail: string | null;
-}): Promise<ClaimResult> {
-  if (!user.provenEmail) {
-    return {
-      ok: false,
-      status: 403,
-      code: "EMAIL_NOT_PROVEN",
-      message: "Sign in with a magic link or Google to link guest orders to this account",
-    };
-  }
-  return { ok: true, claimed: await claimGuestOrdersTx(user.id, user.provenEmail) };
+// Brings the guest orders the caller holds tokens for into their account (auditoría §1.4).
+// Never fails on a bad pair: claimGuestOrdersTx skips it, so the answer says nothing about which
+// order ids exist.
+export async function claimGuestOrders(
+  accountId: string,
+  pairs: { orderId: string; accessToken: string }[],
+): Promise<number> {
+  return claimGuestOrdersTx(accountId, pairs);
 }
 
 export async function getOrder(userId: string, orderId: string): Promise<OrderDto | null> {

@@ -24,6 +24,7 @@ import {
   getListOrdersQueryKey,
 } from '@workspace/api-client-react';
 import { supabase } from '../lib/supabase';
+import { guestOrderPairs } from '../lib/guest-orders';
 import { useProducts } from '../lib/catalog';
 import { priceToNumber } from '../lib/product';
 
@@ -262,10 +263,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Guest orders placed with this account's email become the account's orders once per login
-  // (auditoría §1.4), so "mis pedidos" shows them. The API only does it for a session that
-  // proves the email — magic link or Google, the only two ways in — and answers 403 otherwise;
-  // either way it is best-effort, because the emailed link keeps opening the order regardless.
+  // Guest orders placed from this browser become the account's orders once per login
+  // (auditoría §1.4), so "mis pedidos" shows them. Each one is claimed with its access token —
+  // the email proves nothing (a session can change it). Orders placed on another device are
+  // claimed when their emailed link is opened while logged in (pages/GuestOrder.tsx). Best-effort
+  // either way: the emailed link keeps opening the order regardless.
   const claimGuestOrders = useClaimGuestOrders();
   const claimedForUser = useRef<string | null>(null);
   useEffect(() => {
@@ -275,9 +277,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     if (claimedForUser.current === user.id) return;
     claimedForUser.current = user.id;
+    const orders = guestOrderPairs();
+    if (orders.length === 0) return;
 
     claimGuestOrders
-      .mutateAsync()
+      .mutateAsync({ data: { orders } })
       .then(({ claimed }) => {
         if (claimed > 0) queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
       })

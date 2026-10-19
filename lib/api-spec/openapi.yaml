@@ -152,23 +152,33 @@ paths:
       operationId: claimGuestOrders
       tags: [auth]
       summary: >-
-        Move the guest orders placed with the caller's email into the caller's account. Only
-        when the session proves control of that email (magic link or OAuth).
+        Move guest orders into the caller's account. Each order is identified by its id plus
+        the access token issued when it was placed (the one in the confirmation email link).
+        Holding the token is the proof of ownership; the caller's email plays no part.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestOrderClaimRequest"
       responses:
         "200":
-          description: How many orders were moved (0 when there were none)
+          description: >-
+            How many orders were moved. Pairs that do not match, or orders that already belong
+            to an account, are skipped without saying which: an error per pair would let a
+            caller probe which order ids exist.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/GuestOrderClaim"
-        "401":
-          description: Unauthenticated
+        "400":
+          description: Invalid body
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "403":
-          description: The session does not prove control of the email (e.g. password login)
+        "401":
+          description: Unauthenticated
           content:
             application/json:
               schema:
@@ -2942,6 +2952,28 @@ components:
       required:
         - order
         - accessToken
+    GuestOrderClaimRequest:
+      type: object
+      properties:
+        orders:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            properties:
+              orderId:
+                type: string
+                format: uuid
+              accessToken:
+                type: string
+                minLength: 1
+                maxLength: 128
+            required:
+              - orderId
+              - accessToken
+      required:
+        - orders
     GuestOrderClaim:
       type: object
       properties:
