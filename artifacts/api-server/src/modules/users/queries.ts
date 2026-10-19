@@ -1,5 +1,5 @@
-import { db, profiles, type Profile, type InsertProfile } from "@workspace/db";
-import { and, desc, eq, ilike, or, sql, type SQL } from "drizzle-orm";
+import { db, orders, profiles, type Profile, type InsertProfile } from "@workspace/db";
+import { and, desc, eq, ilike, isNull, notInArray, or, sql, type SQL } from "drizzle-orm";
 
 type Role = Profile["role"];
 
@@ -47,10 +47,33 @@ export async function getProfileById(id: string): Promise<Profile | undefined> {
   return rows[0];
 }
 
+// Staff read a customer's contact from the snapshot on each order, so a corrected name or phone
+// is copied onto the orders still in progress, in the same transaction. Delivered and picked-up
+// orders keep what they had: that is the record returns and complaints are judged against.
 export async function updateProfileRow(
   id: string,
   patch: Partial<InsertProfile>,
 ): Promise<Profile | undefined> {
-  const rows = await db.update(profiles).set(patch).where(eq(profiles.id, id)).returning();
-  return rows[0];
+  return db.transaction(async (tx) => {
+    const rows = await tx.update(profiles).set(patch).where(eq(profiles.id, id)).returning();
+    const contact: { contactName?: string | null; contactPhone?: string | null } = {};
+    if (patch.fullName !== undefined) contact.contactName = patch.fullName;
+    if (patch.phone !== undefined) contact.contactPhone = patch.phone;
+    if (rows[0] && Object.keys(contact).length > 0) {
+      await tx
+        .update(orders)
+        .set(contact)
+        .where(
+          and(
+            eq(orders.userId, id),
+            // fulfillment_status is null until payment is approved; NOT IN alone would skip it.
+            or(
+              isNull(orders.fulfillmentStatus),
+              notInArray(orders.fulfillmentStatus, ["entregado", "recogido"]),
+            ),
+          ),
+        );
+    }
+    return rows[0];
+  });
 }

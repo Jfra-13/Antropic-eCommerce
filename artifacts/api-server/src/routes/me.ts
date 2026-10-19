@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, profiles } from "@workspace/db";
+import type { profiles } from "@workspace/db";
 import {
   GetMeResponse,
   UpdateMeBody,
@@ -10,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
 import { claimGuestOrders } from "../modules/orders/service";
+import { updateProfileRow } from "../modules/users/queries";
 
 const router: IRouter = Router();
 
@@ -35,12 +35,7 @@ router.patch("/me", requireAuth, async (req, res) => {
 
   const user = req.user!;
   if (Object.keys(patch).length > 0) {
-    const updated = await db
-      .update(profiles)
-      .set(patch)
-      .where(eq(profiles.id, user.id))
-      .returning();
-    const p = updated[0]!;
+    const p = (await updateProfileRow(user.id, patch))!;
     user.fullName = p.fullName;
     user.phone = p.phone;
     user.shippingAddress = p.shippingAddress;
