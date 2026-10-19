@@ -88,6 +88,48 @@ conversación entera cada vez. Dos consecuencias prácticas:
 
 Cosas que una sesión nueva no puede deducir del código y que cuesta caro redescubrir.
 
+### PR #21 (Fase 9) — NO fusionar todavía: segunda revisión con hallazgos abiertos
+
+La rama `claude/fase-9-checkout-invitado` pasó dos revisiones. La primera dejó 9 hallazgos, todos
+corregidos (commits `9577d75` a `0ea4cd8`, CI en verde, evidencia en AUDITORIA §11.10). La segunda
+revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguiente, **sin corregir**:
+
+1. **Seguridad — el traspaso de pedidos sigue confiando en el correo.** `provenEmail` (lib/auth.ts)
+   combina el `email` actual del JWT con `amr`, pero `amr` dice cómo se inició la sesión, no que el
+   correo *actual* se haya probado. Con la confirmación de correo desactivada en Supabase, alguien
+   entra por magic link con su correo, lo cambia con `updateUser({email: víctima})` y el JWT
+   refrescado conserva `amr=otp`: se lleva los pedidos de invitado de la víctima.
+   **Propuesta (pendiente de aprobación del usuario):** el traspaso exige el token de acceso de cada
+   pedido (el del enlace del correo, que la tienda ya guarda en `lib/guest-orders.ts`), no el
+   correo. Quien tiene el token ya puede ver el pedido; el traspaso deja de depender de la
+   configuración de Supabase. Costo: un pedido hecho en otro dispositivo se vincula al abrir su
+   enlace con la sesión iniciada.
+2. La cola de verificación (`modules/payments/queries.ts` ~83) y el tablero de devoluciones
+   (`modules/returns/queries.ts` ~66) leen nombre y teléfono solo de `profiles`: les falta el
+   `coalesce` con el snapshot del pedido.
+3. La migración `0004` no rellena `contact_name`/`contact_phone` en los pedidos existentes. Un pedido
+   de invitado anterior al despliegue pierde el contacto al traspasarse. Corrección: `UPDATE orders
+   ... FROM profiles` dentro de la misma migración (todavía no se aplicó en ninguna base real).
+4. **Bloquea ventas.** `unresolvedCartItems` (StoreContext ~183) marca como no disponible todo lo
+   que no está en `useProducts()`, que está topado en `limit: 100` (lib/catalog.ts:14) y queda vacío
+   si la petición falla. El checkout se bloquea con productos que sí tienen stock. Hay que resolver
+   las variantes del carrito contra la API, no contra la primera página del catálogo, y no tratar
+   "no cargó" como "no existe".
+5. En pedidos de cuenta, el snapshot gana sobre el perfil: si el cliente corrige su teléfono después
+   de comprar, el personal sigue viendo el viejo y no hay pantalla para editarlo. Decidir la regla.
+6. El filtro `is_guest = true` del replay también corta el reintento legítimo del propio invitado si
+   su pedido se traspasó entre el envío y el reintento (devuelve 409 y puede acabar en un duplicado).
+7. `/cart` ignora `unresolvedCartItems`: el carrito y el checkout no muestran lo mismo.
+8. Checkout: el `return` temprano por ítems no resueltos limpia `quote` pero no `quoteError`, así
+   que quedan en pantalla dos mensajes contradictorios.
+9. El `coalesce` del contacto está copiado en cinco consultas: conviene un solo fragmento SQL
+   exportado (es como se escaparon las del punto 2).
+10. `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
+    cualquier 23505 en ese código sin mirar la restricción violada.
+
+Cuando estén corregidos: correr una revisión más sobre los arreglos nuevos y recién entonces
+fusionar. La base real necesitará **6 migraciones** (`0000`–`0005`) o más si se añade otra.
+
 ### Lo que sigue pendiente, en orden recomendado
 
 1. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
