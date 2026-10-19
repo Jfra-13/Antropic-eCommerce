@@ -29,6 +29,13 @@
       "when": 1792274136948,
       "tag": "0003_guest_checkout",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792391965479,
+      "tag": "0004_careful_wolverine",
+      "breakpoints": true
     }
   ]
 }

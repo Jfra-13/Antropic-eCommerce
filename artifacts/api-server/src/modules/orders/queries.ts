@@ -365,8 +365,8 @@ export async function listShipments(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
-      customerPhone: profiles.phone,
+      customerName: sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`,
+      customerPhone: sql<string | null>`coalesce(${orders.contactPhone}, ${profiles.phone})`,
     })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
@@ -415,7 +415,11 @@ export async function listAdminOrders(
   if (filters.to) conds.push(lt(orders.createdAt, new Date(filters.to.getTime() + 24 * 60 * 60 * 1000)));
   if (filters.q) {
     const term = `%${filters.q.trim()}%`;
-    const qConds = [ilike(profiles.fullName, term), ilike(profiles.email, term)];
+    const qConds = [
+      ilike(profiles.fullName, term),
+      ilike(orders.contactName, term),
+      ilike(profiles.email, term),
+    ];
     // A term that reads as an order reference — bare digits, or the brand prefix followed by
     // digits — also matches the order number exactly. Parsing is shared with the builder in
     // lib/brand so the two cannot drift apart when the prefix changes.
@@ -430,7 +434,7 @@ export async function listAdminOrders(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
+      customerName: sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`,
       customerIsGuest: profiles.isGuest,
     })
     .from(orders)
@@ -459,8 +463,8 @@ export async function getAdminOrderRow(orderId: string): Promise<AdminOrderDetai
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
-      customerPhone: profiles.phone,
+      customerName: sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`,
+      customerPhone: sql<string | null>`coalesce(${orders.contactPhone}, ${profiles.phone})`,
       customerIsGuest: profiles.isGuest,
       pickupPointName: pickupPoints.name,
     })

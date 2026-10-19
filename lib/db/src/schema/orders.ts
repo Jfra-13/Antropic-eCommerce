@@ -32,6 +32,12 @@ export const orders = pgTable(
     deliveryMethod: deliveryMethodEnum("delivery_method").notNull(),
     pickupPointId: uuid("pickup_point_id").references(() => pickupPoints.id),
     shippingAddress: text("shipping_address"),
+    // Snapshot of who to call about this order. The order records how it was placed and must not
+    // depend on whoever owns it later: a guest claim moves user_id to an account whose profile
+    // can be empty. Nullable because rows from before the snapshot have none; reads fall back
+    // to the profile for those.
+    contactName: text("contact_name"),
+    contactPhone: text("contact_phone"),
     shippingCost: money("shipping_cost").notNull().default("0"),
     subtotal: money("subtotal").notNull(),
     discountAmount: money("discount_amount").notNull().default("0"),

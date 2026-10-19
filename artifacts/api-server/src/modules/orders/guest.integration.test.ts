@@ -443,6 +443,22 @@ describe("claiming guest orders into an account", () => {
     expect(proven[0]!.userId).toBe(attacker);
   });
 
+  it("keeps the guest's name and phone on the order after a claim into an empty profile", async () => {
+    // Contact is read for logistics; the claim no longer copies it into the account, so the
+    // order itself must carry it.
+    const { variantId } = await seedVariant(5);
+    const receipt = await placeGuestOrder(guestInput(variantId));
+    const account = await seedProfile({ email: "invitada@example.test" });
+
+    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
+
+    const { rows } = await listAdminOrders({}, 1, 20);
+    const row = rows.find((r) => r.order.id === receipt.order.id)!;
+    expect(row.customerName).toBe("Ana Invitada");
+    const [stored] = await db.select().from(orders).where(eq(orders.id, receipt.order.id));
+    expect(stored).toMatchObject({ contactName: "Ana Invitada", contactPhone: "999 888 777" });
+  });
+
   it("is idempotent: a second claim finds nothing left to move", async () => {
     await seedGuestHistory();
     const account = await seedProfile({ email: "invitada@example.test" });

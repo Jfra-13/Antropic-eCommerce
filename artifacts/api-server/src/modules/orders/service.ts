@@ -154,6 +154,7 @@ async function writeOrder(
   lines: CheckoutLine[],
   priced: PricedOrder,
   guestAccessToken: string | null,
+  contact: { name: string; phone: string },
 ): Promise<Order> {
   const { couponId, couponCode } = priced;
   // Atomic coupon consumption. ponytail: use-count is bumped here at creation; refunding
@@ -176,6 +177,8 @@ async function writeOrder(
     couponCode,
     idempotencyKey: input.idempotencyKey ?? null,
     guestAccessToken,
+    contactName: contact.name,
+    contactPhone: contact.phone,
   });
 
   await insertOrderItems(
@@ -209,7 +212,9 @@ export async function createOrder(
   // The order needs a reachable customer: name + phone on the profile (requerimientos §7.4).
   // The server enforces it; the checkout UI guides the user to fill it inline.
   const contact = await getProfileContact(userId);
-  if (!contact?.fullName?.trim() || !contact.phone?.trim()) {
+  const contactName = contact?.fullName?.trim();
+  const contactPhone = contact?.phone?.trim();
+  if (!contactName || !contactPhone) {
     return err(422, "PROFILE_INCOMPLETE", "Profile name and phone are required to order");
   }
 
@@ -230,7 +235,10 @@ export async function createOrder(
 
   try {
     const order = await db.transaction(async (tx) => {
-      const inserted = await writeOrder(tx, userId, input, lines, result.priced, null);
+      const inserted = await writeOrder(tx, userId, input, lines, result.priced, null, {
+        name: contactName,
+        phone: contactPhone,
+      });
       // A non-empty `lines` means the cart exists: priceOrder refuses an empty one.
       await clearCartItems(tx, cart!.cartId);
       return inserted;
@@ -309,7 +317,10 @@ export async function createGuestOrder(input: CreateGuestOrderInput): Promise<Gu
         shippingAddress:
           input.deliveryMethod === "delivery" ? (input.shippingAddress?.trim() ?? null) : null,
       });
-      return writeOrder(tx, guestId, input, lines, result.priced, generateGuestAccessToken());
+      return writeOrder(tx, guestId, input, lines, result.priced, generateGuestAccessToken(), {
+        name: input.fullName.trim(),
+        phone: input.phone.trim(),
+      });
     });
 
     // The way back to the order: without it a guest who closes the tab before paying has no

@@ -327,6 +327,10 @@ El modelo es el de arriba: **perfil de invitado**, `orders.user_id` sigue `NOT N
   confirmación de correo apagada, cualquiera podría registrar el correo ajeno y llevarse pedidos,
   dirección y teléfono. Los perfiles de invitado no se borran: `payment_events.actor_id` los
   sigue señalando como quien subió la constancia.
+  Cada pedido guarda además una **copia del contacto** (`orders.contact_name` y `contact_phone`,
+  migración `0004`), para que logística no dependa del perfil del dueño actual: tras el enlace, la
+  cuenta puede tener el perfil vacío. Los pedidos anteriores a la migración no la tienen y siguen
+  leyendo el perfil.
 - **Una cuenta bloqueada no se salta comprando como invitado**: el correo de una cuenta bloqueada
   recibe 403.
 - **Devoluciones**: siguen exigiendo cuenta. Al invitado se le indica que ingrese con el mismo

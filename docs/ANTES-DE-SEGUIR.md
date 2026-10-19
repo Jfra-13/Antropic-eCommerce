@@ -44,8 +44,8 @@ pnpm --filter @workspace/db run migrate
 En una base **nueva** (la del clon, por ejemplo) basta el segundo: `baseline-migrations` se niega a
 correr contra una base vacía justamente para que nadie se equivoque en esa dirección.
 
-Cómo saber que salió bien: `drizzle.__drizzle_migrations` debe tener **4 filas** (`0000` a
-`0003`).
+Cómo saber que salió bien: `drizzle.__drizzle_migrations` debe tener **5 filas** (`0000` a
+`0004`).
 
 ---
 
