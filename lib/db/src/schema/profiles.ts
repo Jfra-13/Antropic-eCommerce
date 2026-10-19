@@ -34,6 +34,11 @@ export const profiles = pgTable(
     index("profiles_guest_email_idx")
       .on(sql`lower(${t.email})`)
       .where(sql`${t.isGuest}`),
+    // isEmailBlocked runs on EVERY guest checkout and only ever asks about blocked accounts, so
+    // the index covers exactly that predicate (and stays tiny) instead of the whole table.
+    index("profiles_blocked_account_email_idx")
+      .on(sql`lower(${t.email})`)
+      .where(sql`${t.isGuest} = false AND ${t.blocked} = true`),
   ],
 );
 
