@@ -1,8 +1,15 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, profiles } from "@workspace/db";
-import { GetMeResponse, UpdateMeBody, UpdateMeResponse } from "@workspace/api-zod";
+import type { profiles } from "@workspace/db";
+import {
+  GetMeResponse,
+  UpdateMeBody,
+  UpdateMeResponse,
+  ClaimGuestOrdersBody,
+  ClaimGuestOrdersResponse,
+} from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
+import { claimGuestOrders } from "../modules/orders/service";
+import { updateProfileRow } from "../modules/users/queries";
 
 const router: IRouter = Router();
 
@@ -28,17 +35,25 @@ router.patch("/me", requireAuth, async (req, res) => {
 
   const user = req.user!;
   if (Object.keys(patch).length > 0) {
-    const updated = await db
-      .update(profiles)
-      .set(patch)
-      .where(eq(profiles.id, user.id))
-      .returning();
-    const p = updated[0]!;
+    const p = (await updateProfileRow(user.id, patch))!;
     user.fullName = p.fullName;
     user.phone = p.phone;
     user.shippingAddress = p.shippingAddress;
   }
   res.json(UpdateMeResponse.parse({ user }));
+});
+
+// Called by the storefront on login with the guest orders it holds tokens for, and when a
+// logged-in customer opens an emailed order link (auditoría §1.4). Idempotent — a second call
+// finds nothing left to move.
+router.post("/me/guest-orders/claim", requireAuth, async (req, res) => {
+  const body = ClaimGuestOrdersBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: body.error.message });
+    return;
+  }
+  const claimed = await claimGuestOrders(req.user!.id, body.data.orders);
+  res.json(ClaimGuestOrdersResponse.parse({ claimed }));
 });
 
 export default router;

@@ -7,6 +7,7 @@ import {
   type InsertReturnTicket,
 } from "@workspace/db";
 import { and, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { orderContactName, orderContactPhone } from "../orders/queries";
 
 type ReturnStatus = ReturnTicket["status"];
 
@@ -63,9 +64,9 @@ export type AdminReturnRow = {
 const adminReturnColumns = {
   ticket: returnTickets,
   orderNumber: orders.orderNumber,
-  customerName: profiles.fullName,
+  customerName: orderContactName,
   customerEmail: profiles.email,
-  customerPhone: profiles.phone,
+  customerPhone: orderContactPhone,
 };
 
 // Backoffice board (requerimientos §6.7): tickets joined with order number + customer contact,

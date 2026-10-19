@@ -6,12 +6,37 @@ import {
   ListOrdersResponse,
   GetOrderParams,
   GetOrderResponse,
+  CreateGuestOrderBody,
+  CreateGuestOrderResponse,
+  GetGuestOrderResponse,
   type CreateOrderInput,
+  type CreateGuestOrderInput,
 } from "@workspace/api-zod";
 import { requireAuth } from "../../lib/auth";
+import { requireGuestOrder } from "./guest-access";
 import * as service from "./service";
 
 const router: IRouter = Router();
+
+// Guest checkout (auditoría §1.4). No session: the order is created from the lines in the body,
+// and read back afterwards with the access token returned here.
+router.post("/guest/orders", async (req, res) => {
+  const body = CreateGuestOrderBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ code: "INVALID_BODY", message: body.error.message });
+    return;
+  }
+  const result = await service.createGuestOrder(body.data as CreateGuestOrderInput);
+  if (!result.ok) {
+    res.status(result.status).json({ code: result.code, message: result.message });
+    return;
+  }
+  res.status(result.status).json(CreateGuestOrderResponse.parse(result.receipt));
+});
+
+router.get("/guest/orders/:id", requireGuestOrder, async (req, res) => {
+  res.json(GetGuestOrderResponse.parse(await service.buildOrderDto(req.guestOrder!)));
+});
 
 // Every order route is owner-scoped: orders are resolved by req.user.id (jwt.sub).
 router.use("/orders", requireAuth);

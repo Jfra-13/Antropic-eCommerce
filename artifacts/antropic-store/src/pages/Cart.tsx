@@ -12,12 +12,14 @@ import {
 import { useState } from "react";
 import { brand } from "@workspace/brand";
 import { useSeo } from "../lib/seo";
+import { UnresolvedCartItems } from "../components/UnresolvedCartItems";
 
 type ShippingMode = "envio" | "recojo";
 
 export default function Cart() {
   useSeo({ title: "Carrito", noindex: true });
-  const { cart, cartLoading, updateQty, removeFromCart, user } = useStore();
+  const { cart, cartLoading, cartError, retryCart, unresolvedCartItems, updateQty, removeFromCart } =
+    useStore();
   const { config } = useStoreConfig();
   const [, setLocation] = useLocation();
   const [shippingMode, setShippingMode] = useState<ShippingMode>("envio");
@@ -38,8 +40,10 @@ export default function Cart() {
   const shipping = shippingMode === "recojo" || freeByThreshold ? 0 : deliveryFee;
   const total = subtotal + shipping;
 
+  // Logged out goes straight to checkout too: it offers guest checkout and a link to log in,
+  // so an account is a choice rather than a toll (auditoría §1.4).
   const checkout = () => {
-    setLocation(user ? "/checkout" : "/login");
+    setLocation("/checkout");
   };
 
   return (
@@ -49,10 +53,18 @@ export default function Cart() {
 
         {cartLoading ? (
           <p className="font-sans text-muted-foreground">Cargando tu carrito…</p>
-        ) : cart.length > 0 ? (
+        ) : cartError ? (
+          <p className="font-sans text-muted-foreground">
+            No pudimos cargar tu carrito.{" "}
+            <button type="button" onClick={retryCart} className="text-primary underline">
+              Reintentar
+            </button>
+          </p>
+        ) : cart.length > 0 || unresolvedCartItems.length > 0 ? (
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Items */}
             <div className="flex-1 flex flex-col gap-4">
+              <UnresolvedCartItems className="border border-destructive p-4" />
               {cart.map((line) => (
                 <div key={line.variantId} className="flex gap-4 md:gap-6 border-b border-border pb-4">
                   <Link href={`/product/${line.slug}`} className="w-24 h-32 md:w-28 md:h-36 flex-shrink-0 bg-muted overflow-hidden">
@@ -142,7 +154,7 @@ export default function Cart() {
                   className="w-full bg-primary text-primary-foreground font-sans font-bold text-base uppercase tracking-wider py-4 hover:bg-foreground transition-colors"
                   data-testid="button-checkout"
                 >
-                  {user ? "Proceder al pago" : "Inicia sesión para pagar"}
+                  Proceder al pago
                 </button>
                 <div className="mt-6 flex items-center justify-center gap-2 text-sm text-muted-foreground font-sans">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>

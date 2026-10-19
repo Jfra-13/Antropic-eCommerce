@@ -21,6 +21,8 @@ export interface AdminOrderDetail {
   customerName: string | null;
   /** @nullable */
   customerPhone: string | null;
+  /** The order was placed without an account (guest checkout). The customer reaches it through the link in their email, not by logging in. */
+  customerIsGuest: boolean;
   paymentStatus: AdminOrderDetailPaymentStatus;
   paymentMethod: AdminOrderDetailPaymentMethod;
   /** @nullable */

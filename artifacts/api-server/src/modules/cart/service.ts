@@ -1,7 +1,8 @@
-import type { Cart as CartDto } from "@workspace/api-zod";
+import type { Cart as CartDto, GuestCart as GuestCartDto } from "@workspace/api-zod";
 import {
   getOrCreateCart,
   selectCartLines,
+  selectGuestCartLines,
   getVariant,
   getCartItemQuantity,
   upsertCartItem,
@@ -19,6 +20,13 @@ export type CartResult =
 async function view(cartId: string): Promise<CartDto> {
   const lines = await selectCartLines(cartId);
   return { items: lines.map(toCartItemDto) };
+}
+
+export async function resolveGuestCart(
+  items: { variantId: string; quantity: number }[],
+): Promise<GuestCartDto> {
+  const { lines, missing } = await selectGuestCartLines(items);
+  return { items: lines.map(toCartItemDto), missing };
 }
 
 export async function getCart(userId: string): Promise<CartDto> {

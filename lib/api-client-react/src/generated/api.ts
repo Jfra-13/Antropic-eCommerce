@@ -50,6 +50,7 @@ import type {
   CreateComplaintInput,
   CreateCouponInput,
   CreateEmployeeInput,
+  CreateGuestOrderInput,
   CreateOccasionInput,
   CreateOrderInput,
   CreatePickupPointInput,
@@ -60,6 +61,12 @@ import type {
   DashboardSummary,
   Error,
   GetSalesReportParams,
+  GuestCart,
+  GuestCartInput,
+  GuestCheckoutQuoteInput,
+  GuestOrderClaim,
+  GuestOrderClaimRequest,
+  GuestOrderReceipt,
   HealthStatus,
   ListAdminOrdersParams,
   ListAdminProductsParams,
@@ -519,6 +526,76 @@ export const useUpdateMe = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getUpdateMeMutationOptions(options));
+    }
+
+export const getClaimGuestOrdersUrl = () => {
+
+
+
+
+  return `/api/me/guest-orders/claim`
+}
+
+/**
+ * @summary Move guest orders into the caller's account. Each order is identified by its id plus the access token issued when it was placed (the one in the confirmation email link). Holding the token is the proof of ownership; the caller's email plays no part.
+ */
+export const claimGuestOrders = async (guestOrderClaimRequest: GuestOrderClaimRequest, options?: RequestInit): Promise<GuestOrderClaim> => {
+
+  return customFetch<GuestOrderClaim>(getClaimGuestOrdersUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(guestOrderClaimRequest)
+  }
+);}
+
+
+
+
+export const getClaimGuestOrdersMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,{data: BodyType<GuestOrderClaimRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,{data: BodyType<GuestOrderClaimRequest>}, TContext> => {
+
+const mutationKey = ['claimGuestOrders'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimGuestOrders>>, {data: BodyType<GuestOrderClaimRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  claimGuestOrders(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimGuestOrdersMutationResult = NonNullable<Awaited<ReturnType<typeof claimGuestOrders>>>
+    export type ClaimGuestOrdersMutationBody = BodyType<GuestOrderClaimRequest>
+    export type ClaimGuestOrdersMutationError = ErrorType<Error>
+
+    /**
+ * @summary Move guest orders into the caller's account. Each order is identified by its id plus the access token issued when it was placed (the one in the confirmation email link). Holding the token is the proof of ownership; the caller's email plays no part.
+ */
+export const useClaimGuestOrders = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimGuestOrders>>, TError,{data: BodyType<GuestOrderClaimRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimGuestOrders>>,
+        TError,
+        {data: BodyType<GuestOrderClaimRequest>},
+        TContext
+      > => {
+      return useMutation(getClaimGuestOrdersMutationOptions(options));
     }
 
 export const getListCategoriesUrl = (params?: ListCategoriesParams,) => {
@@ -1865,6 +1942,434 @@ export const useAttachPaymentProof = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getAttachPaymentProofMutationOptions(options));
+    }
+
+export const getGuestCheckoutQuoteUrl = () => {
+
+
+
+
+  return `/api/guest/checkout/quote`
+}
+
+/**
+ * @summary Preview server-side totals for a guest cart sent in the body (no account)
+ */
+export const guestCheckoutQuote = async (guestCheckoutQuoteInput: GuestCheckoutQuoteInput, options?: RequestInit): Promise<CheckoutQuote> => {
+
+  return customFetch<CheckoutQuote>(getGuestCheckoutQuoteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(guestCheckoutQuoteInput)
+  }
+);}
+
+
+
+
+export const getGuestCheckoutQuoteMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof guestCheckoutQuote>>, TError,{data: BodyType<GuestCheckoutQuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof guestCheckoutQuote>>, TError,{data: BodyType<GuestCheckoutQuoteInput>}, TContext> => {
+
+const mutationKey = ['guestCheckoutQuote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof guestCheckoutQuote>>, {data: BodyType<GuestCheckoutQuoteInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  guestCheckoutQuote(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GuestCheckoutQuoteMutationResult = NonNullable<Awaited<ReturnType<typeof guestCheckoutQuote>>>
+    export type GuestCheckoutQuoteMutationBody = BodyType<GuestCheckoutQuoteInput>
+    export type GuestCheckoutQuoteMutationError = ErrorType<Error>
+
+    /**
+ * @summary Preview server-side totals for a guest cart sent in the body (no account)
+ */
+export const useGuestCheckoutQuote = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof guestCheckoutQuote>>, TError,{data: BodyType<GuestCheckoutQuoteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof guestCheckoutQuote>>,
+        TError,
+        {data: BodyType<GuestCheckoutQuoteInput>},
+        TContext
+      > => {
+      return useMutation(getGuestCheckoutQuoteMutationOptions(options));
+    }
+
+export const getResolveGuestCartUrl = () => {
+
+
+
+
+  return `/api/guest/checkout/cart`
+}
+
+/**
+ * @summary Resolve a guest cart (variant ids kept in the browser) into displayable lines. Variants that are no longer sold come back in `missing`; a line with no stock is still a line.
+ */
+export const resolveGuestCart = async (guestCartInput: GuestCartInput, options?: RequestInit): Promise<GuestCart> => {
+
+  return customFetch<GuestCart>(getResolveGuestCartUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(guestCartInput)
+  }
+);}
+
+
+
+
+export const getResolveGuestCartMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveGuestCart>>, TError,{data: BodyType<GuestCartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveGuestCart>>, TError,{data: BodyType<GuestCartInput>}, TContext> => {
+
+const mutationKey = ['resolveGuestCart'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveGuestCart>>, {data: BodyType<GuestCartInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resolveGuestCart(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveGuestCartMutationResult = NonNullable<Awaited<ReturnType<typeof resolveGuestCart>>>
+    export type ResolveGuestCartMutationBody = BodyType<GuestCartInput>
+    export type ResolveGuestCartMutationError = ErrorType<Error>
+
+    /**
+ * @summary Resolve a guest cart (variant ids kept in the browser) into displayable lines. Variants that are no longer sold come back in `missing`; a line with no stock is still a line.
+ */
+export const useResolveGuestCart = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveGuestCart>>, TError,{data: BodyType<GuestCartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveGuestCart>>,
+        TError,
+        {data: BodyType<GuestCartInput>},
+        TContext
+      > => {
+      return useMutation(getResolveGuestCartMutationOptions(options));
+    }
+
+export const getCreateGuestOrderUrl = () => {
+
+
+
+
+  return `/api/guest/orders`
+}
+
+/**
+ * @summary Place an order without an account (totals computed server-side). Returns the order and the access token that reaches it afterwards.
+ */
+export const createGuestOrder = async (createGuestOrderInput: CreateGuestOrderInput, options?: RequestInit): Promise<GuestOrderReceipt> => {
+
+  return customFetch<GuestOrderReceipt>(getCreateGuestOrderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createGuestOrderInput)
+  }
+);}
+
+
+
+
+export const getCreateGuestOrderMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGuestOrder>>, TError,{data: BodyType<CreateGuestOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGuestOrder>>, TError,{data: BodyType<CreateGuestOrderInput>}, TContext> => {
+
+const mutationKey = ['createGuestOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGuestOrder>>, {data: BodyType<CreateGuestOrderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createGuestOrder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateGuestOrderMutationResult = NonNullable<Awaited<ReturnType<typeof createGuestOrder>>>
+    export type CreateGuestOrderMutationBody = BodyType<CreateGuestOrderInput>
+    export type CreateGuestOrderMutationError = ErrorType<Error>
+
+    /**
+ * @summary Place an order without an account (totals computed server-side). Returns the order and the access token that reaches it afterwards.
+ */
+export const useCreateGuestOrder = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGuestOrder>>, TError,{data: BodyType<CreateGuestOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createGuestOrder>>,
+        TError,
+        {data: BodyType<CreateGuestOrderInput>},
+        TContext
+      > => {
+      return useMutation(getCreateGuestOrderMutationOptions(options));
+    }
+
+export const getGetGuestOrderUrl = (id: string,) => {
+
+
+
+
+  return `/api/guest/orders/${id}`
+}
+
+/**
+ * @summary Get a guest order with its access token (used for payment status polling)
+ */
+export const getGuestOrder = async (id: string, options?: RequestInit): Promise<Order> => {
+
+  return customFetch<Order>(getGetGuestOrderUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGuestOrderQueryKey = (id: string,) => {
+    return [
+    `/api/guest/orders/${id}`
+    ] as const;
+    }
+
+
+export const getGetGuestOrderQueryOptions = <TData = Awaited<ReturnType<typeof getGuestOrder>>, TError = ErrorType<Error>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGuestOrder>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGuestOrderQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGuestOrder>>> = ({ signal }) => getGuestOrder(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGuestOrder>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGuestOrderQueryResult = NonNullable<Awaited<ReturnType<typeof getGuestOrder>>>
+export type GetGuestOrderQueryError = ErrorType<Error>
+
+
+/**
+ * @summary Get a guest order with its access token (used for payment status polling)
+ */
+
+export function useGetGuestOrder<TData = Awaited<ReturnType<typeof getGuestOrder>>, TError = ErrorType<Error>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGuestOrder>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGuestOrderQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateGuestPaymentProofUploadUrlUrl = (id: string,) => {
+
+
+
+
+  return `/api/guest/orders/${id}/payment-proof/upload-url`
+}
+
+/**
+ * @summary Get a signed URL to upload a guest order's payment proof to private Storage
+ */
+export const createGuestPaymentProofUploadUrl = async (id: string, options?: RequestInit): Promise<PaymentProofUploadUrl> => {
+
+  return customFetch<PaymentProofUploadUrl>(getCreateGuestPaymentProofUploadUrlUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCreateGuestPaymentProofUploadUrlMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGuestPaymentProofUploadUrl>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGuestPaymentProofUploadUrl>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['createGuestPaymentProofUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGuestPaymentProofUploadUrl>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  createGuestPaymentProofUploadUrl(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateGuestPaymentProofUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof createGuestPaymentProofUploadUrl>>>
+
+    export type CreateGuestPaymentProofUploadUrlMutationError = ErrorType<Error>
+
+    /**
+ * @summary Get a signed URL to upload a guest order's payment proof to private Storage
+ */
+export const useCreateGuestPaymentProofUploadUrl = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGuestPaymentProofUploadUrl>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createGuestPaymentProofUploadUrl>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCreateGuestPaymentProofUploadUrlMutationOptions(options));
+    }
+
+export const getAttachGuestPaymentProofUrl = (id: string,) => {
+
+
+
+
+  return `/api/guest/orders/${id}/payment-proof`
+}
+
+/**
+ * @summary Attach an uploaded payment proof to a guest order and move it to verification
+ */
+export const attachGuestPaymentProof = async (id: string,
+    attachPaymentProofInput: AttachPaymentProofInput, options?: RequestInit): Promise<Order> => {
+
+  return customFetch<Order>(getAttachGuestPaymentProofUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(attachPaymentProofInput)
+  }
+);}
+
+
+
+
+export const getAttachGuestPaymentProofMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachGuestPaymentProof>>, TError,{id: string;data: BodyType<AttachPaymentProofInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachGuestPaymentProof>>, TError,{id: string;data: BodyType<AttachPaymentProofInput>}, TContext> => {
+
+const mutationKey = ['attachGuestPaymentProof'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachGuestPaymentProof>>, {id: string;data: BodyType<AttachPaymentProofInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  attachGuestPaymentProof(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachGuestPaymentProofMutationResult = NonNullable<Awaited<ReturnType<typeof attachGuestPaymentProof>>>
+    export type AttachGuestPaymentProofMutationBody = BodyType<AttachPaymentProofInput>
+    export type AttachGuestPaymentProofMutationError = ErrorType<Error>
+
+    /**
+ * @summary Attach an uploaded payment proof to a guest order and move it to verification
+ */
+export const useAttachGuestPaymentProof = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachGuestPaymentProof>>, TError,{id: string;data: BodyType<AttachPaymentProofInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachGuestPaymentProof>>,
+        TError,
+        {id: string;data: BodyType<AttachPaymentProofInput>},
+        TContext
+      > => {
+      return useMutation(getAttachGuestPaymentProofMutationOptions(options));
     }
 
 export const getListPaymentVerificationQueueUrl = (params?: ListPaymentVerificationQueueParams,) => {

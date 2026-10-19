@@ -287,17 +287,93 @@ export interface CreateOrderInput {
   idempotencyKey?: string | null;
 }
 
-export interface OrderItem {
-  /** @nullable */
-  variantId: string | null;
-  productName: string;
-  /** @nullable */
-  variantLabel: string | null;
-  /** @nullable */
-  sku: string | null;
-  unitPrice: string;
+export interface GuestOrderItemInput {
+  variantId: string;
+  /**
+     * @minimum 1
+     * @maximum 99
+     */
   quantity: number;
-  lineTotal: string;
+}
+
+export interface GuestCartInput {
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  items: GuestOrderItemInput[];
+}
+
+export interface GuestCart {
+  items: CartItem[];
+  missing: string[];
+}
+
+export type GuestCheckoutQuoteInputDeliveryMethod = typeof GuestCheckoutQuoteInputDeliveryMethod[keyof typeof GuestCheckoutQuoteInputDeliveryMethod];
+
+
+export const GuestCheckoutQuoteInputDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export interface GuestCheckoutQuoteInput {
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  items: GuestOrderItemInput[];
+  deliveryMethod: GuestCheckoutQuoteInputDeliveryMethod;
+  /** @nullable */
+  couponCode?: string | null;
+}
+
+export type CreateGuestOrderInputDeliveryMethod = typeof CreateGuestOrderInputDeliveryMethod[keyof typeof CreateGuestOrderInputDeliveryMethod];
+
+
+export const CreateGuestOrderInputDeliveryMethod = {
+  delivery: 'delivery',
+  recojo: 'recojo',
+} as const;
+
+export interface CreateGuestOrderInput {
+  /** @maxLength 254 */
+  email: string;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  fullName: string;
+  /**
+     * @minLength 1
+     * @maxLength 30
+     */
+  phone: string;
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  items: GuestOrderItemInput[];
+  deliveryMethod: CreateGuestOrderInputDeliveryMethod;
+  /**
+     * Required when deliveryMethod is delivery
+     * @maxLength 500
+     * @nullable
+     */
+  shippingAddress?: string | null;
+  /**
+     * Required when deliveryMethod is recojo
+     * @nullable
+     */
+  pickupPointId?: string | null;
+  /** @nullable */
+  couponCode?: string | null;
+  /**
+     * Client-supplied key; a repeated key (with the same email) returns the same order
+     * @maxLength 128
+     * @nullable
+     */
+  idempotencyKey?: string | null;
 }
 
 export type OrderPaymentStatus = typeof OrderPaymentStatus[keyof typeof OrderPaymentStatus];
@@ -355,6 +431,19 @@ export const OrderPaymentProofStatus = {
   rechazado: 'rechazado',
 } as const;
 
+export interface OrderItem {
+  /** @nullable */
+  variantId: string | null;
+  productName: string;
+  /** @nullable */
+  variantLabel: string | null;
+  /** @nullable */
+  sku: string | null;
+  unitPrice: string;
+  quantity: number;
+  lineTotal: string;
+}
+
 export interface Order {
   id: string;
   orderNumber: number;
@@ -378,6 +467,34 @@ export interface Order {
   paymentProofStatus: OrderPaymentProofStatus;
   createdAt: string;
   items: OrderItem[];
+}
+
+export interface GuestOrderReceipt {
+  order: Order;
+  /** Opens this order through the /guest/orders endpoints. The client keeps it; the customer also receives it inside the link of the confirmation email. */
+  accessToken: string;
+}
+
+export type GuestOrderClaimRequestOrdersItem = {
+  orderId: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  accessToken: string;
+};
+
+export interface GuestOrderClaimRequest {
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  orders: GuestOrderClaimRequestOrdersItem[];
+}
+
+export interface GuestOrderClaim {
+  /** @minimum 0 */
+  claimed: number;
 }
 
 export type OrderListItemPaymentStatus = typeof OrderListItemPaymentStatus[keyof typeof OrderListItemPaymentStatus];
@@ -478,6 +595,8 @@ export interface AdminOrderListItem {
   customerEmail: string;
   /** @nullable */
   customerName: string | null;
+  /** The order was placed without an account (guest checkout). The customer reaches it through the link in their email, not by logging in. */
+  customerIsGuest: boolean;
   deliveryMethod: AdminOrderListItemDeliveryMethod;
   paymentStatus: AdminOrderListItemPaymentStatus;
   /** @nullable */
@@ -557,6 +676,8 @@ export interface AdminOrderDetail {
   customerName: string | null;
   /** @nullable */
   customerPhone: string | null;
+  /** The order was placed without an account (guest checkout). The customer reaches it through the link in their email, not by logging in. */
+  customerIsGuest: boolean;
   paymentStatus: AdminOrderDetailPaymentStatus;
   paymentMethod: AdminOrderDetailPaymentMethod;
   /** @nullable */
@@ -1771,6 +1892,11 @@ export interface OpsSnapshot {
   /** Connection pool of THIS instance only. Behind a load balancer each instance has its own pool, so these numbers describe the process that answered the request, not the deployment. Useful for spotting exhaustion; not a cluster-wide metric. */
   database: OpsSnapshotDatabase;
 }
+
+/**
+ * Access token of a guest order, as returned by createGuestOrder and emailed to the customer. A header and not a query parameter so it never lands in access logs.
+ */
+export type OrderTokenHeaderParameter = string;
 
 export type ListCategoriesParams = {
 /**

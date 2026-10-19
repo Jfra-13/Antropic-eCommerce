@@ -16,7 +16,7 @@ Contexto en una línea: Antropic es una tienda peruana (Vite SPA + Express 5 + D
 pg.Pool + Supabase solo para Auth/Storage + verificación manual de constancias Yape/Plin). Se está
 puliendo para después clonarla a una segunda marca con repo y base de datos separados.
 
-Las fases 0 a 7 están hechas: documento de auditoría; endurecimiento de la API (CORS, helmet, rate
+Las fases 0 a 7b y la 9 están hechas: documento de auditoría; endurecimiento de la API (CORS, helmet, rate
 limiting, contrato de entorno); Libro de Reclamaciones + textos legales + registro de
 consentimiento; suites de pruebas bloqueantes en CI; clonabilidad (identidad de marca como dato en
 lib/brand, con una prueba en CI que impide que vuelva al código); migraciones versionadas
@@ -25,10 +25,14 @@ de proveedor en modules/payments/settlement.ts, interfaz PaymentProvider, tabla 
 idempotencia de webhooks, y caducidad de pedidos abandonados); y observabilidad (outbox
 notification_deliveries con reintentos y job retry-notifications, id de petición extremo a extremo,
 /readyz que comprueba la base, pantalla de Operaciones en el panel y ErrorBoundary en las dos SPA).
-docs/PAGOS.md y docs/OBSERVABILIDAD.md son las referencias de esas dos fases.
+docs/PAGOS.md y docs/OBSERVABILIDAD.md son las referencias de esas dos fases. La 7b dejó SEO
+por ruta, sitemap y code-splitting (docs/SEO.md). La 9, checkout de invitado: un perfil de
+invitado por pedido, un token de acceso que abre ese pedido (cabecera X-Order-Token, #fragmento
+en el enlace del correo), y el paso de esos pedidos a la cuenta presentando el token de cada uno,
+nunca por correo (AUDITORIA §1.4 y §11.10).
 
-Ojo con las ramas: las fases 0–5 están en main, pero las fases 6 y 7 no. La 7 se construyó encima
-de la rama de la 6, así que fusionarlas fuera de orden revierte la arquitectura de pagos.
+Todo lo fusionado vive en main. Lo único pendiente de código es la Fase 8 (IGV), bloqueada por
+el contador.
 
 El entorno de desarrollo importa: se trabaja desde Claude Code en la web, sin laptop. Ese contenedor
 puede levantar Postgres 16 local, correr las suites de integración de verdad, arrancar los dev
@@ -80,23 +84,75 @@ conversación entera cada vez. Dos consecuencias prácticas:
 - **No dejes vigilancia automática de PRs en sesiones largas.** Cada despertar reprocesa todo el
   historial; en una conversación corta sale a cuenta, en una larga no.
 
-## Estado operativo al cierre de la Fase 7
+## Estado operativo al cierre de la Fase 9
 
 Cosas que una sesión nueva no puede deducir del código y que cuesta caro redescubrir.
 
+### PR #21 (Fase 9) — NO fusionar todavía: falta la revisión de la tercera ronda
+
+La rama `claude/fase-9-checkout-invitado` pasó dos revisiones. La primera dejó 9 hallazgos, todos
+corregidos (commits `9577d75` a `0ea4cd8`, CI en verde, evidencia en AUDITORIA §11.10). La segunda
+revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguiente, **sin corregir**:
+
+1. **[corregido]** **Seguridad — el traspaso de pedidos sigue confiando en el correo.** `provenEmail` (lib/auth.ts)
+   combina el `email` actual del JWT con `amr`, pero `amr` dice cómo se inició la sesión, no que el
+   correo *actual* se haya probado. Con la confirmación de correo desactivada en Supabase, alguien
+   entra por magic link con su correo, lo cambia con `updateUser({email: víctima})` y el JWT
+   refrescado conserva `amr=otp`: se lleva los pedidos de invitado de la víctima.
+   **Propuesta (pendiente de aprobación del usuario):** el traspaso exige el token de acceso de cada
+   pedido (el del enlace del correo, que la tienda ya guarda en `lib/guest-orders.ts`), no el
+   correo. Quien tiene el token ya puede ver el pedido; el traspaso deja de depender de la
+   configuración de Supabase. Costo: un pedido hecho en otro dispositivo se vincula al abrir su
+   enlace con la sesión iniciada.
+**Estado (tercera ronda):** los diez hallazgos corregidos (commits `7a8e8bb` a `f3f819b`, uno
+por hallazgo; evidencia en AUDITORIA §11.10). Falta la revisión con contexto limpio de
+`3ed0646..HEAD` antes de fusionar. La regla del 5, **aprobada por el usuario** e implementada
+(también cubre la edición de usuario del backoffice, que pasa por el mismo `updateProfileRow`):
+
+- El snapshot del pedido (`orders.contact_name`/`contact_phone`) es la ÚNICA fuente de lectura;
+  `coalesce(snapshot, perfil)` solo cubre pedidos anteriores a `0004`.
+- `PATCH /me` copia el nombre y/o teléfono que cambiaron al snapshot de los pedidos de ese
+  usuario que aún no están `entregado`/`recogido`, en la misma transacción. Los cerrados no se
+  tocan (historial para devoluciones y reclamos). Con prueba de integración.
+- Orden sugerido: 9 (un solo fragmento SQL exportado para el contacto), luego 2 (usarlo en
+  `payments/queries.ts` ~83 y `returns/queries.ts` ~66), luego 5 (`routes/me.ts`).
+
+2. **[corregido]** La cola de verificación (`modules/payments/queries.ts` ~83) y el tablero de devoluciones
+   (`modules/returns/queries.ts` ~66) leen nombre y teléfono solo de `profiles`: les falta el
+   `coalesce` con el snapshot del pedido.
+3. **[corregido]** La migración `0004` no rellena `contact_name`/`contact_phone` en los pedidos existentes. Un pedido
+   de invitado anterior al despliegue pierde el contacto al traspasarse. Corrección: `UPDATE orders
+   ... FROM profiles` dentro de la misma migración (todavía no se aplicó en ninguna base real).
+4. **[corregido]** **Bloquea ventas.** `unresolvedCartItems` (StoreContext ~183) marca como no disponible todo lo
+   que no está en `useProducts()`, que está topado en `limit: 100` (lib/catalog.ts:14) y queda vacío
+   si la petición falla. El checkout se bloquea con productos que sí tienen stock. Hay que resolver
+   las variantes del carrito contra la API, no contra la primera página del catálogo, y no tratar
+   "no cargó" como "no existe".
+5. **[corregido]** En pedidos de cuenta, el snapshot gana sobre el perfil: si el cliente corrige su teléfono después
+   de comprar, el personal sigue viendo el viejo y no hay pantalla para editarlo. Decidir la regla.
+6. **[corregido]** El filtro `is_guest = true` del replay también corta el reintento legítimo del propio invitado si
+   su pedido se traspasó entre el envío y el reintento (devuelve 409 y puede acabar en un duplicado).
+7. **[corregido]** `/cart` ignora `unresolvedCartItems`: el carrito y el checkout no muestran lo mismo.
+8. **[corregido]** Checkout: el `return` temprano por ítems no resueltos limpia `quote` pero no `quoteError`, así
+   que quedan en pantalla dos mensajes contradictorios.
+9. **[corregido]** El `coalesce` del contacto está copiado en cinco consultas: conviene un solo fragmento SQL
+   exportado (es como se escaparon las del punto 2).
+10. **[corregido]** `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
+    cualquier 23505 en ese código sin mirar la restricción violada.
+
+Cuando estén corregidos: correr una revisión más sobre los arreglos nuevos y recién entonces
+fusionar. La base real necesitará **6 migraciones** (`0000`–`0005`) o más si se añade otra.
+
 ### Lo que sigue pendiente, en orden recomendado
 
-1. **Fase 7b · SEO y rendimiento** (§4, §8.1). La otra mitad del título de la Fase 7, separada a
-   propósito: meta por ruta (las 12 comparten un `<title>`, así que un producto compartido a
-   WhatsApp se ve como la home), `sitemap.xml`, `robots.txt`, canónicas, JSON-LD, y code-splitting
-   con `React.lazy` — el bundle del storefront pesa 733 kB y el propio `build` lo avisa.
-2. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
+1. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
    ya está decidido: precio bruto en el catálogo y snapshot fiscal congelado en el pedido, con la
    derivación por resta para que base + impuesto cuadre siempre. Es el último cambio de esquema
    que se encarece de verdad con el clon.
-3. **Fase 9 · checkout de invitado** (§1.4). Modelo ya decidido: perfil de invitado sin cuenta de
-   Supabase, **no** `user_id` nullable. Va al final justo porque no necesita migración y por tanto
-   no se encarece con el fork.
+
+Las fases 7b (SEO y rendimiento) y 9 (checkout de invitado) están hechas. Lo que dejan abierto
+no es código: dominio en `brand.siteUrl` y reescritura de `/sitemap.xml` (7b), y `STORE_URL`
+configurada más una prueba del enlace a la cuenta con un inicio de sesión real (9).
 
 ### Decisiones ya tomadas que NO hay que volver a discutir
 
@@ -105,6 +161,11 @@ Cosas que una sesión nueva no puede deducir del código y que cuesta caro redes
 - **Invitados:** perfil de invitado. Se descartó `user_id` nullable porque hay cinco
   `innerJoin(profiles, …)` sobre `orders.user_id` y un pedido de invitado desaparecería de la cola
   de verificación. Motivo en §1.4.
+- **Un perfil de invitado por pedido, nunca reutilizado por correo** (Fase 9): reutilizarlo
+  permitía reescribir el contacto del pedido pendiente de un desconocido escribiendo su correo.
+- **Los pedidos de invitado pasan a la cuenta presentando el token de acceso de cada pedido**,
+  nunca por correo: `amr` no prueba el correo actual de la sesión (tercera revisión). Se mueve
+  `orders.user_id`; no se añade una segunda vía de propiedad que cada consulta tenga que conocer.
 - **Pasarela de pago:** no se integra ninguna en este ciclo. La arquitectura está lista y el
   contrato del webhook documentado en `docs/PAGOS.md` §5. **No crear el endpoint** hasta que haya
   pasarela: una ruta pública que aún no verifica firma es una puerta abierta.
@@ -162,7 +223,10 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
 
    Detalle en `docs/PAGOS.md` §4.
 
-3. **Programar el job de reintento de correos** (Fase 7), cada 5 minutos. Sin él, un correo que
+3. **`STORE_URL` en la API** (Fase 9). Sin ella, el correo de un pedido de invitado sale sin el
+   enlace que es su único camino de vuelta.
+
+4. **Programar el job de reintento de correos** (Fase 7), cada 5 minutos. Sin él, un correo que
    falle una vez se queda en la cola:
 
    ```

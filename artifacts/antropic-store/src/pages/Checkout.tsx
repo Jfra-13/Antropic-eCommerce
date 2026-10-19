@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCheckoutQuote,
@@ -11,6 +11,8 @@ import {
   getGetMeQueryKey,
   useUpdateMe,
   useRecordConsent,
+  useGuestCheckoutQuote,
+  useCreateGuestOrder,
   type CheckoutQuote,
 } from "@workspace/api-client-react";
 import { useStore } from "../context/StoreContext";
@@ -19,12 +21,31 @@ import { apiErrorCode, apiErrorMessage } from "../lib/errors";
 import { useStoreConfig } from "../lib/config";
 import { brand } from "@workspace/brand";
 import { useSeo } from "../lib/seo";
+import { UnresolvedCartItems } from "../components/UnresolvedCartItems";
+import { rememberGuestOrder } from "../lib/guest-orders";
 
 type DeliveryMethod = "delivery" | "recojo";
 
+// Deliberately loose: the API validates the address for real. This only keeps the button off
+// until the field looks like an email, so a typo is caught before the order, not after.
+const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Checkout() {
   useSeo({ title: "Finalizar compra", noindex: true });
-  const { user, authLoading, cart, cartLoading } = useStore();
+  const {
+    user,
+    authLoading,
+    cart,
+    cartLoading,
+    cartError,
+    retryCart,
+    clearGuestCart,
+    unresolvedCartItems,
+  } = useStore();
+  // Without a session this is a guest checkout (auditoría §1.4): same screen, same server-side
+  // totals, plus an email field — the order's way back to the customer, since there is no
+  // account to find it in.
+  const isGuest = !authLoading && !user;
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -34,10 +55,14 @@ export default function Checkout() {
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+  // Quote failures that are not about the coupon (stock, rate limit, ...). Kept apart from
+  // couponError so the guest is not told their coupon is wrong when the cart is.
+  const [quoteError, setQuoteError] = useState<{ code: string | undefined; message: string } | null>(null);
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
 
   // Contact data: prefilled from the profile; shown as inline inputs when incomplete
   // (the server rejects orders without name + phone — PROFILE_INCOMPLETE).
+  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [saveContact, setSaveContact] = useState(true);
@@ -50,14 +75,25 @@ export default function Checkout() {
 
   // One key per checkout visit: a double click on "Confirmar" returns the same order.
   const idempotencyKey = useRef<string>(crypto.randomUUID());
+  // The key is globally unique, so one minted while logged out (and possibly spent on a guest
+  // order) must not be reused by the account path after login: that would be a key conflict.
+  const keyForUser = useRef<string | null>(user?.id ?? null);
+  if (keyForUser.current !== (user?.id ?? null)) {
+    keyForUser.current = user?.id ?? null;
+    idempotencyKey.current = crypto.randomUUID();
+  }
 
   const pickupPoints = useListPickupPoints({
     query: { queryKey: getListPickupPointsQueryKey(), enabled: deliveryMethod === "recojo" },
   });
   const { data: me } = useGetMe({ query: { queryKey: getGetMeQueryKey(), enabled: !!user } });
-  const quoteMutation = useCheckoutQuote();
+  const accountQuote = useCheckoutQuote();
+  const guestQuote = useGuestCheckoutQuote();
+  const quoteMutation = isGuest ? guestQuote : accountQuote;
   const updateMe = useUpdateMe();
-  const createOrder = useCreateOrder();
+  const accountOrder = useCreateOrder();
+  const guestOrder = useCreateGuestOrder();
+  const createOrder = isGuest ? guestOrder : accountOrder;
   const recordConsent = useRecordConsent();
   const { config } = useStoreConfig();
 
@@ -73,44 +109,75 @@ export default function Checkout() {
     if (profile.shippingAddress) setAddress(profile.shippingAddress);
   }, [profile]);
 
-  // Server-side totals preview. Re-quoted whenever the method or coupon changes; a coupon
-  // rejected by the API is dropped so the totals always reflect what the order would charge.
-  useEffect(() => {
-    if (!user) return;
-    quoteMutation.mutate(
-      { data: { deliveryMethod, couponCode: appliedCoupon } },
-      {
-        onSuccess: (q) => {
-          setQuote(q);
-          setCouponError(null);
-        },
-        onError: (e) => {
-          const code = apiErrorCode(e);
-          if (code === "EMPTY_CART") {
-            setLocation("/cart");
-            return;
-          }
-          if (code?.startsWith("COUPON_")) {
-            setAppliedCoupon(null);
-            setCouponError(apiErrorMessage(e));
-            return;
-          }
-          setCouponError(apiErrorMessage(e));
-        },
-      },
-    );
-    // The mutation object is recreated per render; re-quote only on real input changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, deliveryMethod, appliedCoupon]);
+  // What the guest is buying, as the API wants it: variant ids and quantities, never prices.
+  const guestItems = cart.map((line) => ({ variantId: line.variantId, quantity: line.qty }));
+  const cartKey = guestItems.map((i) => `${i.variantId}:${i.quantity}`).join(",");
 
-  if (authLoading || (user && cartLoading)) {
+  // Server-side totals preview. Re-quoted whenever the method or coupon changes (and, for a
+  // guest, whenever the browser-side cart does); a coupon rejected by the API is dropped so
+  // the totals always reflect what the order would charge.
+  useEffect(() => {
+    if (authLoading || cartLoading) return;
+    if (isGuest && guestItems.length === 0) return;
+    // Never quote (or order) a partial cart: the totals would omit the unavailable lines.
+    if (isGuest && unresolvedCartItems.length > 0) {
+      // The unresolved-items notice is the one message; a stale quote error would contradict it.
+      setQuote(null);
+      setQuoteError(null);
+      return;
+    }
+    const handlers = {
+      onSuccess: (q: CheckoutQuote) => {
+        setQuote(q);
+        setCouponError(null);
+        setQuoteError(null);
+      },
+      onError: (e: unknown) => {
+        const code = apiErrorCode(e);
+        if (code === "EMPTY_CART") {
+          setLocation("/cart");
+          return;
+        }
+        if (code?.startsWith("COUPON_")) {
+          setAppliedCoupon(null);
+          setCouponError(apiErrorMessage(e));
+          return;
+        }
+        // No quote means no valid totals: drop the stale one so the button state is honest.
+        setQuote(null);
+        setQuoteError({ code, message: apiErrorMessage(e) });
+      },
+    };
+    if (isGuest) {
+      guestQuote.mutate(
+        { data: { items: guestItems, deliveryMethod, couponCode: appliedCoupon } },
+        handlers,
+      );
+    } else {
+      accountQuote.mutate({ data: { deliveryMethod, couponCode: appliedCoupon } }, handlers);
+    }
+    // The mutation objects are recreated per render; re-quote only on real input changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading, cartLoading, deliveryMethod, appliedCoupon, isGuest ? cartKey : "", unresolvedCartItems.length]);
+
+  if (authLoading || cartLoading) {
     return <Centered>Cargando…</Centered>;
   }
-  if (!user) {
-    setLocation("/login");
-    return null;
+  // Not "empty": the cart is there, it just did not load. Bouncing to /cart would lose nothing
+  // but look like it did.
+  if (cartError) {
+    return (
+      <Centered>
+        <div className="flex flex-col items-center gap-3">
+          <p>No pudimos cargar tu carrito.</p>
+          <button type="button" onClick={retryCart} className="text-primary underline">
+            Reintentar
+          </button>
+        </div>
+      </Centered>
+    );
   }
-  if (cart.length === 0 && !createOrder.isSuccess) {
+  if (cart.length === 0 && unresolvedCartItems.length === 0 && !createOrder.isSuccess) {
     setLocation("/cart");
     return null;
   }
@@ -123,14 +190,65 @@ export default function Checkout() {
 
   const canConfirm =
     quote !== null &&
+    unresolvedCartItems.length === 0 &&
     !createOrder.isPending &&
     !updateMe.isPending &&
     fullName.trim().length > 0 &&
     phone.trim().length > 0 &&
+    (!isGuest || LOOKS_LIKE_EMAIL.test(email.trim())) &&
     (deliveryMethod === "delivery" ? address.trim().length > 0 : pickupPointId !== "");
+
+  // Record both decisions before placing the order, each against the published version of the
+  // legal texts. Best-effort: a consent write must never block a purchase.
+  const recordOrderConsents = (consentEmail: string | null) => {
+    const policyVersion = config?.legal?.policyVersion;
+    if (!policyVersion) return;
+    recordConsent.mutate({
+      data: { purpose: "pedido", granted: true, policyVersion, email: consentEmail },
+    });
+    recordConsent.mutate({
+      data: { purpose: "marketing", granted: marketingOptIn, policyVersion, email: consentEmail },
+    });
+  };
+
+  const placement = {
+    deliveryMethod,
+    shippingAddress: deliveryMethod === "delivery" ? address.trim() : null,
+    pickupPointId: deliveryMethod === "recojo" ? pickupPointId : null,
+    couponCode: appliedCoupon,
+    idempotencyKey: idempotencyKey.current,
+  };
+
+  const confirmAsGuest = () => {
+    const guestEmail = email.trim();
+    recordOrderConsents(guestEmail);
+    guestOrder.mutate(
+      {
+        data: {
+          ...placement,
+          email: guestEmail,
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          items: guestItems,
+        },
+      },
+      {
+        onSuccess: ({ order, accessToken }) => {
+          // Before anything else: without the token this browser could not reopen the order.
+          rememberGuestOrder(order.id, accessToken);
+          setLocation(`/pedido/${order.id}`);
+          clearGuestCart();
+        },
+      },
+    );
+  };
 
   const confirm = async () => {
     if (!canConfirm) return;
+    if (isGuest) {
+      confirmAsGuest();
+      return;
+    }
     setContactError(null);
     try {
       // The server requires name + phone on the profile before ordering. Sync it first
@@ -154,27 +272,10 @@ export default function Checkout() {
       setContactError(apiErrorMessage(e));
       return;
     }
-    // Record both decisions before placing the order, each against the published version of
-    // the legal texts. Best-effort: a consent write must never block a purchase.
-    const policyVersion = config?.legal?.policyVersion;
-    if (policyVersion) {
-      const email = profile?.email ?? null;
-      recordConsent.mutate({ data: { purpose: "pedido", granted: true, policyVersion, email } });
-      recordConsent.mutate({
-        data: { purpose: "marketing", granted: marketingOptIn, policyVersion, email },
-      });
-    }
+    recordOrderConsents(profile?.email ?? null);
 
-    createOrder.mutate(
-      {
-        data: {
-          deliveryMethod,
-          shippingAddress: deliveryMethod === "delivery" ? address.trim() : null,
-          pickupPointId: deliveryMethod === "recojo" ? pickupPointId : null,
-          couponCode: appliedCoupon,
-          idempotencyKey: idempotencyKey.current,
-        },
-      },
+    accountOrder.mutate(
+      { data: placement },
       {
         onSuccess: (order) => {
           // The server cleared the cart inside the order transaction.
@@ -195,12 +296,41 @@ export default function Checkout() {
           <div className="flex-1 flex flex-col gap-8">
             <section>
               <h2 className="font-sans font-bold text-lg uppercase tracking-wide text-foreground mb-4">Tus datos</h2>
+              {isGuest && (
+                <p className="font-sans text-sm text-muted-foreground mb-3">
+                  Compra sin crear una cuenta. ¿Ya tienes una?{" "}
+                  <Link href="/login" className="text-primary underline">
+                    Inicia sesión
+                  </Link>
+                  .
+                </p>
+              )}
               {profileIncomplete && (
                 <p className="font-sans text-sm text-muted-foreground mb-3">
                   Necesitamos tu nombre y teléfono para coordinar la entrega.
                 </p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {isGuest && (
+                  <div className="sm:col-span-2">
+                    <label htmlFor="checkout-email" className="font-sans text-sm font-bold text-foreground mb-1 block">
+                      Correo electrónico
+                    </label>
+                    <input
+                      id="checkout-email"
+                      type="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="tucorreo@ejemplo.com"
+                      className="w-full bg-muted border-2 border-transparent px-4 py-3 font-sans text-sm text-foreground focus:border-primary focus:outline-none transition-colors"
+                      data-testid="input-email"
+                    />
+                    <p className="font-sans text-xs text-muted-foreground mt-1">
+                      Te enviamos aquí la confirmación y el enlace para subir tu constancia de pago.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="font-sans text-sm font-bold text-foreground mb-1 block">Nombre completo</label>
                   <input
@@ -224,14 +354,16 @@ export default function Checkout() {
                   />
                 </div>
               </div>
-              <label className="flex items-center gap-2 mt-3 font-sans text-sm text-muted-foreground cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={saveContact}
-                  onChange={(e) => setSaveContact(e.target.checked)}
-                />
-                Guardar para próximas compras
-              </label>
+              {!isGuest && (
+                <label className="flex items-center gap-2 mt-3 font-sans text-sm text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveContact}
+                    onChange={(e) => setSaveContact(e.target.checked)}
+                  />
+                  Guardar para próximas compras
+                </label>
+              )}
               {contactError && <p className="text-xs text-destructive mt-2">{contactError}</p>}
             </section>
 
@@ -387,6 +519,23 @@ export default function Checkout() {
                     </div>
                   </div>
                 </>
+              )}
+
+              <UnresolvedCartItems className="mt-4" />
+
+              {quoteError && (
+                <p className="text-sm text-destructive mt-4">
+                  {quoteError.message}
+                  {quoteError.code === "OUT_OF_STOCK" && (
+                    <>
+                      {" "}
+                      <Link href="/cart" className="underline">
+                        Revisa tu carrito
+                      </Link>
+                      .
+                    </>
+                  )}
+                </p>
               )}
 
               {createOrder.isError && (

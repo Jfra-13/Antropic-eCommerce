@@ -65,13 +65,24 @@ export type OrderEmailInput = {
   items: OrderItem[];
 };
 
+// Where "ver mi pedido" points. An account order opens behind the login; a guest order has no
+// login, so its link carries the order's access token — in the #fragment, which the browser
+// keeps to itself instead of sending it to the storefront host or to any page it links to.
+// Every email for a guest order uses it, not only the first: the customer may only ever click
+// the latest one.
+export function orderLink(base: string, order: Pick<Order, "id" | "guestAccessToken">): string {
+  return order.guestAccessToken
+    ? `${base}/pedido/${order.id}#${order.guestAccessToken}`
+    : `${base}/orders/${order.id}`;
+}
+
 // Full branded order email: header, status message, item summary, totals, CTA link.
 export function orderEmailHtml({ heading, message, order, items }: OrderEmailInput): string {
   const ref = orderReference(order.orderNumber);
   const base = storeBaseUrl();
   const cta = base
     ? `<tr><td style="padding:24px 0 0;text-align:center;">
-         <a href="${base}/orders/${order.id}"
+         <a href="${escapeHtml(orderLink(base, order))}"
             style="display:inline-block;background:${BRAND_COLOR};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 28px;">
            Ver mi pedido
          </a>

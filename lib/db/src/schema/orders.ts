@@ -32,6 +32,12 @@ export const orders = pgTable(
     deliveryMethod: deliveryMethodEnum("delivery_method").notNull(),
     pickupPointId: uuid("pickup_point_id").references(() => pickupPoints.id),
     shippingAddress: text("shipping_address"),
+    // Snapshot of who to call about this order. The order records how it was placed and must not
+    // depend on whoever owns it later: a guest claim moves user_id to an account whose profile
+    // can be empty. Nullable because rows from before the snapshot have none; reads fall back
+    // to the profile for those.
+    contactName: text("contact_name"),
+    contactPhone: text("contact_phone"),
     shippingCost: money("shipping_cost").notNull().default("0"),
     subtotal: money("subtotal").notNull(),
     discountAmount: money("discount_amount").notNull().default("0"),
@@ -43,6 +49,17 @@ export const orders = pgTable(
     // Audit: it's money — who approved/rejected and when.
     approvedBy: uuid("approved_by").references(() => profiles.id),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    // Guest orders only (null for orders placed from an account). The capability behind the
+    // "ver mi pedido" link a guest gets by email: whoever holds it can see this one order and
+    // upload its constancia, nothing else. A guest has no session, and the payment does not
+    // finish in one visit — the customer leaves to pay with Yape and has to come back — so
+    // without this the order would be unreachable the moment the tab closes.
+    //
+    // Stored as issued rather than hashed, on purpose: every later email for the order
+    // (constancia recibida, pago confirmado, enviado…) has to rebuild the same link, and a
+    // hash cannot be turned back into one. It guards nothing that a reader of this table
+    // cannot already see on the row itself.
+    guestAccessToken: text("guest_access_token").unique(),
     ...timestamps,
   },
   (t) => [

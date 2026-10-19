@@ -7,6 +7,7 @@ import {
   type Order,
 } from "@workspace/db";
 import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { orderContactName, orderContactPhone } from "../orders/queries";
 import { settlePaymentTx } from "./settlement";
 
 export type AttachProofResult =
@@ -80,8 +81,8 @@ export async function listVerificationQueue(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
-      customerPhone: profiles.phone,
+      customerName: orderContactName,
+      customerPhone: orderContactPhone,
     })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))

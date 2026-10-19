@@ -100,7 +100,8 @@ const corsOptions: CorsOptions = {
   },
   credentials: false,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type"],
+  // X-Order-Token carries a guest order's access token (modules/orders/guest-access.ts).
+  allowedHeaders: ["Authorization", "Content-Type", "X-Order-Token"],
   // Without this the browser hides X-Request-Id from the frontend, so the id would exist on
   // the wire and be unreadable by the only code that could show it to the person reporting
   // the problem. Safe to expose: it is a random opaque id, not a session identifier.
@@ -121,6 +122,7 @@ app.use(express.urlencoded({ extended: true }));
 // signed-URL route also sits under /api/orders. Admin routes are excluded on purpose: the
 // backoffice does legitimate bulk work and is already gated on a verified role.
 app.use("/api/orders/:id/payment-proof/upload-url", uploadUrlLimiter);
+app.use("/api/guest/orders/:id/payment-proof/upload-url", uploadUrlLimiter);
 // Reads are covered by the global ceiling; only mutations get a tight budget.
 function limitMutations(limiter: RequestHandler) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -136,11 +138,16 @@ function limitMutations(limiter: RequestHandler) {
 // them the easiest endpoints here to flood. Note each group gets its OWN limiter instance:
 // sharing one would put unrelated flows in the same bucket, so filing a complaint would spend
 // the allowance a shopper needs to check out.
-for (const path of ["/api/orders", "/api/returns", "/api/stock-alerts"]) {
+//
+// Guest checkout shares the customer-write and quote buckets with its logged-in twin: placing
+// an order is the same act either way, and a guest order also sends an email to whatever
+// address was typed in, so it must not get a looser budget than an account does.
+for (const path of ["/api/orders", "/api/guest/orders", "/api/returns", "/api/stock-alerts"]) {
   app.use(path, limitMutations(writeLimiter));
 }
 app.use("/api/complaints", limitMutations(complaintLimiter));
 app.use("/api/checkout", limitMutations(quoteLimiter));
+app.use("/api/guest/checkout", limitMutations(quoteLimiter));
 app.use("/api/consents", limitMutations(consentLimiter));
 
 app.use("/api", router);

@@ -43,7 +43,9 @@ function assertScratchDatabase(): void {
 const TABLES = [
   "order_items",
   "payment_events",
+  "coupon_redemptions",
   "orders",
+  "coupons",
   "payment_proofs",
   "product_variants",
   "products",
@@ -88,7 +90,13 @@ let seq = 0;
 const unique = () => `${Date.now()}-${++seq}`;
 
 export async function seedProfile(
-  overrides: { email?: string; role?: "customer" | "employee" | "admin" } = {},
+  overrides: {
+    email?: string;
+    role?: "customer" | "employee" | "admin";
+    blocked?: boolean;
+    fullName?: string | null;
+    phone?: string | null;
+  } = {},
 ): Promise<string> {
   const rows = await db
     .insert(profiles)
@@ -96,6 +104,9 @@ export async function seedProfile(
       id: crypto.randomUUID(),
       email: overrides.email ?? `user-${unique()}@example.test`,
       role: overrides.role ?? "customer",
+      blocked: overrides.blocked ?? false,
+      fullName: overrides.fullName ?? null,
+      phone: overrides.phone ?? null,
     })
     .returning({ id: profiles.id });
   return rows[0]!.id;

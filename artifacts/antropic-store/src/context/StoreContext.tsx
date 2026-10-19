@@ -7,8 +7,8 @@ import React, {
   useRef,
 } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { useQueryClient } from '@tanstack/react-query';
-import type { Cart, Wishlist } from '@workspace/api-client-react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Cart, CartItem, Wishlist } from '@workspace/api-client-react';
 import {
   useGetWishlist,
   useAddWishlistItem,
@@ -20,10 +20,12 @@ import {
   useRemoveCartItem,
   useMergeCart,
   getGetCartQueryKey,
+  useClaimGuestOrders,
+  getListOrdersQueryKey,
+  resolveGuestCart,
 } from '@workspace/api-client-react';
 import { supabase } from '../lib/supabase';
-import { useProducts } from '../lib/catalog';
-import { priceToNumber } from '../lib/product';
+import { guestOrderPairs } from '../lib/guest-orders';
 
 // One cart line, unified for guest and logged-in carts. `image` is a media path or URL —
 // render it through mediaUrl(). `unitPrice` is a decimal string (e.g. "29.99").
@@ -54,9 +56,20 @@ interface StoreContextType {
   toggleFavorite: (id: string) => void;
   cart: CartLine[];
   cartLoading: boolean;
+  // Guest cart variants the API says are no longer sold (deactivated product or variant). They
+  // are not in `cart`, so an order built from `cart` would silently omit them; checkout uses
+  // this to refuse to proceed until the customer removes them explicitly.
+  unresolvedCartItems: { variantId: string; qty: number }[];
+  // The guest cart could not be resolved (network, rate limit). Not the same as "no longer
+  // sold": nothing is reported unresolved, and screens offer a retry instead of an empty cart.
+  cartError: boolean;
+  retryCart: () => void;
   addToCart: (variantId: string, qty?: number) => void;
   removeFromCart: (variantId: string) => void;
   updateQty: (variantId: string, qty: number) => void;
+  // Empties the browser-side cart once a guest order has been placed from it. Logged in, the
+  // server clears its own cart inside the order transaction, so there is nothing to do.
+  clearGuestCart: () => void;
   user: AuthUser | null;
   authLoading: boolean;
   signInWithGoogle: () => Promise<AuthResult>;
@@ -112,8 +125,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(GUEST_CART_KEY, JSON.stringify(guestCart));
   }, [guestCart, user]);
 
-  const { products } = useProducts();
-
   const cartQuery = useGetCart({
     query: { enabled: !!user, queryKey: getGetCartQueryKey() },
   });
@@ -126,31 +137,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     queryClient.setQueryData(getGetCartQueryKey(), c);
   };
 
-  // Guest lines hydrated from the cached catalog. A variant not in the catalog anymore
-  // (deactivated product) is silently dropped from display; merge skips it server-side too.
+  // Guest lines resolved by the API (POST /guest/checkout/cart), never against the catalogue
+  // page the storefront happens to have cached: that list is capped and empty when its request
+  // fails, and anything outside it used to read as "no longer sold" and block the checkout.
+  // Keyed on the variant ids only — quantities come from the browser cart, so changing one does
+  // not refetch. A stored line is never deleted behind the customer's back.
+  const guestIds = [...new Set(guestCart.map((i) => i.variantId))].sort();
+  const guestCartQuery = useQuery({
+    queryKey: ['guestCart', guestIds],
+    queryFn: () =>
+      resolveGuestCart({ items: guestIds.map((variantId) => ({ variantId, quantity: 1 })) }),
+    enabled: !user && guestIds.length > 0,
+    placeholderData: keepPreviousData,
+    retry: 1,
+  });
+
   const guestLines = useMemo<CartLine[]>(() => {
+    const byId = new Map<string, CartItem>(
+      (guestCartQuery.data?.items ?? []).map((i) => [i.variantId, i]),
+    );
     const lines: CartLine[] = [];
     for (const item of guestCart) {
-      for (const p of products) {
-        const option = p.variantOptions.find((v) => v.id === item.variantId);
-        if (!option) continue;
-        lines.push({
-          variantId: option.id,
-          productId: p.id,
-          slug: p.slug,
-          name: p.name,
-          size: option.size,
-          color: option.color,
-          unitPrice: priceToNumber(p.price).toFixed(2),
-          qty: item.qty,
-          stock: option.stock,
-          image: p.images[0] ?? null,
-        });
-        break;
-      }
+      const i = byId.get(item.variantId);
+      if (!i) continue;
+      lines.push({
+        variantId: i.variantId,
+        productId: i.productId,
+        slug: i.slug,
+        name: i.name,
+        size: i.size,
+        color: i.color,
+        unitPrice: i.unitPrice,
+        qty: item.qty,
+        stock: i.stock,
+        image: i.image,
+      });
     }
     return lines;
-  }, [guestCart, products]);
+  }, [guestCart, guestCartQuery.data]);
 
   const serverLines = useMemo<CartLine[]>(
     () =>
@@ -169,8 +193,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [cartQuery.data],
   );
 
+  const unresolvedCartItems = useMemo(() => {
+    if (user) return [];
+    const missing = new Set(guestCartQuery.data?.missing ?? []);
+    return guestCart.filter((i) => missing.has(i.variantId));
+  }, [user, guestCart, guestCartQuery.data]);
+  const guestCartPending = !user && guestIds.length > 0;
+  const cartError = guestCartPending && guestCartQuery.isError;
+  // Settled when the last answer (even the previous key's, kept as placeholder) accounts for
+  // every id. A variant added since is in neither list until the refetch lands: the cart is
+  // still loading, not short of a line. A removal never waits.
+  const answered = new Set([
+    ...(guestCartQuery.data?.items ?? []).map((i) => i.variantId),
+    ...(guestCartQuery.data?.missing ?? []),
+  ]);
+  const guestCartSettled = guestIds.every((id) => answered.has(id));
+
   const cart = user ? serverLines : guestLines;
-  const cartLoading = user ? cartQuery.isLoading : false;
+  // A guest cart is only ids until the API resolves them; reporting it as empty meanwhile would
+  // bounce a guest who lands straight on /checkout back to an "empty" cart.
+  const cartLoading = user ? cartQuery.isLoading : guestCartPending && !cartError && !guestCartSettled;
+  const retryCart = () => {
+    void guestCartQuery.refetch();
+  };
 
   const addToCart = (variantId: string, qty = 1) => {
     if (!user) {
@@ -213,6 +258,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateCartItem.mutate({ variantId, data: { quantity: qty } }, { onSuccess: writeCart });
   };
 
+  const clearGuestCart = () => {
+    localStorage.removeItem(GUEST_CART_KEY);
+    setGuestCart([]);
+  };
+
   // Merge the guest cart into the server cart once per login (sums quantities, clamps to
   // stock server-side). Mirrors the wishlist merge below.
   const cartMergedForUser = useRef<string | null>(null);
@@ -236,6 +286,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setGuestCart([]);
       });
     // mergeCart/queryClient are stable; merge is keyed on the user id only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Guest orders placed from this browser become the account's orders once per login
+  // (auditoría §1.4), so "mis pedidos" shows them. Each one is claimed with its access token —
+  // the email proves nothing (a session can change it). Orders placed on another device are
+  // claimed when their emailed link is opened while logged in (pages/GuestOrder.tsx). Best-effort
+  // either way: the emailed link keeps opening the order regardless.
+  const claimGuestOrders = useClaimGuestOrders();
+  const claimedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) {
+      claimedForUser.current = null;
+      return;
+    }
+    if (claimedForUser.current === user.id) return;
+    claimedForUser.current = user.id;
+    const orders = guestOrderPairs();
+    if (orders.length === 0) return;
+
+    claimGuestOrders
+      .mutateAsync({ data: { orders } })
+      .then(({ claimed }) => {
+        if (claimed > 0) queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      })
+      .catch(() => {});
+    // claimGuestOrders/queryClient are stable; the claim is keyed on the user id only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -356,7 +433,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   return (
-    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, addToCart, removeFromCart, updateQty, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
+    <StoreContext.Provider value={{ favorites, toggleFavorite, cart, cartLoading, unresolvedCartItems, cartError, retryCart, addToCart, removeFromCart, updateQty, clearGuestCart, user, authLoading, signInWithGoogle, sendMagicLink, logout }}>
       {children}
     </StoreContext.Provider>
   );

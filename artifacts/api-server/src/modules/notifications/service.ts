@@ -77,6 +77,35 @@ export async function notifyPaymentApproved(order: Order): Promise<void> {
   }
 }
 
+// A guest's only way back to their order (auditoría §1.4). Paying with Yape means leaving the
+// site and returning with a screenshot, maybe the next day; an account finds the order under
+// "mis pedidos", a guest finds it through the link in this email. Account orders do not get it:
+// the order screen they land on already holds everything this would say.
+export async function notifyGuestOrderPlaced(order: Order): Promise<void> {
+  try {
+    const to = await getProfileEmail(order.userId);
+    if (!to) return;
+    const ref = referenceCode(order.orderNumber);
+    const items = await getOrderItems(order.id);
+    await enqueueEmail({
+      kind: "guest_order_placed",
+      relatedType: "order",
+      relatedId: order.id,
+      to,
+      subject: `Recibimos tu pedido ${ref}`,
+      html: orderEmailHtml({
+        heading: "Recibimos tu pedido",
+        message:
+          "Para confirmarlo, paga con Yape o Plin y sube la captura de tu constancia desde el botón de abajo. Guarda este correo: es tu forma de volver a tu pedido sin crear una cuenta.",
+        order,
+        items,
+      }),
+    });
+  } catch (err) {
+    logger.warn({ err, orderId: order.id }, "notifyGuestOrderPlaced failed");
+  }
+}
+
 export async function notifyOrderStatusChanged(order: Order): Promise<void> {
   try {
     const status = order.fulfillmentStatus;

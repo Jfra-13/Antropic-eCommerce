@@ -1,0 +1,1 @@
+CREATE INDEX "profiles_blocked_account_email_idx" ON "profiles" USING btree (lower("email")) WHERE "profiles"."is_guest" = false AND "profiles"."blocked" = true;

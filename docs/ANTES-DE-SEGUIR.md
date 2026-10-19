@@ -25,7 +25,8 @@ sitio.
 ## 2. Aplicar las migraciones a la base real
 
 Cuatro tablas de las fases 2, 6 y 7 no existen en ningún entorno: `complaints`, `consents`,
-`payment_events` y `notification_deliveries`.
+`payment_events` y `notification_deliveries`. La Fase 9 suma dos columnas (`profiles.is_guest` y
+`orders.guest_access_token`): sin ellas, el checkout de invitado responde 500.
 
 **El orden importa y el primer comando solo se ejecuta una vez en la vida de esa base.** La base
 actual se creó antes de que existieran las migraciones (con `push`), así que tiene las tablas
@@ -43,8 +44,8 @@ pnpm --filter @workspace/db run migrate
 En una base **nueva** (la del clon, por ejemplo) basta el segundo: `baseline-migrations` se niega a
 correr contra una base vacía justamente para que nadie se equivoque en esa dirección.
 
-Cómo saber que salió bien: `drizzle.__drizzle_migrations` debe tener **3 filas** (`0000`, `0001`,
-`0002`).
+Cómo saber que salió bien: `drizzle.__drizzle_migrations` debe tener **6 filas** (`0000` a
+`0005`).
 
 ---
 
@@ -87,7 +88,11 @@ Lo que falta es que salgan.
    `lib/brand/src/brand.ts`: un desajuste entre el remitente y el logotipo dentro del correo es un
    problema de entregabilidad, no de estética.
 3. Prueba en Gmail, Outlook y Hotmail.
-4. **Reencola lo acumulado** desde el panel → Operaciones. Los mensajes que fallaron por
+4. **`STORE_URL` en la API**, con el origen público de la tienda. Desde la Fase 9 es
+   imprescindible: el correo de confirmación de un pedido de invitado lleva el único enlace con el
+   que ese cliente vuelve a su pedido. Sin `STORE_URL` el correo sale **sin el botón**, y el
+   invitado depende de la memoria del navegador donde compró.
+5. **Reencola lo acumulado** desde el panel → Operaciones. Los mensajes que fallaron por
    configuración siguen ahí y pueden salir ahora; entre ellos las Hojas de Reclamación, que son la
    constancia legal del consumidor.
 
@@ -167,17 +172,18 @@ necesita el dominio ya publicado.
 
 ## Y después, ¿qué fase?
 
-La **7b (SEO y rendimiento) ya está hecha** — ver `docs/SEO.md`. Se eligió precisamente porque
-no dependía de ninguna respuesta externa. Dos cosas suyas quedan abiertas y **no son código**:
-publicar el dominio en `brand.siteUrl` y reescribir `/sitemap.xml` hacia la API en el borde.
-Hasta la primera, la tienda es deliberadamente no indexable.
+La **7b (SEO y rendimiento)** y la **9 (checkout de invitado)** ya están hechas — ver
+`docs/SEO.md` y `docs/AUDITORIA.md` §1.4 y §11.10. Las dos se eligieron porque no dependían de
+ninguna respuesta externa. Lo que dejan abierto **no es código**:
 
-Queda entonces:
+- 7b: publicar el dominio en `brand.siteUrl` y reescribir `/sitemap.xml` hacia la API en el
+  borde. Hasta lo primero, la tienda es deliberadamente no indexable.
+- 9: configurar `STORE_URL` (punto 4 de §4) y comprobar **una vez, con un inicio de sesión
+  real**, que los pedidos de invitado pasan a la cuenta (por el token de cada pedido).
 
-- **Si el contador responde → Fase 8 (IGV).** Por lo caro que se vuelve después del clon: toca
-  `products`, `orders`, `order_items` y reinterpreta todos los totales ya guardados.
-- **Si no → Fase 9 (checkout de invitado).** El modelo ya está decidido (§1.4) y no es un
-  acantilado de esquema, así que cuesta lo mismo antes o después del fork.
+Queda **la Fase 8 (IGV)**, que sigue esperando al contador. Por lo caro que se vuelve después del
+clon —toca `products`, `orders` y `order_items` y reinterpreta todos los totales guardados— es
+lo siguiente en cuanto haya respuesta.
 
 Si hubiera que elegir una sola cosa de todo este documento: **despliega**. El código auditado
 que nadie ejecuta no protege a nadie.

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   db,
   carts,
@@ -16,10 +17,25 @@ import {
   type InsertOrderItem,
   type PaymentProof,
 } from "@workspace/db";
-import { and, asc, desc, eq, gte, ilike, isNotNull, lt, notInArray, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  isNotNull,
+  lt,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { Tx } from "../../lib/tx";
 import { canTransitionFulfillment } from "../../lib/order-state";
 import { parseOrderReference } from "@workspace/brand";
+// Function-only import cycle (guest-access reads getOrderById from here): safe, nothing runs at load.
+import { tokensMatch } from "./guest-access";
 
 type FulfillmentStatus = NonNullable<Order["fulfillmentStatus"]>;
 
@@ -81,6 +97,60 @@ export async function getCartForCheckout(
   return { cartId: cart[0].id, lines };
 }
 
+// The same lines as getCartForCheckout, for a cart that only exists in the guest's browser.
+// Prices and stock come from the catalogue, never from the request: the client says which
+// variants and how many, nothing else. Repeated variants are folded into one line, the way the
+// server cart folds them, so a crafted body cannot split one SKU into lines the stock check
+// would look at one by one.
+//
+// `missing` names the first variant that does not exist at all — a line that cannot be priced
+// has to stop the checkout, not silently vanish from it.
+export async function getLinesForItems(
+  items: { variantId: string; quantity: number }[],
+): Promise<{ lines: CheckoutLine[]; missing: string | null }> {
+  const quantities = new Map<string, number>();
+  for (const item of items) {
+    quantities.set(item.variantId, (quantities.get(item.variantId) ?? 0) + item.quantity);
+  }
+  const ids = [...quantities.keys()];
+  if (ids.length === 0) return { lines: [], missing: null };
+
+  const rows = await db
+    .select({
+      variantId: productVariants.id,
+      size: productVariants.size,
+      color: productVariants.color,
+      sku: productVariants.sku,
+      stock: productVariants.stock,
+      active: productVariants.active,
+      priceOverride: productVariants.priceOverride,
+      productName: products.name,
+      productPrice: products.price,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(productVariants.productId, products.id))
+    .where(inArray(productVariants.id, ids));
+  const byId = new Map(rows.map((r) => [r.variantId, r]));
+
+  const lines: CheckoutLine[] = [];
+  for (const id of ids) {
+    const r = byId.get(id);
+    if (!r) return { lines: [], missing: id };
+    lines.push({
+      variantId: r.variantId,
+      quantity: quantities.get(id)!,
+      size: r.size,
+      color: r.color,
+      sku: r.sku,
+      stock: r.stock,
+      active: r.active,
+      unitPrice: r.priceOverride ?? r.productPrice,
+      productName: r.productName,
+    });
+  }
+  return { lines, missing: null };
+}
+
 export async function getActivePickupPoint(id: string): Promise<{ id: string } | undefined> {
   const rows = await db
     .select({ id: pickupPoints.id })
@@ -100,6 +170,104 @@ export async function getOrderByIdempotencyKey(
     .where(and(eq(orders.userId, userId), eq(orders.idempotencyKey, key)))
     .limit(1);
   return rows[0];
+}
+
+// A guest order replayed by its idempotency key, with the email it was placed under so the
+// caller can refuse a key presented with a different one. Only guest orders: an account order
+// is never returned to an anonymous caller, whatever key they hold.
+export async function getGuestOrderByIdempotencyKey(
+  key: string,
+): Promise<{ order: Order; email: string; claimed: boolean } | undefined> {
+  const rows = await db
+    .select({ order: orders, email: profiles.email, isGuest: profiles.isGuest })
+    .from(orders)
+    .innerJoin(profiles, eq(orders.userId, profiles.id))
+    // Placed as a guest (it has a token), whoever owns it now: a claimed order must still be
+    // found, or the guest's own retry would read as a fresh key and place it twice.
+    .where(and(eq(orders.idempotencyKey, key), isNotNull(orders.guestAccessToken)))
+    .limit(1);
+  const row = rows[0];
+  return row && { order: row.order, email: row.email, claimed: !row.isGuest };
+}
+
+// Whether an ACCOUNT with this email has been blocked by staff. Guest checkout asks so that
+// blocking an account is not undone by checking out without logging in.
+export async function isEmailBlocked(email: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(
+      and(
+        sql`lower(${profiles.email}) = lower(${email})`,
+        eq(profiles.isGuest, false),
+        eq(profiles.blocked, true),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+export async function insertGuestProfile(
+  tx: Tx,
+  values: { email: string; fullName: string; phone: string; shippingAddress: string | null },
+): Promise<string> {
+  const rows = await tx
+    .insert(profiles)
+    .values({ id: randomUUID(), isGuest: true, ...values })
+    .returning({ id: profiles.id });
+  return rows[0]!.id;
+}
+
+export async function getOrderById(orderId: string): Promise<Order | undefined> {
+  const rows = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  return rows[0];
+}
+
+// Moves the guest orders named by `pairs` into the account `accountId`, in one transaction.
+// Returns how many orders moved.
+//
+// Ownership is proven by the order's access token, never by email (auditoría §1.4): the token
+// is the capability that already opens the order, while an email in the JWT only says which
+// address the account has NOW — Supabase lets a session change it, and with confirmation off
+// nothing proves the new one. A pair moves only when the token matches AND the order still
+// belongs to a guest profile, so a forwarded link cannot take an order out of another account.
+//
+// The orders are re-pointed rather than looked up through the guest profile forever after:
+// once `orders.user_id` is the account, "mis pedidos", the constancia upload and returns all
+// work through the ownership check they already have, and no query has to learn that an order
+// can belong to someone through a second table.
+//
+// The guest profiles themselves stay. payment_events.actor_id points at them — the guest is
+// who uploaded the constancia, and the audit trail must keep saying so.
+//
+// Only orders.user_id moves. Guest profile fields (name, phone, address) are never copied into
+// the account: they were typed at checkout and are unverified, and the order keeps its own
+// contact snapshot anyway.
+export async function claimGuestOrdersTx(
+  accountId: string,
+  pairs: { orderId: string; accessToken: string }[],
+): Promise<number> {
+  const tokens = new Map(pairs.map((p) => [p.orderId.toLowerCase(), p.accessToken]));
+  return db.transaction(async (tx) => {
+    const candidates = await tx
+      .select({ id: orders.id, userId: orders.userId, token: orders.guestAccessToken })
+      .from(orders)
+      .innerJoin(profiles, eq(profiles.id, orders.userId))
+      .where(and(inArray(orders.id, [...tokens.keys()]), eq(profiles.isGuest, true)))
+      .for("update", { of: orders });
+    const matched = candidates.filter(
+      (c) => c.token !== null && tokensMatch(tokens.get(c.id.toLowerCase()) ?? "", c.token),
+    );
+    if (matched.length === 0) return 0;
+
+    const ids = matched.map((m) => m.id);
+    await tx.update(orders).set({ userId: accountId }).where(inArray(orders.id, ids));
+    await tx
+      .update(couponRedemptions)
+      .set({ userId: accountId })
+      .where(inArray(couponRedemptions.orderId, ids));
+    return ids.length;
+  });
 }
 
 export async function insertOrder(tx: Tx, values: InsertOrder): Promise<Order> {
@@ -159,6 +327,13 @@ export async function listOrdersForUser(
   return { items, total: counted[0]?.count ?? 0 };
 }
 
+// Contact shown to staff for an order. The snapshot on the order is the only source; the
+// profile fallback covers only orders created before migration 0004 added the snapshot.
+// Every board that shows a customer's name or phone goes through these, so none can drift
+// back to reading the profile alone.
+export const orderContactName = sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`;
+export const orderContactPhone = sql<string | null>`coalesce(${orders.contactPhone}, ${profiles.phone})`;
+
 // Contact fields the order flow needs: completeness gate at creation, contact info on the
 // admin boards.
 export async function getProfileContact(
@@ -212,8 +387,8 @@ export async function listShipments(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
-      customerPhone: profiles.phone,
+      customerName: orderContactName,
+      customerPhone: orderContactPhone,
     })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
@@ -234,6 +409,7 @@ export type AdminOrderRow = {
   order: Order;
   customerEmail: string;
   customerName: string | null;
+  customerIsGuest: boolean;
 };
 
 export type AdminOrderFilters = {
@@ -261,7 +437,11 @@ export async function listAdminOrders(
   if (filters.to) conds.push(lt(orders.createdAt, new Date(filters.to.getTime() + 24 * 60 * 60 * 1000)));
   if (filters.q) {
     const term = `%${filters.q.trim()}%`;
-    const qConds = [ilike(profiles.fullName, term), ilike(profiles.email, term)];
+    const qConds = [
+      ilike(profiles.fullName, term),
+      ilike(orders.contactName, term),
+      ilike(profiles.email, term),
+    ];
     // A term that reads as an order reference — bare digits, or the brand prefix followed by
     // digits — also matches the order number exactly. Parsing is shared with the builder in
     // lib/brand so the two cannot drift apart when the prefix changes.
@@ -276,7 +456,8 @@ export async function listAdminOrders(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
+      customerName: orderContactName,
+      customerIsGuest: profiles.isGuest,
     })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
@@ -304,8 +485,9 @@ export async function getAdminOrderRow(orderId: string): Promise<AdminOrderDetai
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: profiles.fullName,
-      customerPhone: profiles.phone,
+      customerName: orderContactName,
+      customerPhone: orderContactPhone,
+      customerIsGuest: profiles.isGuest,
       pickupPointName: pickupPoints.name,
     })
     .from(orders)
