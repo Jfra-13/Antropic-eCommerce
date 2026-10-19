@@ -88,9 +88,9 @@ complaints, cart, wishlist, checkout, consentimientos — un hueco: orderId inex
 dashboard da cifras financieras al empleado, y ningún filtro de rol tiene prueba; decisión
 abierta: quién responde reclamos) · D (los tres huecos corregidos con su prueba, más la prueba
 de dos usuarios y el barrido de rutas de admin; evidencia en §11.11; PR #23 en borrador con CI
-en verde). Sigue:
-E comprobación del bundle: dist/ sin el nombre de la variable, sin `sb_secret_` y sin JWT cuyo
-  payload diga role=service_role (CI no tiene la clave real; decodificar es lo que la caza) ·
+en verde) · E (scripts/check-client-bundle.mjs al final de `pnpm run build`: dist/ sin el
+nombre de la variable, sin `sb_secret_` y sin JWT con role=service_role; probado plantando
+secretos falsos, evidencia en §11.11). Sigue:
 F cierre de AUDITORIA §3.1/§3.2, PR y revisión con contexto limpio.
 
 Antes de escribir código, dime tu plan.

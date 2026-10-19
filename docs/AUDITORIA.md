@@ -555,8 +555,9 @@ pasar por el Express.
       prueba cada una con la anon key. Sale con código 1 si alguna devuelve filas. Requiere
       credenciales del proyecto real, que no están disponibles en el entorno de desarrollo; hay que
       correrla contra Supabase y guardar la salida como evidencia
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` nunca en el bundle del cliente — verificar en el build de store y
-      admin, no solo en el código fuente
+- [x] `SUPABASE_SERVICE_ROLE_KEY` nunca en el bundle del cliente — verificado sobre el build real
+      de store y admin, y bloqueado en CI por `scripts/check-client-bundle.mjs` (evidencia en
+      §11.11, Fase E)
 - [ ] Vistas y funciones RPC revisadas
 
 ### 3.3 🔴 BLOQUEANTE — Integridad de precios y stock
@@ -1567,6 +1568,30 @@ Observación: `PATCH /admin/users/:id` también acepta el id de un perfil de inv
 el rol o el bloqueo no tiene efecto, porque detrás no hay una cuenta con la que iniciar sesión.
 Corregirle el nombre o el teléfono actualiza el contacto de sus pedidos abiertos, que es lo que
 se espera cuando el personal arregla un dato.
+
+**Secretos en el bundle del cliente (Fase E, §3.2)**
+
+`scripts/check-client-bundle.mjs` corre al final de `pnpm run build`, así que CI lo ejecuta en
+el mismo paso que ya construía. Recorre todos los archivos de `dist/public` de la tienda y del
+panel (js, html, mapas, manifest) y falla si encuentra el nombre `SUPABASE_SERVICE_ROLE_KEY`, un
+prefijo `sb_secret_` o un JWT cuyo payload decodificado diga `role=service_role`. CI no tiene la
+clave real, así que buscar su valor siempre pasaría allí; decodificar caza una clave antigua sea
+cual sea su valor. También falla si un `dist` falta o está vacío, para no pasar sin mirar nada.
+
+Verificado en local el 2026-10-19, sobre el build real con los `.env` de desarrollo:
+
+| Caso | Resultado |
+|---|---|
+| Build limpio | exit 0; 2 JWT encontrados, uno por app, ambos `role=anon` (la anon key real: prueba que el decodificado funciona, no que no encontró nada) |
+| Valor literal de la service role key del `.env` raíz buscado en ambos `dist/` (solo en local; CI no la tiene) | 0 coincidencias |
+| `VITE_SUPABASE_ANON_KEY` = JWT inventado con `role=service_role` en el build de la tienda | exit 1, «contains a JWT with role=service_role» |
+| `VITE_SUPABASE_ANON_KEY` = `sb_secret_…` falso | exit 1, «contains an sb_secret_ key» |
+| Línea temporal en `antropic-admin/src/main.tsx` que nombra la variable (revertida) | exit 1, «mentions SUPABASE_SERVICE_ROLE_KEY» |
+| `dist` del panel retirado | exit 1, «no build output» |
+
+Límite conocido: una clave partida o codificada a propósito en el código no la ve ningún
+escaneo de texto. Lo que cubre es el accidente real: una variable `VITE_` apuntada al valor
+equivocado, o código de cliente que intenta leer la variable del servidor.
 
 ### 11.9 Pendiente
 
