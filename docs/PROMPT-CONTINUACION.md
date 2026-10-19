@@ -88,7 +88,7 @@ conversación entera cada vez. Dos consecuencias prácticas:
 
 Cosas que una sesión nueva no puede deducir del código y que cuesta caro redescubrir.
 
-### PR #21 (Fase 9) — NO fusionar todavía: segunda revisión con hallazgos abiertos
+### PR #21 (Fase 9) — NO fusionar todavía: falta la revisión de la tercera ronda
 
 La rama `claude/fase-9-checkout-invitado` pasó dos revisiones. La primera dejó 9 hallazgos, todos
 corregidos (commits `9577d75` a `0ea4cd8`, CI en verde, evidencia en AUDITORIA §11.10). La segunda
@@ -104,9 +104,10 @@ revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguient
    correo. Quien tiene el token ya puede ver el pedido; el traspaso deja de depender de la
    configuración de Supabase. Costo: un pedido hecho en otro dispositivo se vincula al abrir su
    enlace con la sesión iniciada.
-**Estado (tercera ronda, en curso):** corregidos 1, 3, 4, 6, 7, 8 y 10 (commits `7a8e8bb` a
-`c809320`, uno por hallazgo). Faltan **2, 5 y 9**, que van juntos. La regla del 5 ya está
-**aprobada por el usuario**:
+**Estado (tercera ronda):** los diez hallazgos corregidos (commits `7a8e8bb` a `f3f819b`, uno
+por hallazgo; evidencia en AUDITORIA §11.10). Falta la revisión con contexto limpio de
+`3ed0646..HEAD` antes de fusionar. La regla del 5, **aprobada por el usuario** e implementada
+(también cubre la edición de usuario del backoffice, que pasa por el mismo `updateProfileRow`):
 
 - El snapshot del pedido (`orders.contact_name`/`contact_phone`) es la ÚNICA fuente de lectura;
   `coalesce(snapshot, perfil)` solo cubre pedidos anteriores a `0004`.
@@ -116,7 +117,7 @@ revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguient
 - Orden sugerido: 9 (un solo fragmento SQL exportado para el contacto), luego 2 (usarlo en
   `payments/queries.ts` ~83 y `returns/queries.ts` ~66), luego 5 (`routes/me.ts`).
 
-2. La cola de verificación (`modules/payments/queries.ts` ~83) y el tablero de devoluciones
+2. **[corregido]** La cola de verificación (`modules/payments/queries.ts` ~83) y el tablero de devoluciones
    (`modules/returns/queries.ts` ~66) leen nombre y teléfono solo de `profiles`: les falta el
    `coalesce` con el snapshot del pedido.
 3. **[corregido]** La migración `0004` no rellena `contact_name`/`contact_phone` en los pedidos existentes. Un pedido
@@ -127,16 +128,16 @@ revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguient
    si la petición falla. El checkout se bloquea con productos que sí tienen stock. Hay que resolver
    las variantes del carrito contra la API, no contra la primera página del catálogo, y no tratar
    "no cargó" como "no existe".
-5. En pedidos de cuenta, el snapshot gana sobre el perfil: si el cliente corrige su teléfono después
+5. **[corregido]** En pedidos de cuenta, el snapshot gana sobre el perfil: si el cliente corrige su teléfono después
    de comprar, el personal sigue viendo el viejo y no hay pantalla para editarlo. Decidir la regla.
 6. **[corregido]** El filtro `is_guest = true` del replay también corta el reintento legítimo del propio invitado si
    su pedido se traspasó entre el envío y el reintento (devuelve 409 y puede acabar en un duplicado).
 7. **[corregido]** `/cart` ignora `unresolvedCartItems`: el carrito y el checkout no muestran lo mismo.
 8. **[corregido]** Checkout: el `return` temprano por ítems no resueltos limpia `quote` pero no `quoteError`, así
    que quedan en pantalla dos mensajes contradictorios.
-9. El `coalesce` del contacto está copiado en cinco consultas: conviene un solo fragmento SQL
+9. **[corregido]** El `coalesce` del contacto está copiado en cinco consultas: conviene un solo fragmento SQL
    exportado (es como se escaparon las del punto 2).
-10.**[corregido]**  `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
+10. **[corregido]** `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
     cualquier 23505 en ese código sin mirar la restricción violada.
 
 Cuando estén corregidos: correr una revisión más sobre los arreglos nuevos y recién entonces

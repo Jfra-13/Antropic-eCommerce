@@ -1376,6 +1376,40 @@ respuesta.
   que corre en cada checkout de invitado.
 - Comentario de `profiles.is_guest` apuntaba a un archivo inexistente.
 
+**Tercera revisión de la Fase 9** (sobre `d927ecc..0ea4cd8`): diez hallazgos, corregidos en
+`7a8e8bb..f3f819b`, un commit por hallazgo.
+
+- **Traspaso por token, no por correo** (seguridad). `amr` dice cómo empezó la sesión, no que el
+  correo *actual* esté probado: con la confirmación de correo desactivada, un cambio de correo a
+  la dirección de la víctima se llevaba sus pedidos. `POST /me/guest-orders/claim` recibe ahora
+  pares `{orderId, accessToken}` y solo mueve los que casan. `provenEmail` desapareció, y con él
+  la fila «`provenEmail` en el enlace a la cuenta» de la tabla de mutación de arriba; la cubren
+  «ignores the email entirely» y «refuses a wrong token, and a token presented for another order».
+- **`0004` rellena el snapshot** de contacto de los pedidos existentes (`UPDATE orders … FROM
+  profiles`).
+- **El carrito de invitado se resuelve contra la API**, no contra la primera página del catálogo;
+  «no cargó» ya no se trata como «no existe», y `/cart` muestra lo mismo que el checkout.
+- **Reintento de un pedido ya traspasado**: responde con el pedido colocado, sin devolver el
+  token, y nunca crea un duplicado.
+- **Un solo código de choque de clave** (`IDEMPOTENCY_KEY_REUSED`), leído solo de la restricción
+  `orders_idempotency_key_unique`.
+- **Contacto del pedido, una sola fuente.** `orderContactName`/`orderContactPhone`
+  (`orders/queries.ts`) son el único fragmento SQL que lee el contacto; los usan las cinco
+  columnas que ya lo tenían y las dos que leían solo el perfil: la **cola de verificación** y el
+  **tablero de devoluciones**, que tras un traspaso a una cuenta vacía mostraban nombre y
+  teléfono en blanco. Prueba «shows the order's contact on the verification queue and the
+  returns board too».
+- **Regla del contacto (aprobada):** el snapshot del pedido es la única fuente de lectura. Al
+  corregir nombre o teléfono —`PATCH /me` o la edición de usuario en el backoffice, que pasan
+  por el mismo `updateProfileRow`— el cambio se copia, en la misma transacción, a los pedidos de
+  ese usuario que no están `entregado`/`recogido` (incluidos los aún sin pagar, cuyo
+  `fulfillment_status` es nulo). Los cerrados conservan el contacto con el que se cerraron.
+  Pruebas en `users/queries.integration.test.ts`.
+
+Puertas locales: `typecheck` y 54 pruebas unitarias de la API en verde. Las de integración solo
+corren en CI (no hay Postgres en este entorno): run `39218597119` sobre `f3f819b` en verde, con
+72 unitarias (54 API + 18 marca), 90 de integración y `build`.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
