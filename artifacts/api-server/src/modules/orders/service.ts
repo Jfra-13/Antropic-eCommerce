@@ -337,13 +337,14 @@ export type ClaimResult = { ok: true; claimed: number } | OrderFailure;
 //
 // Matching on email is only safe when the session proves the caller controls that mailbox —
 // otherwise registering someone else's address would hand over their orders, address and phone
-// included. `emailProven` comes from how this session signed in (lib/auth.ts).
+// included. `provenEmail` is the address the JWT itself vouches for (lib/auth.ts), NOT the
+// profile's copy: profiles.email is never synced, so after an email change it can still hold an
+// address the caller never proved in this session.
 export async function claimGuestOrders(user: {
   id: string;
-  email: string;
-  emailProven: boolean;
+  provenEmail: string | null;
 }): Promise<ClaimResult> {
-  if (!user.emailProven) {
+  if (!user.provenEmail) {
     return {
       ok: false,
       status: 403,
@@ -351,8 +352,7 @@ export async function claimGuestOrders(user: {
       message: "Sign in with a magic link or Google to link guest orders to this account",
     };
   }
-  if (!user.email.trim()) return { ok: true, claimed: 0 };
-  return { ok: true, claimed: await claimGuestOrdersTx(user.id, user.email.trim()) };
+  return { ok: true, claimed: await claimGuestOrdersTx(user.id, user.provenEmail) };
 }
 
 export async function getOrder(userId: string, orderId: string): Promise<OrderDto | null> {

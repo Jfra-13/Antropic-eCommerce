@@ -25,9 +25,11 @@ export type AuthUser = {
   fullName: string | null;
   phone: string | null;
   shippingAddress: string | null;
-  // Whether THIS session proves the caller controls `email`. Not part of any response — it
-  // gates the one thing that hands data over by email alone: claiming guest orders.
-  emailProven: boolean;
+  // The address THIS session's JWT proves the caller controls, or null when the sign-in method
+  // proves nothing. Deliberately separate from `email` (the profile copy, written once and never
+  // synced): the profile address can differ from the one the token vouches for. Not part of any
+  // response — it gates the one thing that hands data over by email alone: claiming guest orders.
+  provenEmail: string | null;
 };
 
 // Sign-in methods that only succeed for whoever controls the mailbox: a magic link / OTP is
@@ -100,7 +102,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
 
   let sub: string;
   let email: string;
-  let emailProven: boolean;
+  let provenEmail: string | null;
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: ISSUER,
@@ -112,7 +114,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     }
     sub = payload.sub;
     email = typeof payload["email"] === "string" ? payload["email"] : "";
-    emailProven = sessionProvesEmail(payload);
+    provenEmail = sessionProvesEmail(payload) && email.trim() ? email.trim() : null;
   } catch {
     res.status(401).json({ code: "UNAUTHENTICATED", message: "Invalid or expired token" });
     return;
@@ -131,7 +133,7 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
     fullName: profile.fullName,
     phone: profile.phone,
     shippingAddress: profile.shippingAddress,
-    emailProven,
+    provenEmail,
   };
   next();
 };

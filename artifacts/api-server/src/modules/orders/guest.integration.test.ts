@@ -369,11 +369,7 @@ describe("claiming guest orders into an account", () => {
     const { first, second, unrelated } = await seedGuestHistory();
     const accountId = await seedProfile({ email: "invitada@example.test" });
 
-    const result = await claimGuestOrders({
-      id: accountId,
-      email: "Invitada@example.test",
-      emailProven: true,
-    });
+    const result = await claimGuestOrders({ id: accountId, provenEmail: "Invitada@example.test" });
 
     expect(result).toEqual({ ok: true, claimed: 2 });
     // Staff now see an account customer, not a guest.
@@ -394,7 +390,7 @@ describe("claiming guest orders into an account", () => {
     await seedGuestHistory();
     const emptyAccount = await seedProfile({ email: "invitada@example.test" });
 
-    await claimGuestOrders({ id: emptyAccount, email: "invitada@example.test", emailProven: true });
+    await claimGuestOrders({ id: emptyAccount, provenEmail: "invitada@example.test" });
 
     const [filled] = await db.select().from(profiles).where(eq(profiles.id, emptyAccount));
     expect(filled).toMatchObject({ fullName: "Ana Invitada", phone: "999 000 111" });
@@ -408,7 +404,7 @@ describe("claiming guest orders into an account", () => {
       phone: "123",
     });
 
-    await claimGuestOrders({ id: account, email: "invitada@example.test", emailProven: true });
+    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
 
     const [kept] = await db.select().from(profiles).where(eq(profiles.id, account));
     expect(kept).toMatchObject({ fullName: "Ana Cuenta", phone: "123" });
@@ -420,21 +416,33 @@ describe("claiming guest orders into an account", () => {
     const { first } = await seedGuestHistory();
     const account = await seedProfile({ email: "invitada@example.test" });
 
-    const result = await claimGuestOrders({
-      id: account,
-      email: "invitada@example.test",
-      emailProven: false,
-    });
+    const result = await claimGuestOrders({ id: account, provenEmail: null });
 
     expect(result.ok).toBe(false);
     const row = await db.select().from(orders).where(eq(orders.id, first.order.id));
     expect(row[0]!.userId).not.toBe(account);
   });
 
+  it("claims by the email the session proves, not by the stale profile email", async () => {
+    // profiles.email is written once and never synced. An attacker can sign up with a password
+    // as the victim's address, switch the auth email, then sign in with a magic link: the token
+    // proves the NEW address while the profile still says the victim's.
+    const { first, unrelated } = await seedGuestHistory();
+    const attacker = await seedProfile({ email: "invitada@example.test" });
+
+    const result = await claimGuestOrders({ id: attacker, provenEmail: "otra@example.test" });
+
+    expect(result).toEqual({ ok: true, claimed: 1 });
+    const victimOrder = await db.select().from(orders).where(eq(orders.id, first.order.id));
+    expect(victimOrder[0]!.userId).not.toBe(attacker);
+    const proven = await db.select().from(orders).where(eq(orders.id, unrelated.order.id));
+    expect(proven[0]!.userId).toBe(attacker);
+  });
+
   it("is idempotent: a second claim finds nothing left to move", async () => {
     await seedGuestHistory();
     const account = await seedProfile({ email: "invitada@example.test" });
-    const user = { id: account, email: "invitada@example.test", emailProven: true };
+    const user = { id: account, provenEmail: "invitada@example.test" };
 
     await claimGuestOrders(user);
     expect(await claimGuestOrders(user)).toEqual({ ok: true, claimed: 0 });
@@ -447,7 +455,7 @@ describe("claiming guest orders into an account", () => {
     await attachProof(guest!.id, receipt.order.id, `${receipt.order.id}/${crypto.randomUUID()}`, null);
     const account = await seedProfile({ email: "invitada@example.test" });
 
-    await claimGuestOrders({ id: account, email: "invitada@example.test", emailProven: true });
+    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
 
     expect(await guestProfilesFor("invitada@example.test")).toHaveLength(1);
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, receipt.order.id));
