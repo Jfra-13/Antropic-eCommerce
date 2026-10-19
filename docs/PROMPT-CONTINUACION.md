@@ -104,27 +104,39 @@ revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguient
    correo. Quien tiene el token ya puede ver el pedido; el traspaso deja de depender de la
    configuración de Supabase. Costo: un pedido hecho en otro dispositivo se vincula al abrir su
    enlace con la sesión iniciada.
+**Estado (tercera ronda, en curso):** corregidos 1, 3, 4, 6, 7, 8 y 10 (commits `7a8e8bb` a
+`c809320`, uno por hallazgo). Faltan **2, 5 y 9**, que van juntos. La regla del 5 ya está
+**aprobada por el usuario**:
+
+- El snapshot del pedido (`orders.contact_name`/`contact_phone`) es la ÚNICA fuente de lectura;
+  `coalesce(snapshot, perfil)` solo cubre pedidos anteriores a `0004`.
+- `PATCH /me` copia el nombre y/o teléfono que cambiaron al snapshot de los pedidos de ese
+  usuario que aún no están `entregado`/`recogido`, en la misma transacción. Los cerrados no se
+  tocan (historial para devoluciones y reclamos). Con prueba de integración.
+- Orden sugerido: 9 (un solo fragmento SQL exportado para el contacto), luego 2 (usarlo en
+  `payments/queries.ts` ~83 y `returns/queries.ts` ~66), luego 5 (`routes/me.ts`).
+
 2. La cola de verificación (`modules/payments/queries.ts` ~83) y el tablero de devoluciones
    (`modules/returns/queries.ts` ~66) leen nombre y teléfono solo de `profiles`: les falta el
    `coalesce` con el snapshot del pedido.
-3. La migración `0004` no rellena `contact_name`/`contact_phone` en los pedidos existentes. Un pedido
+3. **[corregido]** La migración `0004` no rellena `contact_name`/`contact_phone` en los pedidos existentes. Un pedido
    de invitado anterior al despliegue pierde el contacto al traspasarse. Corrección: `UPDATE orders
    ... FROM profiles` dentro de la misma migración (todavía no se aplicó en ninguna base real).
-4. **Bloquea ventas.** `unresolvedCartItems` (StoreContext ~183) marca como no disponible todo lo
+4. **[corregido]** **Bloquea ventas.** `unresolvedCartItems` (StoreContext ~183) marca como no disponible todo lo
    que no está en `useProducts()`, que está topado en `limit: 100` (lib/catalog.ts:14) y queda vacío
    si la petición falla. El checkout se bloquea con productos que sí tienen stock. Hay que resolver
    las variantes del carrito contra la API, no contra la primera página del catálogo, y no tratar
    "no cargó" como "no existe".
 5. En pedidos de cuenta, el snapshot gana sobre el perfil: si el cliente corrige su teléfono después
    de comprar, el personal sigue viendo el viejo y no hay pantalla para editarlo. Decidir la regla.
-6. El filtro `is_guest = true` del replay también corta el reintento legítimo del propio invitado si
+6. **[corregido]** El filtro `is_guest = true` del replay también corta el reintento legítimo del propio invitado si
    su pedido se traspasó entre el envío y el reintento (devuelve 409 y puede acabar en un duplicado).
-7. `/cart` ignora `unresolvedCartItems`: el carrito y el checkout no muestran lo mismo.
-8. Checkout: el `return` temprano por ítems no resueltos limpia `quote` pero no `quoteError`, así
+7. **[corregido]** `/cart` ignora `unresolvedCartItems`: el carrito y el checkout no muestran lo mismo.
+8. **[corregido]** Checkout: el `return` temprano por ítems no resueltos limpia `quote` pero no `quoteError`, así
    que quedan en pantalla dos mensajes contradictorios.
 9. El `coalesce` del contacto está copiado en cinco consultas: conviene un solo fragmento SQL
    exportado (es como se escaparon las del punto 2).
-10. `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
+10.**[corregido]**  `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
     cualquier 23505 en ese código sin mirar la restricción violada.
 
 Cuando estén corregidos: correr una revisión más sobre los arreglos nuevos y recién entonces
