@@ -112,7 +112,9 @@ export default function Checkout() {
     if (isGuest && guestItems.length === 0) return;
     // Never quote (or order) a partial cart: the totals would omit the unavailable lines.
     if (isGuest && unresolvedCartItems.length > 0) {
+      // The unresolved-items notice is the one message; a stale quote error would contradict it.
       setQuote(null);
+      setQuoteError(null);
       return;
     }
     const handlers = {
