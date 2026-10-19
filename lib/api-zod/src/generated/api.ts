@@ -1797,13 +1797,13 @@ export const DeleteOccasionResponse = zod.void()
  * @summary Backoffice landing KPIs, alerts and top products (employee + admin)
  */
 export const GetDashboardResponse = zod.object({
-  "kpis": zod.object({
+  "kpis": zod.union([zod.object({
   "salesToday": zod.string().describe('Revenue from orders approved today (money)'),
   "salesTodayDeltaPct": zod.number().nullable().describe('Percent change vs yesterday; null when yesterday had no sales'),
   "ordersToday": zod.number(),
   "ordersTodayDelta": zod.number().describe('Change in order count vs yesterday'),
   "avgTicket": zod.string().describe('Average paid-order value in the last 30 days (money)')
-}),
+}),zod.null()]).describe('Sales figures for the day. Null for a caller without the admin role: the role matrix keeps financial figures from employees, and hiding them in the panel would not stop them from travelling in the response.'),
   "alerts": zod.object({
   "pendingPayments": zod.number(),
   "abandonedCarts": zod.number().describe('Carts with items untouched for > 24h and never converted'),
@@ -1813,7 +1813,7 @@ export const GetDashboardResponse = zod.object({
   "topProducts": zod.array(zod.object({
   "productName": zod.string(),
   "quantity": zod.number(),
-  "revenue": zod.string().describe('Total revenue for this product in the period (money)')
+  "revenue": zod.string().nullable().describe('Total revenue for this product in the period (money). Null on the dashboard of a caller without the admin role: employees see what sells, not how much it brings in.')
 })).describe('Best sellers over the last 7 days')
 })
 
@@ -1846,7 +1846,7 @@ export const GetSalesReportResponse = zod.object({
   "topProducts": zod.array(zod.object({
   "productName": zod.string(),
   "quantity": zod.number(),
-  "revenue": zod.string().describe('Total revenue for this product in the period (money)')
+  "revenue": zod.string().nullable().describe('Total revenue for this product in the period (money). Null on the dashboard of a caller without the admin role: employees see what sells, not how much it brings in.')
 })),
   "abandonedCarts": zod.object({
   "count": zod.number(),

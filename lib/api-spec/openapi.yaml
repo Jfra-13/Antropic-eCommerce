@@ -4696,8 +4696,10 @@ components:
         quantity:
           type: integer
         revenue:
-          type: string
-          description: Total revenue for this product in the period (money)
+          type: [string, "null"]
+          description: >-
+            Total revenue for this product in the period (money). Null on the dashboard of a
+            caller without the admin role: employees see what sells, not how much it brings in.
       required:
         - productName
         - quantity
@@ -4747,7 +4749,13 @@ components:
       type: object
       properties:
         kpis:
-          $ref: "#/components/schemas/DashboardKpi"
+          description: >-
+            Sales figures for the day. Null for a caller without the admin role: the role matrix
+            keeps financial figures from employees, and hiding them in the panel would not stop
+            them from travelling in the response.
+          oneOf:
+            - $ref: "#/components/schemas/DashboardKpi"
+            - type: "null"
         alerts:
           $ref: "#/components/schemas/DashboardAlerts"
         topProducts:

@@ -685,9 +685,10 @@ router.delete("/admin/pickup-points/:id", adminOnly, async (req, res) => {
 
 // --- Dashboard & Reportes (requerimientos §6.1, §6.8) ---
 
-// Dashboard: backoffice landing. Employee + admin (global gate) — staff need the alerts.
-router.get("/admin/dashboard", async (_req, res) => {
-  const summary = await reports.getDashboard();
+// Dashboard: backoffice landing. Employee + admin (global gate) — staff need the alerts; the
+// financial figures in it are shaped by role in the service.
+router.get("/admin/dashboard", async (req, res) => {
+  const summary = await reports.getDashboard(req.user!.role);
   res.json(GetDashboardResponse.parse(summary));
 });
 

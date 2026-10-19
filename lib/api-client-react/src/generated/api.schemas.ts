@@ -1715,8 +1715,11 @@ export interface RecordConsentInput {
 export interface TopProduct {
   productName: string;
   quantity: number;
-  /** Total revenue for this product in the period (money) */
-  revenue: string;
+  /**
+     * Total revenue for this product in the period (money). Null on the dashboard of a caller without the admin role: employees see what sells, not how much it brings in.
+     * @nullable
+     */
+  revenue: string | null;
 }
 
 export interface DashboardKpi {
@@ -1744,7 +1747,8 @@ export interface DashboardAlerts {
 }
 
 export interface DashboardSummary {
-  kpis: DashboardKpi;
+  /** Sales figures for the day. Null for a caller without the admin role: the role matrix keeps financial figures from employees, and hiding them in the panel would not stop them from travelling in the response. */
+  kpis: DashboardKpi | null;
   alerts: DashboardAlerts;
   /** Best sellers over the last 7 days */
   topProducts: TopProduct[];

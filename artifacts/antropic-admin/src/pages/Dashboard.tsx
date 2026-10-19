@@ -27,9 +27,14 @@ export default function Dashboard() {
       {data && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <Kpi label="Ventas hoy" value={soles(data.kpis.salesToday)} delta={data.kpis.salesTodayDeltaPct} deltaSuffix="%" />
-            <Kpi label="Pedidos hoy" value={String(data.kpis.ordersToday)} delta={data.kpis.ordersTodayDelta} />
-            <Kpi label="Ticket promedio" value={soles(data.kpis.avgTicket)} hint="últimos 30 días" />
+            {/* kpis is null for an employee: the API leaves sales figures out by role. */}
+            {data.kpis && (
+              <>
+                <Kpi label="Ventas hoy" value={soles(data.kpis.salesToday)} delta={data.kpis.salesTodayDeltaPct} deltaSuffix="%" />
+                <Kpi label="Pedidos hoy" value={String(data.kpis.ordersToday)} delta={data.kpis.ordersTodayDelta} />
+                <Kpi label="Ticket promedio" value={soles(data.kpis.avgTicket)} hint="últimos 30 días" />
+              </>
+            )}
             <Kpi label="Pagos por verificar" value={String(data.alerts.pendingPayments)} />
           </div>
 
@@ -152,7 +157,7 @@ export function TopProducts({ items }: { items: TopProduct[] }) {
             {i + 1}. {p.productName}
           </span>
           <span className="text-slate-500">
-            {p.quantity} und · {soles(p.revenue)}
+            {p.quantity} und{p.revenue != null && ` · ${soles(p.revenue)}`}
           </span>
         </li>
       ))}
