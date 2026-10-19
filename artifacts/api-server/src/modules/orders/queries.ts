@@ -327,6 +327,13 @@ export async function listOrdersForUser(
   return { items, total: counted[0]?.count ?? 0 };
 }
 
+// Contact shown to staff for an order. The snapshot on the order is the only source; the
+// profile fallback covers only orders created before migration 0004 added the snapshot.
+// Every board that shows a customer's name or phone goes through these, so none can drift
+// back to reading the profile alone.
+export const orderContactName = sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`;
+export const orderContactPhone = sql<string | null>`coalesce(${orders.contactPhone}, ${profiles.phone})`;
+
 // Contact fields the order flow needs: completeness gate at creation, contact info on the
 // admin boards.
 export async function getProfileContact(
@@ -380,8 +387,8 @@ export async function listShipments(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`,
-      customerPhone: sql<string | null>`coalesce(${orders.contactPhone}, ${profiles.phone})`,
+      customerName: orderContactName,
+      customerPhone: orderContactPhone,
     })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
@@ -449,7 +456,7 @@ export async function listAdminOrders(
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`,
+      customerName: orderContactName,
       customerIsGuest: profiles.isGuest,
     })
     .from(orders)
@@ -478,8 +485,8 @@ export async function getAdminOrderRow(orderId: string): Promise<AdminOrderDetai
     .select({
       order: orders,
       customerEmail: profiles.email,
-      customerName: sql<string | null>`coalesce(${orders.contactName}, ${profiles.fullName})`,
-      customerPhone: sql<string | null>`coalesce(${orders.contactPhone}, ${profiles.phone})`,
+      customerName: orderContactName,
+      customerPhone: orderContactPhone,
       customerIsGuest: profiles.isGuest,
       pickupPointName: pickupPoints.name,
     })
