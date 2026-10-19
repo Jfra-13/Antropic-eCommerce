@@ -23,8 +23,9 @@ export const profiles = pgTable(
     shippingAddress: text("shipping_address"),
     blocked: boolean("blocked").notNull().default(false),
     // True for the contact record behind a guest order: nobody can log in as this profile.
-    // One per guest order, never reused across orders — see modules/orders/guest.ts for why
-    // reusing it by email would let a stranger overwrite someone else's contact details.
+    // One per guest order, never reused across orders — see createGuestOrder in
+    // modules/orders/service.ts (and guest-access.ts) for why reusing it by email would let a
+    // stranger overwrite someone else's contact details.
     isGuest: boolean("is_guest").notNull().default(false),
     ...timestamps,
   },
