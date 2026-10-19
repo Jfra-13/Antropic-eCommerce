@@ -34,13 +34,12 @@ nunca por correo (AUDITORIA §1.4 y §11.10).
 Todo lo fusionado vive en main. Lo único pendiente de código es la Fase 8 (IGV), bloqueada por
 el contador.
 
-El entorno de desarrollo importa: se trabaja desde Claude Code en la web, sin laptop. Ese contenedor
-puede levantar Postgres 16 local, correr las suites de integración de verdad, arrancar los dev
-servers y hacerles curl, y trae Chromium + Playwright preinstalados. Lo que NO puede: tocar el
-proyecto Supabase real, administrar el repositorio en GitHub, ni probar en un móvil real. Como las
-dos SPA autentican contra el Supabase real, las pantallas con sesión no se pueden ver en navegador
-desde aquí; la API sí se puede probar entera levantando un JWKS local y firmando un token, y las
-pantallas SIN sesión sí se pueden ver con Playwright (se hizo en las Fases 6 y 7, §11.6 y §11.7).
+El entorno de desarrollo importa: se trabaja desde Claude Code en Windows (Git Bash), SIN
+Postgres local. Las pruebas de integración solo corren en CI: push y esperar el run en verde es
+parte de validar. Build local: `MSYS_NO_PATHCONV=1 PORT=3000 BASE_PATH=/`. No existe `rtk`; usa
+los comandos normales. Tampoco hay acceso al proyecto Supabase real ni a la administración del
+repositorio en GitHub, así que las pantallas con sesión no se pueden ver en navegador; la API sí
+se puede probar levantando un JWKS local y firmando un token (se hizo en las Fases 6, 7 y 9).
 
 REGLAS DE TRABAJO (no negociables, vienen de las fases anteriores):
 
@@ -68,8 +67,20 @@ REGLAS DE TRABAJO (no negociables, vienen de las fases anteriores):
    outbox.ts), que lo registra antes de intentarlo. Llamar al transporte por fuera devuelve el
    sistema al estado donde un fallo de envío no dejaba rastro. Y sigue en pie la regla anterior:
    una notificación que falla nunca puede tumbar un flujo de negocio.
+10. Un commit convencional por unidad de trabajo, sin trailers de IA. Push sin force. Ningún PR
+    se fusiona sin CI en verde y una revisión con contexto limpio de sus últimos arreglos.
 
-Antes de escribir código, dime tu plan para: <FASE QUE QUIERAS — p. ej. "la Fase 7b, SEO y rendimiento">
+Siguiente: revisión de seguridad que no necesita credenciales (AUDITORIA §3.1 y §3.2).
+1. Endpoints revisados uno por uno para IDOR: cada ruta de modules/*/router.ts que reciba un id
+   (pedido, devolución, reclamo, carrito, constancia, consentimiento) debe comprobar que el
+   recurso pertenece al usuario de la sesión, o al token de invitado, o que el rol es de personal.
+   Entregable: tabla ruta → control que la protege → prueba que lo demuestra; los huecos se
+   corrigen con prueba de integración, un commit por hueco.
+2. SUPABASE_SERVICE_ROLE_KEY nunca en el bundle del cliente: verificarlo sobre el build real de
+   antropic-store y antropic-admin (buscar la clave y el nombre de la variable en dist/), no solo
+   en el código fuente, y dejar una comprobación que falle en CI si vuelve a aparecer.
+
+Antes de escribir código, dime tu plan.
 ```
 
 ---
@@ -88,64 +99,26 @@ conversación entera cada vez. Dos consecuencias prácticas:
 
 Cosas que una sesión nueva no puede deducir del código y que cuesta caro redescubrir.
 
-### PR #21 (Fase 9) — NO fusionar todavía: falta la revisión de la tercera ronda
+### PR #21 (Fase 9) — fusionado
 
-La rama `claude/fase-9-checkout-invitado` pasó dos revisiones. La primera dejó 9 hallazgos, todos
-corregidos (commits `9577d75` a `0ea4cd8`, CI en verde, evidencia en AUDITORIA §11.10). La segunda
-revisión, hecha sobre esos arreglos (`d927ecc..0ea4cd8`), encontró lo siguiente, **sin corregir**:
+Fusionado en `main` (merge commit `273d366`) tras tres rondas de revisión, todos los hallazgos
+corregidos y una cuarta revisión limpia sobre `3ed0646..0eaee61`. Evidencia en AUDITORIA §11.10.
+La base real necesitará **6 migraciones** (`0000`–`0005`).
 
-1. **[corregido]** **Seguridad — el traspaso de pedidos sigue confiando en el correo.** `provenEmail` (lib/auth.ts)
-   combina el `email` actual del JWT con `amr`, pero `amr` dice cómo se inició la sesión, no que el
-   correo *actual* se haya probado. Con la confirmación de correo desactivada en Supabase, alguien
-   entra por magic link con su correo, lo cambia con `updateUser({email: víctima})` y el JWT
-   refrescado conserva `amr=otp`: se lleva los pedidos de invitado de la víctima.
-   **Propuesta (pendiente de aprobación del usuario):** el traspaso exige el token de acceso de cada
-   pedido (el del enlace del correo, que la tienda ya guarda en `lib/guest-orders.ts`), no el
-   correo. Quien tiene el token ya puede ver el pedido; el traspaso deja de depender de la
-   configuración de Supabase. Costo: un pedido hecho en otro dispositivo se vincula al abrir su
-   enlace con la sesión iniciada.
-**Estado (tercera ronda):** los diez hallazgos corregidos (commits `7a8e8bb` a `f3f819b`, uno
-por hallazgo; evidencia en AUDITORIA §11.10). Falta la revisión con contexto limpio de
-`3ed0646..HEAD` antes de fusionar. La regla del 5, **aprobada por el usuario** e implementada
-(también cubre la edición de usuario del backoffice, que pasa por el mismo `updateProfileRow`):
+Matices de esa última revisión, aceptados a sabiendas (no son defectos):
 
-- El snapshot del pedido (`orders.contact_name`/`contact_phone`) es la ÚNICA fuente de lectura;
-  `coalesce(snapshot, perfil)` solo cubre pedidos anteriores a `0004`.
-- `PATCH /me` copia el nombre y/o teléfono que cambiaron al snapshot de los pedidos de ese
-  usuario que aún no están `entregado`/`recogido`, en la misma transacción. Los cerrados no se
-  tocan (historial para devoluciones y reclamos). Con prueba de integración.
-- Orden sugerido: 9 (un solo fragmento SQL exportado para el contacto), luego 2 (usarlo en
-  `payments/queries.ts` ~83 y `returns/queries.ts` ~66), luego 5 (`routes/me.ts`).
-
-2. **[corregido]** La cola de verificación (`modules/payments/queries.ts` ~83) y el tablero de devoluciones
-   (`modules/returns/queries.ts` ~66) leen nombre y teléfono solo de `profiles`: les falta el
-   `coalesce` con el snapshot del pedido.
-3. **[corregido]** La migración `0004` no rellena `contact_name`/`contact_phone` en los pedidos existentes. Un pedido
-   de invitado anterior al despliegue pierde el contacto al traspasarse. Corrección: `UPDATE orders
-   ... FROM profiles` dentro de la misma migración (todavía no se aplicó en ninguna base real).
-4. **[corregido]** **Bloquea ventas.** `unresolvedCartItems` (StoreContext ~183) marca como no disponible todo lo
-   que no está en `useProducts()`, que está topado en `limit: 100` (lib/catalog.ts:14) y queda vacío
-   si la petición falla. El checkout se bloquea con productos que sí tienen stock. Hay que resolver
-   las variantes del carrito contra la API, no contra la primera página del catálogo, y no tratar
-   "no cargó" como "no existe".
-5. **[corregido]** En pedidos de cuenta, el snapshot gana sobre el perfil: si el cliente corrige su teléfono después
-   de comprar, el personal sigue viendo el viejo y no hay pantalla para editarlo. Decidir la regla.
-6. **[corregido]** El filtro `is_guest = true` del replay también corta el reintento legítimo del propio invitado si
-   su pedido se traspasó entre el envío y el reintento (devuelve 409 y puede acabar en un duplicado).
-7. **[corregido]** `/cart` ignora `unresolvedCartItems`: el carrito y el checkout no muestran lo mismo.
-8. **[corregido]** Checkout: el `return` temprano por ítems no resueltos limpia `quote` pero no `quoteError`, así
-   que quedan en pantalla dos mensajes contradictorios.
-9. **[corregido]** El `coalesce` del contacto está copiado en cinco consultas: conviene un solo fragmento SQL
-   exportado (es como se escaparon las del punto 2).
-10. **[corregido]** `IDEMPOTENCY_KEY_CONFLICT` duplica a `IDEMPOTENCY_KEY_REUSED`, y el manejador convierte
-    cualquier 23505 en ese código sin mirar la restricción violada.
-
-Cuando estén corregidos: correr una revisión más sobre los arreglos nuevos y recién entonces
-fusionar. La base real necesitará **6 migraciones** (`0000`–`0005`) o más si se añade otra.
+- Abrir el enlace de un pedido de invitado con la sesión iniciada lo pasa a esa cuenta: quien
+  tiene el token ya puede ver el pedido, y nunca se le quita a otra cuenta.
+- Corregir nombre o teléfono del perfil pisa el contacto de **todos** los pedidos abiertos del
+  usuario, incluido uno traspasado con otro contacto (p. ej. un regalo). Es la regla aprobada.
+- La migración `0004` se editó en el lugar para añadir el relleno del contacto. Es seguro solo
+  porque no se había aplicado en ninguna base compartida; no repetir esa práctica.
 
 ### Lo que sigue pendiente, en orden recomendado
 
-1. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
+1. **Seguridad sin credenciales** (§3.1 IDOR, §3.2 service role en el bundle). Es lo siguiente
+   que se puede hacer hoy; el prompt de arriba ya apunta ahí.
+2. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
    ya está decidido: precio bruto en el catálogo y snapshot fiscal congelado en el pedido, con la
    derivación por resta para que base + impuesto cuadre siempre. Es el último cambio de esquema
    que se encarece de verdad con el clon.

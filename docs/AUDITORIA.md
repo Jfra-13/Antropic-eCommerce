@@ -35,11 +35,11 @@ está en su sección; la evidencia de ejecución, en §11.
 | **6** | Arquitectura de pagos: transacción de liquidación agnóstica de proveedor, interfaz `PaymentProvider`, `payment_events` con idempotencia de webhooks, estados ampliados y caducidad de pedidos abandonados | §6.2 · `docs/PAGOS.md`, `modules/payments/settlement.ts` |
 | **7** | Observabilidad: outbox de notificaciones con reintentos y visibilidad en el panel, id de petición extremo a extremo, `/readyz` que sí comprueba la base, pantalla de Operaciones y `ErrorBoundary` en las dos SPA | §5, §8.3 · `docs/OBSERVABILIDAD.md`, `modules/notifications/outbox.ts` |
 | **7b** | SEO y rendimiento: metadatos y canónicas por ruta, `robots.txt` y `sitemap.xml` generados, JSON-LD, code-splitting por ruta y presupuesto de tamaño que falla el build | §4, §8.1 · `docs/SEO.md`, `src/lib/seo.ts`, `modules/seo/` |
-| **9** | Checkout de invitado: perfil de invitado por pedido, token de acceso en el enlace del correo, subida de constancia sin cuenta, enlace de los pedidos a la cuenta al iniciar sesión (solo con correo probado), y aviso «Invitado» en el panel | §1.4 · `modules/orders/guest-access.ts`, `modules/orders/service.ts`, `pages/GuestOrder.tsx` |
+| **9** | Checkout de invitado: perfil de invitado por pedido, token de acceso en el enlace del correo, subida de constancia sin cuenta, paso de los pedidos a la cuenta presentando el token de cada uno (nunca por correo), contacto del pedido como única fuente de lectura, y aviso «Invitado» en el panel | §1.4 · `modules/orders/guest-access.ts`, `modules/orders/service.ts`, `pages/GuestOrder.tsx` |
 
-> **Fusión:** todas las fases hasta la 7 están en `main` (PR #5 la fase 6, PR #6 la fase 7, en
-> ese orden y con merge commit para no reescribir la base sobre la que estaba construida la 7).
-> `main` vuelve a ser la verdad del proyecto.
+> **Fusión:** todas las fases hechas están en `main` (PR #5 la fase 6, PR #6 la fase 7, PR #7 la
+> 7b y PR #21 la 9, con merge commit). La 9 se fusionó tras tres rondas de revisión y una cuarta
+> limpia sobre los arreglos de la tercera (§11.10). `main` es la verdad del proyecto.
 
 **Tres defectos reales encontrados al ejecutar** (no al compilar), todos corregidos: el `skip` de
 `/healthz` que no exentaba nada; `writeLimiter` como instancia única compartida por seis rutas; y
