@@ -235,6 +235,25 @@ describe("guest idempotency", () => {
     if (result.ok) return;
     expect(result.code).toBe("IDEMPOTENCY_KEY_REUSED");
   });
+
+  it("stops replaying a guest order once it has been claimed into an account", async () => {
+    // After a claim the order's profile is the account's. Replaying it would hand the order and
+    // its access token to anyone holding the key and the account email.
+    const { variantId } = await seedVariant(5);
+    const receipt = await placeGuestOrder(guestInput(variantId, { idempotencyKey: "key-claimed" }));
+    const account = await seedProfile({ email: "invitada@example.test" });
+    await claimGuestOrders({ id: account, provenEmail: "invitada@example.test" });
+
+    const replay = await createGuestOrder(
+      guestInput(variantId, { idempotencyKey: "key-claimed", email: "invitada@example.test" }),
+    );
+
+    expect(replay.ok).toBe(false);
+    if (replay.ok) return;
+    expect(replay.code).toBe("IDEMPOTENCY_KEY_REUSED");
+    expect(await db.select().from(orders)).toHaveLength(1);
+    expect((await db.select().from(orders))[0]!.id).toBe(receipt.order.id);
+  });
 });
 
 describe("guest orders and coupons", () => {

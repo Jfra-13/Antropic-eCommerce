@@ -180,7 +180,16 @@ export async function getGuestOrderByIdempotencyKey(
     .select({ order: orders, email: profiles.email })
     .from(orders)
     .innerJoin(profiles, eq(orders.userId, profiles.id))
-    .where(and(eq(orders.idempotencyKey, key), isNotNull(orders.guestAccessToken)))
+    // is_guest: once a claim re-points the order to an account, its profile is the account's
+    // and the order stops being replayable. Otherwise anyone holding the key plus the account
+    // email could get the claimed order and its access token back anonymously.
+    .where(
+      and(
+        eq(orders.idempotencyKey, key),
+        isNotNull(orders.guestAccessToken),
+        eq(profiles.isGuest, true),
+      ),
+    )
     .limit(1);
   return rows[0];
 }
