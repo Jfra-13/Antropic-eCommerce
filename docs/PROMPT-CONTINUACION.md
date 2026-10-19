@@ -81,8 +81,9 @@ Siguiente: revisión de seguridad que no necesita credenciales (AUDITORIA §3.1 
    en el código fuente, y dejar una comprobación que falle en CI si vuelve a aparecer.
 
 Trabajo en fases, rama claude/seguridad-idor, una sesión por fase. La tabla vive en AUDITORIA
-§11.11. Hecho: A (pedidos, constancias, invitado, claim — sin huecos). Sigue:
-B returns, complaints, cart, wishlist, checkout, consentimientos ·
+§11.11. Hecho: A (pedidos, constancias, invitado, claim — sin huecos) · B (returns,
+complaints, cart, wishlist, checkout, consentimientos — un hueco: orderId inexistente en
+/complaints da 500 y salta el correlativo; dos latentes). Sigue:
 C admin y ops (requireRole en cada ruta) ·
 D huecos de A–C con prueba de integración, un commit cada uno, más UNA prueba de dos usuarios
   para los controles marcados «sin prueba» ·

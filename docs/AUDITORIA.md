@@ -1435,6 +1435,51 @@ La comprobación de dueño en las constancias ocurre antes de `settlePaymentTx`,
 un hueco: el único cambio de dueño posible es el traspaso invitado → cuenta, y quien sube ya
 tenía acceso legítimo al mismo pedido por cualquiera de los dos caminos.
 
+**Devoluciones, reclamos, carrito, favoritos, checkout y consentimientos (Fase B)**
+
+| Ruta | Id | Control | Prueba |
+|---|---|---|---|
+| `GET /returns?orderId` | query | `requireAuth`; `listMyReturns`: `WHERE user_id = sesión`, el `orderId` solo filtra dentro de lo propio; ajeno = lista vacía | sin prueba |
+| `POST /returns` | cuerpo `orderId` | `getOrderForReturn`: `WHERE id AND user_id = sesión`; ajeno = 404, antes de `hasOpenTicket` (no revela si otro pedido tiene ticket abierto) | sin prueba |
+| `POST /returns` | cuerpo `photoPath` | ninguno: texto libre que se guarda y nunca se resuelve a un archivo (no hay subida ni URL firmada; el panel solo pinta «foto adjunta») | **latente**, ver abajo |
+| `POST /complaints` | cuerpo `orderId` | ninguno, a propósito: es público y el `orderId` es una referencia declarada. El recibo y los dos correos se construyen solo con la fila del reclamo, nunca leen el pedido. `userId` sale de la sesión (`optionalAuth`), no del cuerpo | `userId`: «attributes the filing when the person happens to be signed in» (servicio). `orderId`: **hueco**, ver abajo |
+| `GET/POST /cart`, `PATCH/DELETE /cart/items/:variantId`, `POST /cart/merge` | URL / cuerpo `variantId` | `requireAuth`; el carrito se resuelve por `carts.user_id = sesión`, los `cart_items` se filtran por ese `cartId`. `variantId` es catálogo público | sin prueba |
+| `POST /guest/checkout/cart` | cuerpo `variantId[]` | no aplica: solo lee catálogo activo, no hay recurso de nadie | «reports deactivated variants and products, and unknown ids, as missing» |
+| `GET/POST /wishlist`, `DELETE /wishlist/:productId` | URL / cuerpo `productId` | `requireAuth`; `WHERE user_id = sesión`; `productId` es catálogo activo | sin prueba |
+| `POST /checkout/quote` | ninguno | `requireAuth`; carrito por sesión, el cliente no manda importes | sin prueba |
+| `POST /guest/checkout/quote` | cuerpo `variantId[]` | no aplica: catálogo | — |
+| `POST /orders` | cuerpo `idempotencyKey`, `pickupPointId` | carrito por sesión; `getOrderByIdempotencyKey`: `WHERE user_id = sesión AND key`; clave ajena = 409. `pickupPointId` pasa por `getActivePickupPoint` (catálogo) | «answers 409, not 500, when an account checkout reuses a key spent on a guest order» |
+| `POST /guest/orders` | cuerpo `idempotencyKey` | `replayGuestOrder`: solo pedidos con token, no reclamados, mismo email; una clave de cuenta = 409 | «will not hand an order and its token to a caller with a different email», «answers 409, not 500, for a key that belongs to an account order», «reports a claimed order as placed, without handing it back…» |
+| `POST /consents` | sesión + cuerpo `email` | `userId` de la sesión; IP y user-agent de la petición. El `email` del cuerpo no se verifica | contexto: «takes the request context from the caller's environment, not from the payload». `email`: **latente**, ver abajo |
+
+Hueco (para la Fase D):
+
+- **`POST /complaints` con un `orderId` que no existe.** `complaints.order_id` tiene FK a
+  `orders` y `insertComplaint` no captura `23503`, así que la petición acaba en 500. Y
+  `complaint_number` es `serial`: el `nextval` ya consumido no se devuelve en el rollback, de
+  modo que cualquiera, sin sesión, puede abrir un salto en el correlativo del Libro de
+  Reclamaciones con un uuid inventado. La prueba «issues a gap-free correlativo» no lo ve porque
+  solo encadena altas válidas. Leído en el código, no ejecutado (no hay Postgres local): la
+  prueba de la Fase D es lo que lo confirma. Rechazar el reclamo no es la salida — el Libro no
+  puede exigir nada para recibirlo —; la referencia inválida se descarta antes del `INSERT`.
+  Que un reclamo apunte a un pedido ajeno existente sí es aceptable: es lo que el consumidor
+  declara, y no devuelve nada del pedido.
+
+Latentes (no explotables hoy; se vuelven hueco con un cambio concreto):
+
+- **`returns.photo_path`** es una cadena que manda el cliente. El día que el panel la firme para
+  mostrar la foto, un cliente podrá apuntarla a la constancia de otro pedido. Cuando se
+  construya la subida, debe seguir el patrón de `isProofPathForOrder`: ruta emitida por el
+  servidor bajo `{orderId}/`.
+- **`consents.email`** lo escribe quien quiera: cualquiera puede registrar un alta o una baja a
+  nombre de un correo ajeno. Hoy nada lee `consents`, así que no tiene efecto. Un envío de
+  marketing que decida por esa columna necesitaría antes un consentimiento ligado a la sesión o
+  a un correo verificado.
+
+Matiz aceptado: en `POST /guest/orders` el secreto es la `idempotencyKey`, no el email (que no
+lo es). El contrato no le exige longitud mínima; la tienda la genera con `crypto.randomUUID()`,
+y una clave débil solo expone el pedido de quien la eligió.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
