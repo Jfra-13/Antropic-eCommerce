@@ -11,6 +11,7 @@ import {
   paymentEvents,
   profiles,
   notificationDeliveries,
+  returnTickets,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import type { CreateGuestOrderInput } from "@workspace/api-zod";
@@ -18,6 +19,8 @@ import { createGuestOrder, claimGuestOrders, createOrder } from "./service";
 import { requireGuestOrder, GUEST_TOKEN_HEADER } from "./guest-access";
 import { listAdminOrders } from "./queries";
 import { attachProof } from "../payments/service";
+import { listVerificationQueue } from "../payments/queries";
+import { listReturns } from "../returns/queries";
 import { notifyGuestOrderPlaced } from "../notifications/service";
 import { listProfiles } from "../users/queries";
 import { resetDatabase, seedProfile, seedVariant, seedOrderInState } from "../../test/db";
@@ -512,6 +515,24 @@ describe("claiming guest orders into an account", () => {
     expect(row.customerName).toBe("Ana Invitada");
     const [stored] = await db.select().from(orders).where(eq(orders.id, receipt.order.id));
     expect(stored).toMatchObject({ contactName: "Ana Invitada", contactPhone: "999 888 777" });
+  });
+
+  it("shows the order's contact on the verification queue and the returns board too", async () => {
+    // Both boards used to read the profile alone: after a claim into an empty account, staff
+    // saw a blank name and phone on exactly the orders they had to call about.
+    const { variantId } = await seedVariant(5);
+    const receipt = await placeGuestOrder(guestInput(variantId));
+    const [guest] = await guestProfilesFor("invitada@example.test");
+    await attachProof(guest!.id, receipt.order.id, `${receipt.order.id}/${crypto.randomUUID()}`, "50.00");
+    const account = await seedProfile({ email: "invitada@example.test" });
+    await claimGuestOrders(account, [pair(receipt)]);
+    await db.insert(returnTickets).values({ orderId: receipt.order.id, userId: account });
+
+    const contact = { customerName: "Ana Invitada", customerPhone: "999 888 777" };
+    const queue = await listVerificationQueue(1, 20);
+    expect(queue.rows.find((r) => r.order.id === receipt.order.id)).toMatchObject(contact);
+    const returnsBoard = await listReturns(undefined, 1, 20);
+    expect(returnsBoard.rows[0]).toMatchObject(contact);
   });
 
   it("is idempotent: a second claim finds nothing left to move", async () => {
