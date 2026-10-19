@@ -53,7 +53,9 @@ export default function GuestOrder() {
   const { data: order, isLoading, isError } = useGetGuestOrder(orderId, {
     request,
     query: {
-      queryKey: getGetGuestOrderQueryKey(orderId),
+      // The token is part of the key: a new one (pasted link, hashchange) must refetch rather
+      // than reuse a cached 404 from the previous token. It stays in memory only.
+      queryKey: [...getGetGuestOrderQueryKey(orderId), token],
       enabled: !!token && orderId.length > 0,
       // A wrong or stale link is a 404 that no retry will fix.
       retry: false,
