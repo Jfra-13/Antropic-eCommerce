@@ -72,7 +72,7 @@ const ROLES: Record<string, "staff" | "admin"> = {
   "POST /admin/notifications/:id/retry": "staff",
 };
 
-type Layer = { route?: { path: string; methods: Record<string, boolean> } };
+type Layer = { route?: { path: string; methods: Record<string, boolean> }; handle?: { stack?: unknown } };
 
 function registeredRoutes(): string[] {
   return (adminRouter as unknown as { stack: Layer[] }).stack.flatMap((layer) =>
@@ -110,6 +110,11 @@ describe("admin route roles", () => {
     expect(routes.length).toBeGreaterThan(0);
     expect(routes.filter((r) => !(r in ROLES))).toEqual([]);
     expect(Object.keys(ROLES).filter((r) => !routes.includes(r))).toEqual([]);
+    // registeredRoutes() only sees routes declared directly on adminRouter. A nested router
+    // mounted with `use` would carry routes this sweep never visits, so refuse it outright:
+    // declare admin routes on adminRouter, or extend the enumeration first.
+    const nested = (adminRouter as unknown as { stack: Layer[] }).stack.filter((l) => !l.route && l.handle?.stack);
+    expect(nested).toEqual([]);
   });
 
   it("answers 403 to a customer on every admin route", async () => {
@@ -125,7 +130,11 @@ describe("admin route roles", () => {
       // The second half matters as much as the first: a staff route that quietly became
       // admin-only would lock the team out of daily work with nothing failing.
       if (ROLES[route] === "admin") expect(res.status, route).toBe(403);
-      else expect(res.status, route).not.toBe(403);
+      else {
+        // Past the gate, not just "not 403": a staff route that crashes is just as unusable.
+        expect(res.status, route).not.toBe(403);
+        expect(res.status, route).toBeLessThan(500);
+      }
     }
   });
 
