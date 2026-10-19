@@ -86,6 +86,8 @@ export * from './editorialContent';
 export * from './error';
 export * from './faqEntry';
 export * from './getSalesReportParams';
+export * from './guestCart';
+export * from './guestCartInput';
 export * from './guestCheckoutQuoteInput';
 export * from './guestCheckoutQuoteInputDeliveryMethod';
 export * from './guestOrderClaim';

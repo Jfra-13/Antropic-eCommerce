@@ -17,7 +17,7 @@ type ShippingMode = "envio" | "recojo";
 
 export default function Cart() {
   useSeo({ title: "Carrito", noindex: true });
-  const { cart, cartLoading, updateQty, removeFromCart } = useStore();
+  const { cart, cartLoading, cartError, retryCart, updateQty, removeFromCart } = useStore();
   const { config } = useStoreConfig();
   const [, setLocation] = useLocation();
   const [shippingMode, setShippingMode] = useState<ShippingMode>("envio");
@@ -51,6 +51,13 @@ export default function Cart() {
 
         {cartLoading ? (
           <p className="font-sans text-muted-foreground">Cargando tu carrito…</p>
+        ) : cartError ? (
+          <p className="font-sans text-muted-foreground">
+            No pudimos cargar tu carrito.{" "}
+            <button type="button" onClick={retryCart} className="text-primary underline">
+              Reintentar
+            </button>
+          </p>
         ) : cart.length > 0 ? (
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Items */}

@@ -68,6 +68,49 @@ export async function selectCartLines(cartId: string): Promise<CartLine[]> {
   return rows.map((r) => ({ ...r, image: imageByProduct.get(r.productId) ?? null }));
 }
 
+// A guest cart's lines (auditoría §1.4): the cart lives in the browser as variant ids, so the
+// storefront needs them resolved here rather than against whatever page of the catalogue it
+// happened to load. Only what is still sold resolves — active variant of an active product;
+// the rest comes back in `missing`. Zero stock still resolves: it is a line the customer must
+// see and fix, not one that vanished.
+export async function selectGuestCartLines(
+  items: { variantId: string; quantity: number }[],
+): Promise<{ lines: CartLine[]; missing: string[] }> {
+  const quantities = new Map<string, number>();
+  for (const i of items) quantities.set(i.variantId, (quantities.get(i.variantId) ?? 0) + i.quantity);
+  const ids = [...quantities.keys()];
+
+  const rows = await db
+    .select({
+      variantId: productVariants.id,
+      size: productVariants.size,
+      color: productVariants.color,
+      sku: productVariants.sku,
+      stock: productVariants.stock,
+      priceOverride: productVariants.priceOverride,
+      productId: products.id,
+      slug: products.slug,
+      name: products.name,
+      price: products.price,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(productVariants.productId, products.id))
+    .where(
+      and(inArray(productVariants.id, ids), eq(productVariants.active, true), eq(products.active, true)),
+    );
+  const byId = new Map(rows.map((r) => [r.variantId, r]));
+  const imageByProduct = await firstImageByProduct(rows.map((r) => r.productId));
+
+  const lines: CartLine[] = [];
+  const missing: string[] = [];
+  for (const id of ids) {
+    const r = byId.get(id);
+    if (!r) missing.push(id);
+    else lines.push({ ...r, quantity: quantities.get(id)!, image: imageByProduct.get(r.productId) ?? null });
+  }
+  return { lines, missing };
+}
+
 // First media path per product (lowest sortOrder), for the cart line thumbnail.
 async function firstImageByProduct(productIds: string[]): Promise<Map<string, string>> {
   const ids = [...new Set(productIds)];

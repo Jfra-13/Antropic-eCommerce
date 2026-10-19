@@ -296,6 +296,19 @@ export interface GuestOrderItemInput {
   quantity: number;
 }
 
+export interface GuestCartInput {
+  /**
+     * @minItems 1
+     * @maxItems 50
+     */
+  items: GuestOrderItemInput[];
+}
+
+export interface GuestCart {
+  items: CartItem[];
+  missing: string[];
+}
+
 export type GuestCheckoutQuoteInputDeliveryMethod = typeof GuestCheckoutQuoteInputDeliveryMethod[keyof typeof GuestCheckoutQuoteInputDeliveryMethod];
 
 

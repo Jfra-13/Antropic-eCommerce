@@ -706,6 +706,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /guest/checkout/cart:
+    post:
+      operationId: resolveGuestCart
+      tags: [guest]
+      summary: >-
+        Resolve a guest cart (variant ids kept in the browser) into displayable lines. Variants
+        that are no longer sold come back in `missing`; a line with no stock is still a line.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestCartInput"
+      responses:
+        "200":
+          description: The lines that are still sold, and the ids of those that are not
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestCart"
+        "400":
+          description: Invalid body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /guest/orders:
     post:
       operationId: createGuestOrder
@@ -2878,6 +2904,32 @@ components:
       required:
         - variantId
         - quantity
+    GuestCartInput:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/GuestOrderItemInput"
+      required:
+        - items
+    GuestCart:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        missing:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - items
+        - missing
     GuestCheckoutQuoteInput:
       type: object
       properties:

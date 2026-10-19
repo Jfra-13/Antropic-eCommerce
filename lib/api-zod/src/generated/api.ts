@@ -753,6 +753,40 @@ export const GuestCheckoutQuoteResponse = zod.object({
 
 
 /**
+ * @summary Resolve a guest cart (variant ids kept in the browser) into displayable lines. Variants that are no longer sold come back in `missing`; a line with no stock is still a line.
+ */
+export const resolveGuestCartBodyItemsItemQuantityMax = 99;
+
+export const resolveGuestCartBodyItemsMax = 50;
+
+
+
+export const ResolveGuestCartBody = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "quantity": zod.number().min(1).max(resolveGuestCartBodyItemsItemQuantityMax)
+})).min(1).max(resolveGuestCartBodyItemsMax)
+})
+
+export const ResolveGuestCartResponse = zod.object({
+  "items": zod.array(zod.object({
+  "variantId": zod.string().uuid(),
+  "productId": zod.string().uuid(),
+  "slug": zod.string(),
+  "name": zod.string(),
+  "size": zod.string(),
+  "color": zod.string(),
+  "sku": zod.string(),
+  "stock": zod.number(),
+  "unitPrice": zod.string(),
+  "quantity": zod.number(),
+  "image": zod.string().nullable()
+})),
+  "missing": zod.array(zod.string().uuid())
+})
+
+
+/**
  * @summary Place an order without an account (totals computed server-side). Returns the order and the access token that reaches it afterwards.
  */
 export const createGuestOrderBodyEmailMax = 254;

@@ -61,6 +61,8 @@ import type {
   DashboardSummary,
   Error,
   GetSalesReportParams,
+  GuestCart,
+  GuestCartInput,
   GuestCheckoutQuoteInput,
   GuestOrderClaim,
   GuestOrderClaimRequest,
@@ -2010,6 +2012,76 @@ export const useGuestCheckoutQuote = <TError = ErrorType<Error>,
         TContext
       > => {
       return useMutation(getGuestCheckoutQuoteMutationOptions(options));
+    }
+
+export const getResolveGuestCartUrl = () => {
+
+
+
+
+  return `/api/guest/checkout/cart`
+}
+
+/**
+ * @summary Resolve a guest cart (variant ids kept in the browser) into displayable lines. Variants that are no longer sold come back in `missing`; a line with no stock is still a line.
+ */
+export const resolveGuestCart = async (guestCartInput: GuestCartInput, options?: RequestInit): Promise<GuestCart> => {
+
+  return customFetch<GuestCart>(getResolveGuestCartUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(guestCartInput)
+  }
+);}
+
+
+
+
+export const getResolveGuestCartMutationOptions = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveGuestCart>>, TError,{data: BodyType<GuestCartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveGuestCart>>, TError,{data: BodyType<GuestCartInput>}, TContext> => {
+
+const mutationKey = ['resolveGuestCart'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveGuestCart>>, {data: BodyType<GuestCartInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resolveGuestCart(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveGuestCartMutationResult = NonNullable<Awaited<ReturnType<typeof resolveGuestCart>>>
+    export type ResolveGuestCartMutationBody = BodyType<GuestCartInput>
+    export type ResolveGuestCartMutationError = ErrorType<Error>
+
+    /**
+ * @summary Resolve a guest cart (variant ids kept in the browser) into displayable lines. Variants that are no longer sold come back in `missing`; a line with no stock is still a line.
+ */
+export const useResolveGuestCart = <TError = ErrorType<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveGuestCart>>, TError,{data: BodyType<GuestCartInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveGuestCart>>,
+        TError,
+        {data: BodyType<GuestCartInput>},
+        TContext
+      > => {
+      return useMutation(getResolveGuestCartMutationOptions(options));
     }
 
 export const getCreateGuestOrderUrl = () => {

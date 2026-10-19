@@ -31,8 +31,17 @@ const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Checkout() {
   useSeo({ title: "Finalizar compra", noindex: true });
-  const { user, authLoading, cart, cartLoading, clearGuestCart, unresolvedCartItems, removeFromCart } =
-    useStore();
+  const {
+    user,
+    authLoading,
+    cart,
+    cartLoading,
+    cartError,
+    retryCart,
+    clearGuestCart,
+    unresolvedCartItems,
+    removeFromCart,
+  } = useStore();
   // Without a session this is a guest checkout (auditoría §1.4): same screen, same server-side
   // totals, plus an email field — the order's way back to the customer, since there is no
   // account to find it in.
@@ -153,6 +162,20 @@ export default function Checkout() {
 
   if (authLoading || cartLoading) {
     return <Centered>Cargando…</Centered>;
+  }
+  // Not "empty": the cart is there, it just did not load. Bouncing to /cart would lose nothing
+  // but look like it did.
+  if (cartError) {
+    return (
+      <Centered>
+        <div className="flex flex-col items-center gap-3">
+          <p>No pudimos cargar tu carrito.</p>
+          <button type="button" onClick={retryCart} className="text-primary underline">
+            Reintentar
+          </button>
+        </div>
+      </Centered>
+    );
   }
   if (cart.length === 0 && unresolvedCartItems.length === 0 && !createOrder.isSuccess) {
     setLocation("/cart");
