@@ -21,6 +21,7 @@ import { apiErrorCode, apiErrorMessage } from "../lib/errors";
 import { useStoreConfig } from "../lib/config";
 import { brand } from "@workspace/brand";
 import { useSeo } from "../lib/seo";
+import { UnresolvedCartItems } from "../components/UnresolvedCartItems";
 import { rememberGuestOrder } from "../lib/guest-orders";
 
 type DeliveryMethod = "delivery" | "recojo";
@@ -40,7 +41,6 @@ export default function Checkout() {
     retryCart,
     clearGuestCart,
     unresolvedCartItems,
-    removeFromCart,
   } = useStore();
   // Without a session this is a guest checkout (auditoría §1.4): same screen, same server-side
   // totals, plus an email field — the order's way back to the customer, since there is no
@@ -521,26 +521,7 @@ export default function Checkout() {
                 </>
               )}
 
-              {unresolvedCartItems.length > 0 && (
-                <div className="text-sm text-destructive mt-4">
-                  <p className="font-bold">Algunos productos de tu carrito ya no están disponibles.</p>
-                  <p className="mb-2">Quítalos para continuar; no los incluiremos en tu pedido.</p>
-                  <ul>
-                    {unresolvedCartItems.map((item) => (
-                      <li key={item.variantId} className="flex items-center justify-between gap-2">
-                        <span>Producto no disponible (x{item.qty})</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.variantId)}
-                          className="underline"
-                        >
-                          Quitar
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <UnresolvedCartItems className="mt-4" />
 
               {quoteError && (
                 <p className="text-sm text-destructive mt-4">

@@ -12,12 +12,14 @@ import {
 import { useState } from "react";
 import { brand } from "@workspace/brand";
 import { useSeo } from "../lib/seo";
+import { UnresolvedCartItems } from "../components/UnresolvedCartItems";
 
 type ShippingMode = "envio" | "recojo";
 
 export default function Cart() {
   useSeo({ title: "Carrito", noindex: true });
-  const { cart, cartLoading, cartError, retryCart, updateQty, removeFromCart } = useStore();
+  const { cart, cartLoading, cartError, retryCart, unresolvedCartItems, updateQty, removeFromCart } =
+    useStore();
   const { config } = useStoreConfig();
   const [, setLocation] = useLocation();
   const [shippingMode, setShippingMode] = useState<ShippingMode>("envio");
@@ -58,10 +60,11 @@ export default function Cart() {
               Reintentar
             </button>
           </p>
-        ) : cart.length > 0 ? (
+        ) : cart.length > 0 || unresolvedCartItems.length > 0 ? (
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Items */}
             <div className="flex-1 flex flex-col gap-4">
+              <UnresolvedCartItems className="border border-destructive p-4" />
               {cart.map((line) => (
                 <div key={line.variantId} className="flex gap-4 md:gap-6 border-b border-border pb-4">
                   <Link href={`/product/${line.slug}`} className="w-24 h-32 md:w-28 md:h-36 flex-shrink-0 bg-muted overflow-hidden">
