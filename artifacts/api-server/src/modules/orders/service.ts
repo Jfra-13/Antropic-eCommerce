@@ -253,6 +253,9 @@ export async function createOrder(
     if (input.idempotencyKey && isUniqueViolation(e)) {
       const existing = await getOrderByIdempotencyKey(userId, input.idempotencyKey);
       if (existing) return { ok: true, status: 200, order: await buildOrderDto(existing) };
+      // The key is globally unique, so it can already belong to a guest order (the client
+      // generated it before logging in). Not ours to replay, and not a server error either.
+      return err(409, "IDEMPOTENCY_KEY_CONFLICT", "This idempotency key belongs to another order");
     }
     throw e;
   }

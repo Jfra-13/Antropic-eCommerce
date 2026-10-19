@@ -4,6 +4,8 @@ import {
   db,
   coupons,
   couponRedemptions,
+  carts,
+  cartItems,
   orders,
   orderItems,
   paymentEvents,
@@ -12,7 +14,7 @@ import {
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import type { CreateGuestOrderInput } from "@workspace/api-zod";
-import { createGuestOrder, claimGuestOrders } from "./service";
+import { createGuestOrder, claimGuestOrders, createOrder } from "./service";
 import { requireGuestOrder, GUEST_TOKEN_HEADER } from "./guest-access";
 import { listAdminOrders } from "./queries";
 import { attachProof } from "../payments/service";
@@ -253,6 +255,25 @@ describe("guest idempotency", () => {
     expect(replay.code).toBe("IDEMPOTENCY_KEY_REUSED");
     expect(await db.select().from(orders)).toHaveLength(1);
     expect((await db.select().from(orders))[0]!.id).toBe(receipt.order.id);
+  });
+
+  it("answers 409, not 500, when an account checkout reuses a key spent on a guest order", async () => {
+    const { variantId } = await seedVariant(5);
+    await placeGuestOrder(guestInput(variantId, { idempotencyKey: "key-shared" }));
+    const userId = await seedProfile({ fullName: "Ana Cuenta", phone: "999" });
+    const [cart] = await db.insert(carts).values({ userId }).returning({ id: carts.id });
+    await db.insert(cartItems).values({ cartId: cart!.id, variantId, quantity: 1 });
+
+    const result = await createOrder(userId, {
+      deliveryMethod: "delivery",
+      shippingAddress: "Av. Cuenta 1",
+      idempotencyKey: "key-shared",
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe(409);
+    expect(result.code).toBe("IDEMPOTENCY_KEY_CONFLICT");
   });
 });
 

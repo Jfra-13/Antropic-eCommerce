@@ -62,6 +62,13 @@ export default function Checkout() {
 
   // One key per checkout visit: a double click on "Confirmar" returns the same order.
   const idempotencyKey = useRef<string>(crypto.randomUUID());
+  // The key is globally unique, so one minted while logged out (and possibly spent on a guest
+  // order) must not be reused by the account path after login: that would be a key conflict.
+  const keyForUser = useRef<string | null>(user?.id ?? null);
+  if (keyForUser.current !== (user?.id ?? null)) {
+    keyForUser.current = user?.id ?? null;
+    idempotencyKey.current = crypto.randomUUID();
+  }
 
   const pickupPoints = useListPickupPoints({
     query: { queryKey: getListPickupPointsQueryKey(), enabled: deliveryMethod === "recojo" },
