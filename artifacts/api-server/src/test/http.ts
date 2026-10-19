@@ -26,7 +26,8 @@ export async function startApi() {
           "content-type": "application/json",
           ...(asProfileId ? { authorization: `Bearer ${asProfileId}` } : {}),
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        // fetch throws on a GET with a body, and callers looping over routes pass one to all.
+        body: body === undefined || method === "GET" ? undefined : JSON.stringify(body),
       });
     },
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
