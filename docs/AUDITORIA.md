@@ -1410,6 +1410,31 @@ Puertas locales: `typecheck` y 54 pruebas unitarias de la API en verde. Las de i
 corren en CI (no hay Postgres en este entorno): run `39218597119` sobre `f3f819b` en verde, con
 72 unitarias (54 API + 18 marca), 90 de integración y `build`.
 
+### 11.11 Revisión de IDOR (§3.1)
+
+Cada ruta que recibe el id de un recurso del cliente, en la URL o en el cuerpo: qué la protege y
+qué prueba lo demuestra. «Sin prueba» no es un hueco: el control existe y se lee en el código,
+pero nada falla si alguien lo quita.
+
+**Pedidos, constancias e invitado**
+
+| Ruta | Id | Control | Prueba |
+|---|---|---|---|
+| `GET /orders` | sesión | `listOrdersForUser`: `WHERE user_id = sesión` | sin prueba |
+| `GET /orders/:id` | URL | `getOrderForUser`: `WHERE id AND user_id = sesión` en la misma consulta; ajeno = 404 | sin prueba |
+| `POST /orders/:id/payment-proof/upload-url` | URL | `getOrderForUser` antes de firmar; la ruta firmada nace bajo `{orderId}/` | sin prueba |
+| `POST /orders/:id/payment-proof` | URL + `path` | `getOrderForUser`, y `isProofPathForOrder` exige `{orderId}/{uuid}` de ese pedido | ruta ajena: «refuses a path that was issued for another order»; dueño: sin prueba |
+| `GET /guest/orders/:id` | URL + `X-Order-Token` | `requireGuestOrder`: token comparado en tiempo constante; todo fallo = mismo 404 | «answers the same 404 for a wrong token, no token, an account order and a malformed id» |
+| `POST /guest/orders/:id/payment-proof[/upload-url]` | URL + token | `requireGuestOrder`; el dueño pasado al servicio es el del propio pedido | mismo middleware que arriba |
+| `POST /me/guest-orders/claim` | cuerpo `{orderId, accessToken}` | `claimGuestOrdersTx`: solo pedidos de perfil invitado, token en tiempo constante, nunca por email | «refuses a wrong token, and a token presented for another order», «never takes an order out of another account…» |
+
+Matiz aceptado (Fase 9): un pedido traspasado conserva su token, así que su enlace de invitado
+sigue abriéndolo. Quien tiene el token ya podía verlo.
+
+La comprobación de dueño en las constancias ocurre antes de `settlePaymentTx`, no dentro. No es
+un hueco: el único cambio de dueño posible es el traspaso invitado → cuenta, y quien sube ya
+tenía acceso legítimo al mismo pedido por cualquiera de los dos caminos.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está

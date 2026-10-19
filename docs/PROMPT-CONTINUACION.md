@@ -80,6 +80,16 @@ Siguiente: revisión de seguridad que no necesita credenciales (AUDITORIA §3.1 
    antropic-store y antropic-admin (buscar la clave y el nombre de la variable en dist/), no solo
    en el código fuente, y dejar una comprobación que falle en CI si vuelve a aparecer.
 
+Trabajo en fases, rama claude/seguridad-idor, una sesión por fase. La tabla vive en AUDITORIA
+§11.11. Hecho: A (pedidos, constancias, invitado, claim — sin huecos). Sigue:
+B returns, complaints, cart, wishlist, checkout, consentimientos ·
+C admin y ops (requireRole en cada ruta) ·
+D huecos de A–C con prueba de integración, un commit cada uno, más UNA prueba de dos usuarios
+  para los controles marcados «sin prueba» ·
+E comprobación del bundle: dist/ sin el nombre de la variable, sin `sb_secret_` y sin JWT cuyo
+  payload diga role=service_role (CI no tiene la clave real; decodificar es lo que la caza) ·
+F cierre de AUDITORIA §3.1/§3.2, PR y revisión con contexto limpio.
+
 Antes de escribir código, dime tu plan.
 ```
 
