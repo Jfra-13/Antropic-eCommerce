@@ -386,14 +386,18 @@ describe("claiming guest orders into an account", () => {
     expect((await openWithToken(first.order.id, first.accessToken)).passed).toBe(true);
   });
 
-  it("fills the account's empty contact fields from the latest guest checkout, and only those", async () => {
+  it("never copies guest contact data into the account profile", async () => {
+    // Anyone can create a guest profile under any email, so its name/phone/address are
+    // unverified. They stay on the guest record; the claim only re-points orders.
     await seedGuestHistory();
     const emptyAccount = await seedProfile({ email: "invitada@example.test" });
 
     await claimGuestOrders({ id: emptyAccount, provenEmail: "invitada@example.test" });
 
-    const [filled] = await db.select().from(profiles).where(eq(profiles.id, emptyAccount));
-    expect(filled).toMatchObject({ fullName: "Ana Invitada", phone: "999 000 111" });
+    const [after] = await db.select().from(profiles).where(eq(profiles.id, emptyAccount));
+    expect(after!.fullName?.trim() ?? "").toBe("");
+    expect(after!.phone?.trim() ?? "").toBe("");
+    expect(after!.shippingAddress?.trim() ?? "").toBe("");
   });
 
   it("never overwrites what the customer already put in their account", async () => {

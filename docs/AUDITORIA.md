@@ -319,9 +319,11 @@ El modelo es el de arriba: **perfil de invitado**, `orders.user_id` sigue `NOT N
   pedido pendiente de un desconocido, solo con poner su correo. El coste son contactos duplicados,
   que el enlace a la cuenta fusiona después.
 - **Enlace a la cuenta (`POST /me/guest-orders/claim`)**: al iniciar sesión, la tienda mueve los
-  pedidos de invitado con ese correo a la cuenta (`orders.user_id` y `coupon_redemptions`) y copia
-  el contacto del invitado **solo en los campos vacíos** de la cuenta. **Solo si la sesión prueba
-  el control del correo** (`amr` = `otp`, `magiclink` u `oauth`): con una contraseña y la
+  pedidos de invitado con ese correo a la cuenta (`orders.user_id` y `coupon_redemptions`) y **no
+  copia** el contacto del invitado al perfil de la cuenta (cualquiera puede crear un invitado con
+  un correo ajeno, así que esos datos no están verificados). **Solo si la sesión prueba el control
+  del correo** (`amr` = `otp`, `magiclink` u `oauth`) y **buscando por el correo del propio JWT**,
+  no por `profiles.email`, que no se sincroniza y puede quedar desfasado tras un cambio de correo: con una contraseña y la
   confirmación de correo apagada, cualquiera podría registrar el correo ajeno y llevarse pedidos,
   dirección y teléfono. Los perfiles de invitado no se borran: `payment_events.actor_id` los
   sigue señalando como quien subió la constancia.
@@ -1301,7 +1303,7 @@ la suite de invitado. Falla exactamente la prueba que la cubre y ninguna otra.
 
 | Guarda rota | Prueba que falla |
 |---|---|
-| `emailProven` en el enlace a la cuenta | «refuses when the session does not prove the email» |
+| `provenEmail` en el enlace a la cuenta | «refuses when the session does not prove the email» |
 | Ruta de la constancia | «refuses a path that was issued for another order» |
 | Comparación del token | «answers the same 404 for a wrong token, …» |
 | Correo de cuenta bloqueada | «refuses an email whose account staff have blocked» |
@@ -1323,8 +1325,8 @@ de idempotencia de webhooks de la Fase 6.
 - El correo de confirmación queda en el outbox como `guest_order_placed` con el enlace
   `/pedido/{id}#{token}` (sale «fallido» porque aquí no hay Resend, que es lo esperado).
 - Enlace a la cuenta con tokens firmados: sesión de **contraseña → 403**; sesión de **enlace
-  mágico → `{"claimed":2}`**, los dos pedidos pasan a `GET /orders`, el perfil vacío recibe
-  nombre, teléfono y dirección del invitado; un segundo intento → `{"claimed":0}`; y el enlace
+  mágico → `{"claimed":2}`**, los dos pedidos pasan a `GET /orders`, el perfil vacío **sigue vacío**
+  (ya no recibe datos del invitado); un segundo intento → `{"claimed":0}`; y el enlace
   viejo del correo **sigue abriendo** el pedido.
 - El panel recibe `customerIsGuest: true` en un pedido de invitado y `false` después del enlace.
 

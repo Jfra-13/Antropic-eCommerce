@@ -228,18 +228,16 @@ export async function getOrderById(orderId: string): Promise<Order | undefined> 
 //
 // The guest profiles themselves stay. payment_events.actor_id points at them — the guest is
 // who uploaded the constancia, and the audit trail must keep saying so.
+//
+// Only orders.user_id moves. Guest profile fields (name, phone, address) are never copied into
+// the account: anyone can create a guest profile under any email, so that data is unverified
+// and would let a stranger write into a victim's profile.
 export async function claimGuestOrdersTx(accountId: string, email: string): Promise<number> {
   return db.transaction(async (tx) => {
     const guests = await tx
-      .select({
-        id: profiles.id,
-        fullName: profiles.fullName,
-        phone: profiles.phone,
-        shippingAddress: profiles.shippingAddress,
-      })
+      .select({ id: profiles.id })
       .from(profiles)
-      .where(and(eq(profiles.isGuest, true), sql`lower(${profiles.email}) = lower(${email})`))
-      .orderBy(desc(profiles.createdAt));
+      .where(and(eq(profiles.isGuest, true), sql`lower(${profiles.email}) = lower(${email})`));
     if (guests.length === 0) return 0;
     const ids = guests.map((g) => g.id);
 
@@ -253,34 +251,6 @@ export async function claimGuestOrdersTx(accountId: string, email: string): Prom
       .set({ userId: accountId })
       .where(inArray(couponRedemptions.userId, ids));
 
-    // Contact details are read from the profile, not the order, so an account that never
-    // filled them in would turn these orders into ones logistics cannot call or deliver. Copy
-    // the latest guest details into the EMPTY fields only: what the customer typed into their
-    // own account always wins over what they typed at a guest checkout.
-    const account = await tx
-      .select({
-        fullName: profiles.fullName,
-        phone: profiles.phone,
-        shippingAddress: profiles.shippingAddress,
-      })
-      .from(profiles)
-      .where(eq(profiles.id, accountId))
-      .for("update")
-      .limit(1);
-    const current = account[0];
-    if (current && moved.length > 0) {
-      const latest = (field: "fullName" | "phone" | "shippingAddress") =>
-        guests.find((g) => g[field]?.trim())?.[field] ?? null;
-      const patch: Partial<typeof profiles.$inferInsert> = {};
-      if (!current.fullName?.trim() && latest("fullName")) patch.fullName = latest("fullName");
-      if (!current.phone?.trim() && latest("phone")) patch.phone = latest("phone");
-      if (!current.shippingAddress?.trim() && latest("shippingAddress")) {
-        patch.shippingAddress = latest("shippingAddress");
-      }
-      if (Object.keys(patch).length > 0) {
-        await tx.update(profiles).set(patch).where(eq(profiles.id, accountId));
-      }
-    }
     return moved.length;
   });
 }
