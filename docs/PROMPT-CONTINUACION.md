@@ -85,10 +85,9 @@ Trabajo en fases, rama claude/seguridad-idor, una sesión por fase. La tabla viv
 complaints, cart, wishlist, checkout, consentimientos — un hueco: orderId inexistente en
 /complaints da 500 y salta el correlativo; dos latentes) · C (admin y ops — dos huecos: el
 dashboard da cifras financieras al empleado, y ningún filtro de rol tiene prueba; decisión
-abierta: quién responde reclamos). Sigue:
-D huecos de A–C con prueba de integración, un commit cada uno, más UNA prueba de dos usuarios
-  para los controles marcados «sin prueba» y UNA que recorra las rutas de admin exigiendo
-  clasificación de rol (§11.11, Fase C) ·
+abierta: quién responde reclamos) · D (los tres huecos corregidos con su prueba, más la prueba
+de dos usuarios y el barrido de rutas de admin; evidencia en §11.11; PR #23 en borrador con CI
+en verde). Sigue:
 E comprobación del bundle: dist/ sin el nombre de la variable, sin `sb_secret_` y sin JWT cuyo
   payload diga role=service_role (CI no tiene la clave real; decodificar es lo que la caza) ·
 F cierre de AUDITORIA §3.1/§3.2, PR y revisión con contexto limpio.

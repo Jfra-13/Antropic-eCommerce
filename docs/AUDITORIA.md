@@ -1416,14 +1416,21 @@ Cada ruta que recibe el id de un recurso del cliente, en la URL o en el cuerpo: 
 qué prueba lo demuestra. «Sin prueba» no es un hueco: el control existe y se lee en el código,
 pero nada falla si alguien lo quita.
 
+Las pruebas de la Fase D que pasan por HTTP viven en `routes/ownership.integration.test.ts` (un
+segundo cliente presenta los ids del primero en cada ruta; cada rechazo va emparejado con el
+dueño haciendo lo mismo con éxito, para que una ruta que rechaza a todos no pase por una que
+comprueba al dueño) y `modules/admin/roles.integration.test.ts`. Corren sobre el árbol de rutas
+real (`test/http.ts`); lo único simulado es la firma del JWT: el rol y el perfil se leen de la
+base como en producción.
+
 **Pedidos, constancias e invitado**
 
 | Ruta | Id | Control | Prueba |
 |---|---|---|---|
-| `GET /orders` | sesión | `listOrdersForUser`: `WHERE user_id = sesión` | sin prueba |
-| `GET /orders/:id` | URL | `getOrderForUser`: `WHERE id AND user_id = sesión` en la misma consulta; ajeno = 404 | sin prueba |
-| `POST /orders/:id/payment-proof/upload-url` | URL | `getOrderForUser` antes de firmar; la ruta firmada nace bajo `{orderId}/` | sin prueba |
-| `POST /orders/:id/payment-proof` | URL + `path` | `getOrderForUser`, y `isProofPathForOrder` exige `{orderId}/{uuid}` de ese pedido | ruta ajena: «refuses a path that was issued for another order»; dueño: sin prueba |
+| `GET /orders` | sesión | `listOrdersForUser`: `WHERE user_id = sesión` | «does not list or open another customer's orders» |
+| `GET /orders/:id` | URL | `getOrderForUser`: `WHERE id AND user_id = sesión` en la misma consulta; ajeno = 404 | «does not list or open another customer's orders» |
+| `POST /orders/:id/payment-proof/upload-url` | URL | `getOrderForUser` antes de firmar; la ruta firmada nace bajo `{orderId}/` | «does not let them upload a constancia to another customer's order» |
+| `POST /orders/:id/payment-proof` | URL + `path` | `getOrderForUser`, y `isProofPathForOrder` exige `{orderId}/{uuid}` de ese pedido | ruta ajena: «refuses a path that was issued for another order»; dueño: «does not let them upload a constancia to another customer's order» |
 | `GET /guest/orders/:id` | URL + `X-Order-Token` | `requireGuestOrder`: token comparado en tiempo constante; todo fallo = mismo 404 | «answers the same 404 for a wrong token, no token, an account order and a malformed id» |
 | `POST /guest/orders/:id/payment-proof[/upload-url]` | URL + token | `requireGuestOrder`; el dueño pasado al servicio es el del propio pedido | mismo middleware que arriba |
 | `POST /me/guest-orders/claim` | cuerpo `{orderId, accessToken}` | `claimGuestOrdersTx`: solo pedidos de perfil invitado, token en tiempo constante, nunca por email | «refuses a wrong token, and a token presented for another order», «never takes an order out of another account…» |
@@ -1439,20 +1446,20 @@ tenía acceso legítimo al mismo pedido por cualquiera de los dos caminos.
 
 | Ruta | Id | Control | Prueba |
 |---|---|---|---|
-| `GET /returns?orderId` | query | `requireAuth`; `listMyReturns`: `WHERE user_id = sesión`, el `orderId` solo filtra dentro de lo propio; ajeno = lista vacía | sin prueba |
-| `POST /returns` | cuerpo `orderId` | `getOrderForReturn`: `WHERE id AND user_id = sesión`; ajeno = 404, antes de `hasOpenTicket` (no revela si otro pedido tiene ticket abierto) | sin prueba |
+| `GET /returns?orderId` | query | `requireAuth`; `listMyReturns`: `WHERE user_id = sesión`, el `orderId` solo filtra dentro de lo propio; ajeno = lista vacía | «does not show or open returns on another customer's order» |
+| `POST /returns` | cuerpo `orderId` | `getOrderForReturn`: `WHERE id AND user_id = sesión`; ajeno = 404, antes de `hasOpenTicket` (no revela si otro pedido tiene ticket abierto) | «does not show or open returns on another customer's order» (404, no 409, con un ticket abierto del dueño) |
 | `POST /returns` | cuerpo `photoPath` | ninguno: texto libre que se guarda y nunca se resuelve a un archivo (no hay subida ni URL firmada; el panel solo pinta «foto adjunta») | **latente**, ver abajo |
-| `POST /complaints` | cuerpo `orderId` | ninguno, a propósito: es público y el `orderId` es una referencia declarada. El recibo y los dos correos se construyen solo con la fila del reclamo, nunca leen el pedido. `userId` sale de la sesión (`optionalAuth`), no del cuerpo | `userId`: «attributes the filing when the person happens to be signed in» (servicio). `orderId`: **hueco**, ver abajo |
-| `GET/POST /cart`, `PATCH/DELETE /cart/items/:variantId`, `POST /cart/merge` | URL / cuerpo `variantId` | `requireAuth`; el carrito se resuelve por `carts.user_id = sesión`, los `cart_items` se filtran por ese `cartId`. `variantId` es catálogo público | sin prueba |
+| `POST /complaints` | cuerpo `orderId` | ninguno, a propósito: es público y el `orderId` es una referencia declarada. El recibo y los dos correos se construyen solo con la fila del reclamo, nunca leen el pedido. `userId` sale de la sesión (`optionalAuth`), no del cuerpo | `userId`: «attributes the filing when the person happens to be signed in» (servicio). `orderId` inexistente: corregido en la Fase D, «drops an order reference that does not exist, without a 500 or a gap in the correlativo» |
+| `GET/POST /cart`, `PATCH/DELETE /cart/items/:variantId`, `POST /cart/merge` | URL / cuerpo `variantId` | `requireAuth`; el carrito se resuelve por `carts.user_id = sesión`, los `cart_items` se filtran por ese `cartId`. `variantId` es catálogo público | «does not show or change another customer's cart» (`GET`, `PATCH`, `DELETE`); `POST /cart/merge`: sin prueba |
 | `POST /guest/checkout/cart` | cuerpo `variantId[]` | no aplica: solo lee catálogo activo, no hay recurso de nadie | «reports deactivated variants and products, and unknown ids, as missing» |
-| `GET/POST /wishlist`, `DELETE /wishlist/:productId` | URL / cuerpo `productId` | `requireAuth`; `WHERE user_id = sesión`; `productId` es catálogo activo | sin prueba |
+| `GET/POST /wishlist`, `DELETE /wishlist/:productId` | URL / cuerpo `productId` | `requireAuth`; `WHERE user_id = sesión`; `productId` es catálogo activo | «does not show or change another customer's wishlist» |
 | `POST /checkout/quote` | ninguno | `requireAuth`; carrito por sesión, el cliente no manda importes | sin prueba |
 | `POST /guest/checkout/quote` | cuerpo `variantId[]` | no aplica: catálogo | — |
 | `POST /orders` | cuerpo `idempotencyKey`, `pickupPointId` | carrito por sesión; `getOrderByIdempotencyKey`: `WHERE user_id = sesión AND key`; clave ajena = 409. `pickupPointId` pasa por `getActivePickupPoint` (catálogo) | «answers 409, not 500, when an account checkout reuses a key spent on a guest order» |
 | `POST /guest/orders` | cuerpo `idempotencyKey` | `replayGuestOrder`: solo pedidos con token, no reclamados, mismo email; una clave de cuenta = 409 | «will not hand an order and its token to a caller with a different email», «answers 409, not 500, for a key that belongs to an account order», «reports a claimed order as placed, without handing it back…» |
 | `POST /consents` | sesión + cuerpo `email` | `userId` de la sesión; IP y user-agent de la petición. El `email` del cuerpo no se verifica | contexto: «takes the request context from the caller's environment, not from the payload». `email`: **latente**, ver abajo |
 
-Hueco (para la Fase D):
+Hueco (corregido en la Fase D):
 
 - **`POST /complaints` con un `orderId` que no existe.** `complaints.order_id` tiene FK a
   `orders` y `insertComplaint` no captura `23503`, así que la petición acaba en 500. Y
@@ -1464,6 +1471,13 @@ Hueco (para la Fase D):
   puede exigir nada para recibirlo —; la referencia inválida se descarta antes del `INSERT`.
   Que un reclamo apunte a un pedido ajeno existente sí es aceptable: es lo que el consumidor
   declara, y no devuelve nada del pedido.
+
+  **Corrección:** `insertComplaint` resuelve la referencia dentro del mismo `INSERT`
+  (`order_id = (select id from orders where id = $1)`), así que una referencia inexistente se
+  guarda como `null` sin que la FK llegue a fallar. Un `SELECT` previo dejaría abierta la ventana
+  entre la consulta y la escritura. Prueba: «drops an order reference that does not exist, without
+  a 500 or a gap in the correlativo» (tres altas, la del medio con un uuid inventado: LR-000001,
+  000002, 000003).
 
 Latentes (no explotables hoy; se vuelven hueco con un cambio concreto):
 
@@ -1492,26 +1506,26 @@ efecto en su siguiente petición, sin esperar a que caduque el token.
 
 | Ruta | Id | Control | Prueba |
 |---|---|---|---|
-| todas las `/admin/*` | — | `requireAuth` + `requireRole("employee", "admin")`; un `customer` = 403, sin token = 401, bloqueado = 403 | sin prueba |
-| `GET /admin/payments/queue`, `POST /admin/orders/:id/{approve,reject}`, `GET /admin/orders/:id/payment-events` | URL | personal (filtro global); el cambio de estado pasa por `settlePaymentTx` | sin prueba del rol |
-| `GET /admin/orders[/:id]`, `GET /admin/shipments`, `POST /admin/orders/:id/fulfillment` | URL | personal | sin prueba del rol |
-| `GET/POST /admin/products`, `PATCH /admin/products/:id`, `POST /admin/products/:id/{variants,media}`, `POST /admin/products/import`, `PATCH /admin/variants/:id`, `DELETE /admin/media/:id` | URL | personal | sin prueba del rol |
-| `POST/PATCH /admin/{categories,occasions}[/:id]` | URL | personal | sin prueba del rol |
-| `DELETE /admin/{products,categories,occasions}/:id` | URL | `requireRole("admin")` por ruta; más estricto que la matriz (que deja al empleado editar catálogo), a propósito: borrar no se deshace | sin prueba |
-| `GET/POST/PATCH/DELETE /admin/coupons[/:id]` | URL | `adminOnly` | sin prueba |
-| `GET/PATCH /admin/returns[/:id]` | URL | personal | sin prueba del rol |
-| `GET/PATCH /admin/complaints[/:id]` | URL | personal; responder es un acto legal, ver decisión abierta abajo | sin prueba del rol |
-| `GET/POST /admin/users`, `PATCH /admin/users/:id` | URL | `adminOnly`; `updateUser` rechaza cambiar el rol o el bloqueo propios (`SELF_MODIFY`), así que siempre queda al menos el admin que actúa | sin prueba |
-| `GET/PUT /admin/config`, `POST /admin/config/media/upload-url`, `GET/POST/PATCH/DELETE /admin/pickup-points[/:id]` | URL | `adminOnly` | sin prueba |
-| `GET /admin/reports` | — | `adminOnly` | sin prueba |
-| `GET /admin/dashboard` | — | personal, **mismo cuerpo para los dos roles** | **hueco**, ver abajo |
-| `GET /admin/ops`, `GET /admin/notifications`, `POST /admin/notifications/:id/retry` | URL | personal. La lista del outbox no expone el cuerpo renderizado (solo destinatario, asunto, estado); el reintento solo acepta un envío `fallido` | sin prueba del rol |
+| todas las `/admin/*` | — | `requireAuth` + `requireRole("employee", "admin")`; un `customer` = 403, sin token = 401, bloqueado = 403 | «answers 403 to a customer on every admin route», «answers 401 with no token»; bloqueado: sin prueba |
+| `GET /admin/payments/queue`, `POST /admin/orders/:id/{approve,reject}`, `GET /admin/orders/:id/payment-events` | URL | personal (filtro global); el cambio de estado pasa por `settlePaymentTx` | barrido de rutas (ver abajo) |
+| `GET /admin/orders[/:id]`, `GET /admin/shipments`, `POST /admin/orders/:id/fulfillment` | URL | personal | barrido de rutas (ver abajo) |
+| `GET/POST /admin/products`, `PATCH /admin/products/:id`, `POST /admin/products/:id/{variants,media}`, `POST /admin/products/import`, `PATCH /admin/variants/:id`, `DELETE /admin/media/:id` | URL | personal | barrido de rutas (ver abajo) |
+| `POST/PATCH /admin/{categories,occasions}[/:id]` | URL | personal | barrido de rutas (ver abajo) |
+| `DELETE /admin/{products,categories,occasions}/:id` | URL | `requireRole("admin")` por ruta; más estricto que la matriz (que deja al empleado editar catálogo), a propósito: borrar no se deshace | barrido de rutas (ver abajo) |
+| `GET/POST/PATCH/DELETE /admin/coupons[/:id]` | URL | `adminOnly` | barrido de rutas (ver abajo) |
+| `GET/PATCH /admin/returns[/:id]` | URL | personal | barrido de rutas (ver abajo) |
+| `GET/PATCH /admin/complaints[/:id]` | URL | personal; responder es un acto legal, ver decisión abierta abajo | barrido de rutas (ver abajo) |
+| `GET/POST /admin/users`, `PATCH /admin/users/:id` | URL | `adminOnly`; `updateUser` rechaza cambiar el rol o el bloqueo propios (`SELF_MODIFY`), así que siempre queda al menos el admin que actúa | barrido de rutas (ver abajo) |
+| `GET/PUT /admin/config`, `POST /admin/config/media/upload-url`, `GET/POST/PATCH/DELETE /admin/pickup-points[/:id]` | URL | `adminOnly` | barrido de rutas (ver abajo) |
+| `GET /admin/reports` | — | `adminOnly` | barrido de rutas (ver abajo) |
+| `GET /admin/dashboard` | — | personal; `getDashboard(role)`: `kpis` y `topProducts[].revenue` en `null` salvo para el admin | «keeps sales figures out of an employee's dashboard, and gives them to the admin» |
+| `GET /admin/ops`, `GET /admin/notifications`, `POST /admin/notifications/:id/retry` | URL | personal. La lista del outbox no expone el cuerpo renderizado (solo destinatario, asunto, estado); el reintento solo acepta un envío `fallido` | barrido de rutas (ver abajo) |
 
 Las rutas públicas de este bloque (`GET /config`, `GET /pickup-points`, `/sitemap.xml`,
 `/healthz`, `/readyz`) no reciben ids ni escriben. `GET /config` devuelve una proyección
 (`getPublicConfig`), no la configuración de administración.
 
-Huecos (para la Fase D):
+Huecos (corregidos en la Fase D):
 
 - **El empleado recibe las cifras financieras del dashboard.** `getDashboard()` no conoce el
   rol: `salesToday`, `salesTodayDeltaPct` y `avgTicket` salen igual para un empleado que para
@@ -1521,12 +1535,26 @@ Huecos (para la Fase D):
   Corrección elegida: la API arma la respuesta según el rol (`getDashboard(role)`), y en el
   contrato `kpis` pasa a ser nulable. Se descartó un endpoint separado por rol, porque obliga a
   duplicar la consulta y cada métrica nueva tendría que decidir a cuál de los dos va.
+
+  **Corrección:** además de los `kpis`, la Fase D encontró `topProducts[].revenue` (ingreso por
+  producto), que el panel pintaba junto a las unidades; también pasa a ser nulable y va en `null`
+  para el empleado, que sigue viendo qué se vende y cuántas unidades. `GET /admin/reports` usa el
+  mismo esquema pero es solo admin. El panel omite la fila de KPIs y la columna de ingreso cuando
+  vienen en `null`. Prueba (HTTP, para que un router que pasara el rol equivocado también falle):
+  «keeps sales figures out of an employee's dashboard, and gives them to the admin».
 - **Ningún filtro de rol tiene prueba.** Si alguien borra el `router.use` o un `adminOnly`,
   ninguna prueba falla. La Fase D no añade una prueba por ruta, que se queda vieja con la
   primera ruta nueva. Añade una sola que recorre las rutas registradas en el router de admin y
   exige que cada una esté clasificada como «personal» o «solo admin»: comprueba que un
   `customer` recibe 403 en todas, y un `employee` 403 en las de solo admin. Una ruta nueva sin
   clasificar hace fallar la prueba, así que la decisión de rol no se puede saltar.
+
+  **Corrección:** `modules/admin/roles.integration.test.ts` lee `adminRouter.stack` y lo compara
+  con un mapa ruta → «staff» | «admin» en ambos sentidos: «classifies every route registered on
+  the admin router, and only those». Luego «answers 403 to a customer on every admin route» y
+  «answers 403 to an employee on admin-only routes, and lets them through the staff ones»: la
+  segunda mitad detecta también una ruta de personal que quedara solo para admin. Los `:id` se
+  sustituyen por un uuid que no existe, así que el barrido no escribe nada.
 
 Decisión abierta (negocio, no código): **quién responde los reclamos.** Hoy un empleado puede
 contestar un reclamo (`PATCH /admin/complaints/:id`), y esa respuesta es la que se le envía al
