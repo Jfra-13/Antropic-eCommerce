@@ -7,16 +7,22 @@
 // idempotency guard (Fase 6), and in Fase 9 the order idempotency race — a double click on
 // "Confirmar" answered 500 instead of returning the order — and the catalogue's duplicate
 // slug/SKU check. One helper, so a fourth copy cannot be written the broken way.
-export function pgErrorCode(e: unknown): string | undefined {
+function pgError(e: unknown): { code: string; constraint?: unknown } | undefined {
   for (let cur = e, depth = 0; cur != null && depth < 5; depth++) {
     const code = typeof cur === "object" ? (cur as { code?: unknown }).code : undefined;
-    if (typeof code === "string") return code;
+    if (typeof code === "string") return cur as { code: string; constraint?: unknown };
     cur = (cur as { cause?: unknown }).cause;
   }
   return undefined;
 }
 
-// Postgres unique_violation (SQLSTATE 23505).
-export function isUniqueViolation(e: unknown): boolean {
-  return pgErrorCode(e) === "23505";
+export function pgErrorCode(e: unknown): string | undefined {
+  return pgError(e)?.code;
+}
+
+// Postgres unique_violation (SQLSTATE 23505). With `constraint`, only a violation of that one:
+// a table with several unique indexes must not read every collision as the one it expects.
+export function isUniqueViolation(e: unknown, constraint?: string): boolean {
+  const pg = pgError(e);
+  return pg?.code === "23505" && (constraint === undefined || pg.constraint === constraint);
 }

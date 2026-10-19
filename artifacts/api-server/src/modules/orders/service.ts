@@ -49,6 +49,10 @@ type OrderFailure = { ok: false; status: number; code: string; message: string }
 
 export type OrderResult = { ok: true; status: number; order: OrderDto } | OrderFailure;
 
+// orders.idempotency_key's unique constraint (migration 0000). Any other unique violation while
+// writing an order is a real failure and must surface as one, not as a key collision.
+const IDEMPOTENCY_KEY_CONSTRAINT = "orders_idempotency_key_unique";
+
 function err(status: number, code: string, message: string): OrderFailure {
   return { ok: false, status, code, message };
 }
@@ -250,12 +254,12 @@ export async function createOrder(
       return err(422, "COUPON_EXHAUSTED", "Coupon is no longer available");
     }
     // Concurrent request with the same idempotency key won the unique constraint — return it.
-    if (input.idempotencyKey && isUniqueViolation(e)) {
+    if (input.idempotencyKey && isUniqueViolation(e, IDEMPOTENCY_KEY_CONSTRAINT)) {
       const existing = await getOrderByIdempotencyKey(userId, input.idempotencyKey);
       if (existing) return { ok: true, status: 200, order: await buildOrderDto(existing) };
       // The key is globally unique, so it can already belong to a guest order (the client
       // generated it before logging in). Not ours to replay, and not a server error either.
-      return err(409, "IDEMPOTENCY_KEY_CONFLICT", "This idempotency key belongs to another order");
+      return err(409, "IDEMPOTENCY_KEY_REUSED", "This idempotency key belongs to another order");
     }
     throw e;
   }
@@ -334,7 +338,7 @@ export async function createGuestOrder(input: CreateGuestOrderInput): Promise<Gu
     if (e instanceof CouponRaceError) {
       return err(422, "COUPON_EXHAUSTED", "Coupon is no longer available");
     }
-    if (input.idempotencyKey && isUniqueViolation(e)) {
+    if (input.idempotencyKey && isUniqueViolation(e, IDEMPOTENCY_KEY_CONSTRAINT)) {
       const replay = await replayGuestOrder(input.idempotencyKey, email);
       // The key exists but not on a guest order: it is an account's key, and not ours to replay.
       return (

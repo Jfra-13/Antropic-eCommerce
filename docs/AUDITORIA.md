@@ -1365,8 +1365,9 @@ respuesta.
 - Un pedido reclamado deja de ser reproducible por su clave de idempotencia
   (`profiles.is_guest = true` en la búsqueda); prueba «stops replaying a guest order once it has
   been claimed».
-- Una clave ya usada por un pedido de invitado da **409 `IDEMPOTENCY_KEY_CONFLICT`** en el checkout
-  con cuenta, no 500; el storefront regenera la clave al cambiar de sesión. Prueba de integración.
+- Una clave ya usada por un pedido de invitado da **409 `IDEMPOTENCY_KEY_REUSED`** en el checkout
+  con cuenta, no 500 (tercera revisión: el código aparte `IDEMPOTENCY_KEY_CONFLICT` se fundió con
+  este, y solo la restricción `orders_idempotency_key_unique` se lee como choque de clave); el storefront regenera la clave al cambiar de sesión. Prueba de integración.
 - Los errores de cotización que no son de cupón ya no aparecen bajo el campo del cupón ni dejan el
   botón bloqueado sin explicación; `OUT_OF_STOCK` enlaza al carrito.
 - Un carrito de invitado con líneas que el catálogo ya no conoce **no se convierte en pedido**:

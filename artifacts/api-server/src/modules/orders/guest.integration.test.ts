@@ -278,7 +278,7 @@ describe("guest idempotency", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(409);
-    expect(result.code).toBe("IDEMPOTENCY_KEY_CONFLICT");
+    expect(result.code).toBe("IDEMPOTENCY_KEY_REUSED");
   });
 });
 
