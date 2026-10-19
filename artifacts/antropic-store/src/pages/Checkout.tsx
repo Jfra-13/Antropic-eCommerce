@@ -45,6 +45,9 @@ export default function Checkout() {
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
+  // Quote failures that are not about the coupon (stock, rate limit, ...). Kept apart from
+  // couponError so the guest is not told their coupon is wrong when the cart is.
+  const [quoteError, setQuoteError] = useState<{ code: string | undefined; message: string } | null>(null);
   const [quote, setQuote] = useState<CheckoutQuote | null>(null);
 
   // Contact data: prefilled from the profile; shown as inline inputs when incomplete
@@ -110,6 +113,7 @@ export default function Checkout() {
       onSuccess: (q: CheckoutQuote) => {
         setQuote(q);
         setCouponError(null);
+        setQuoteError(null);
       },
       onError: (e: unknown) => {
         const code = apiErrorCode(e);
@@ -122,7 +126,9 @@ export default function Checkout() {
           setCouponError(apiErrorMessage(e));
           return;
         }
-        setCouponError(apiErrorMessage(e));
+        // No quote means no valid totals: drop the stale one so the button state is honest.
+        setQuote(null);
+        setQuoteError({ code, message: apiErrorMessage(e) });
       },
     };
     if (isGuest) {
@@ -481,6 +487,21 @@ export default function Checkout() {
                     </div>
                   </div>
                 </>
+              )}
+
+              {quoteError && (
+                <p className="text-sm text-destructive mt-4">
+                  {quoteError.message}
+                  {quoteError.code === "OUT_OF_STOCK" && (
+                    <>
+                      {" "}
+                      <Link href="/cart" className="underline">
+                        Revisa tu carrito
+                      </Link>
+                      .
+                    </>
+                  )}
+                </p>
               )}
 
               {createOrder.isError && (
