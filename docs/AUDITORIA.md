@@ -1656,8 +1656,10 @@ daban `relrowsecurity = true`. Sin `FORCE` y sin políticas. Rollback: el mismo 
 | `pnpm --filter @workspace/scripts run verify-rls` | PASS, exit 0 |
 
 **En el repo:** cada `pgTable` llama a `.enableRLS()` y la migración `0006_enable_rls.sql`
-(generada) lo aplica a las 23 tablas, incluidas las 4 que producción todavía no tiene. Volver a
-activarlo donde ya está activo no hace nada, así que la `0006` es segura sobre producción.
+(generada) lo aplica a las 23 tablas, incluidas las 4 que producción todavía no tiene. Por tabla
+es idempotente (activarlo donde ya está activo no hace nada), pero **exige que existan las 23**:
+sobre producción, la `0006` falla en `complaints` mientras la línea base no se resuelva (ver
+abajo). Falla dentro de su transacción, así que no deja nada a medias.
 `artifacts/api-server/src/test/rls.integration.test.ts` corre en CI sobre la base que construye
 `migrate`.
 
