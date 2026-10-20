@@ -23,7 +23,7 @@ export const stockAlerts = pgTable(
     uniqueIndex("stock_alerts_variant_email_uq").on(t.variantId, t.email),
     index("stock_alerts_variant_idx").on(t.variantId),
   ],
-);
+).enableRLS();
 
 export const insertStockAlertSchema = createInsertSchema(stockAlerts);
 export type StockAlert = typeof stockAlerts.$inferSelect;

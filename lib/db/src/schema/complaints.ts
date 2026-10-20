@@ -79,7 +79,7 @@ export const complaints = pgTable(
     // Consumers are told to quote their correlativo when following up.
     index("complaints_number_idx").on(t.complaintNumber),
   ],
-);
+).enableRLS();
 
 export const insertComplaintSchema = createInsertSchema(complaints);
 export type Complaint = typeof complaints.$inferSelect;

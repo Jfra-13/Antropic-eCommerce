@@ -23,7 +23,7 @@ export const cartItems = pgTable(
     uniqueIndex("cart_items_cart_variant_uq").on(t.cartId, t.variantId),
     check("cart_items_quantity_positive", sql`${t.quantity} > 0`),
   ],
-);
+).enableRLS();
 
 export const insertCartItemSchema = createInsertSchema(cartItems);
 export type CartItem = typeof cartItems.$inferSelect;

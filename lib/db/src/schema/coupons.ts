@@ -22,7 +22,7 @@ export const coupons = pgTable(
     ...timestamps,
   },
   (t) => [check("coupons_used_count_non_negative", sql`${t.usedCount} >= 0`)],
-);
+).enableRLS();
 
 export const insertCouponSchema = createInsertSchema(coupons);
 export type Coupon = typeof coupons.$inferSelect;

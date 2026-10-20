@@ -26,7 +26,7 @@ export const returnTickets = pgTable(
     ...timestamps,
   },
   (t) => [index("return_tickets_order_idx").on(t.orderId)],
-);
+).enableRLS();
 
 export const insertReturnTicketSchema = createInsertSchema(returnTickets);
 export type ReturnTicket = typeof returnTickets.$inferSelect;

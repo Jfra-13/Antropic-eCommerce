@@ -9,7 +9,7 @@ export const occasions = pgTable("occasions", {
   active: boolean("active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
-});
+}).enableRLS();
 
 export const insertOccasionSchema = createInsertSchema(occasions);
 export type Occasion = typeof occasions.$inferSelect;

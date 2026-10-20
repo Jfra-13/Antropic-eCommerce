@@ -9,7 +9,7 @@ export const categories = pgTable("categories", {
   active: boolean("active").notNull().default(true),
   sortOrder: integer("sort_order").notNull().default(0),
   ...timestamps,
-});
+}).enableRLS();
 
 export const insertCategorySchema = createInsertSchema(categories);
 export type Category = typeof categories.$inferSelect;

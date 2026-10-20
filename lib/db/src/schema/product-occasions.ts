@@ -18,7 +18,7 @@ export const productOccasions = pgTable(
     primaryKey({ columns: [t.productId, t.occasionId] }),
     index("product_occasions_occasion_idx").on(t.occasionId),
   ],
-);
+).enableRLS();
 
 export type ProductOccasion = typeof productOccasions.$inferSelect;
 export type InsertProductOccasion = typeof productOccasions.$inferInsert;

@@ -24,7 +24,7 @@ export const couponRedemptions = pgTable(
     uniqueIndex("coupon_redemptions_order_uq").on(t.orderId),
     index("coupon_redemptions_coupon_idx").on(t.couponId),
   ],
-);
+).enableRLS();
 
 export const insertCouponRedemptionSchema = createInsertSchema(couponRedemptions);
 export type CouponRedemption = typeof couponRedemptions.$inferSelect;

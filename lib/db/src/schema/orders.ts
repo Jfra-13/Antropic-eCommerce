@@ -69,7 +69,7 @@ export const orders = pgTable(
       .on(t.id)
       .where(sql`${t.paymentStatus} = 'en_verificacion'`),
   ],
-);
+).enableRLS();
 
 export const insertOrderSchema = createInsertSchema(orders);
 export type Order = typeof orders.$inferSelect;

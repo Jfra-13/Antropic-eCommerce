@@ -1,3 +1,7 @@
+// Every table calls .enableRLS() with no policies, and that is deliberate: Supabase exposes
+// `public` through PostgREST to anyone holding the anon key, which ships in the client bundle.
+// RLS with no policy denies that path entirely. The API is unaffected because it connects as the
+// table owner (`postgres`, BYPASSRLS). A new table without it fails rls.integration.test.ts.
 // Enums + shared helpers
 export * from "./enums";
 
