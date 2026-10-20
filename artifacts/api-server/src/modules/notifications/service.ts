@@ -249,7 +249,7 @@ export async function notifyComplaintFiled(complaint: Complaint): Promise<void> 
 }
 
 // Alerts the backoffice. A complaint nobody sees is a fine waiting to happen: the clock on the
-// 30-day legal deadline starts whether or not anyone opened the panel.
+// 15-business-day legal deadline starts whether or not anyone opened the panel.
 export async function notifyAdminNewComplaint(complaint: Complaint): Promise<void> {
   try {
     const to = adminNotificationEmail();
@@ -264,7 +264,7 @@ export async function notifyAdminNewComplaint(complaint: Complaint): Promise<voi
       subject: `Nuevo ${complaint.type} en el Libro de Reclamaciones — ${code}`,
       html: complaintEmailHtml({
         heading: `Nuevo ${complaint.type} registrado`,
-        message: "Tienes 30 días calendario desde la fecha de registro para responder.",
+        message: "Tienes 15 días hábiles improrrogables desde la fecha de registro para responder.",
         code,
         complaint,
         business,

@@ -14,7 +14,7 @@ import { errorMessage } from "@/lib/format";
 // Libro de Reclamaciones board.
 //
 // This screen exists because the system being correct is not a defence: the fine comes from
-// nobody answering within 30 calendar days. So the deadline, not the arrival date, is what the
+// nobody answering within 15 business days. So the deadline, not the arrival date, is what the
 // list is built around — open files first, soonest deadline at the top, overdue ones flagged.
 
 const STATUSES: { value: ListComplaintsStatus; label: string; className: string }[] = [
@@ -56,14 +56,15 @@ function Deadline({ complaint }: { complaint: AdminComplaint }) {
   if (days < 0) {
     return (
       <span className="inline-flex items-center gap-1 font-medium text-red-600">
-        <AlertTriangle size={13} /> Vencido hace {Math.abs(days)} d
+        <AlertTriangle size={13} /> Vencido hace {Math.abs(days)} d háb.
       </span>
     );
   }
-  const tone = days <= 5 ? "text-red-600" : days <= 10 ? "text-amber-600" : "text-slate-600";
+  // Business days, out of 15.
+  const tone = days <= 3 ? "text-red-600" : days <= 7 ? "text-amber-600" : "text-slate-600";
   return (
     <span className={`font-medium ${tone}`}>
-      {days} d · {formatDate(complaint.dueAt)}
+      {days === 0 ? "Vence hoy" : `${days} d háb.`} · {formatDate(complaint.dueAt)}
     </span>
   );
 }

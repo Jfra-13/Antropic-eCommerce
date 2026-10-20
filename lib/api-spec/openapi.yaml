@@ -4475,7 +4475,7 @@ components:
         dueAt:
           type: string
           format: date-time
-          description: Legal deadline to respond (30 calendar days from filing)
+          description: Legal deadline to respond (end of the 15th business day after filing, Lima time)
         createdAt:
           type: string
           format: date-time
@@ -4546,7 +4546,7 @@ components:
           format: date-time
         daysRemaining:
           type: integer
-          description: Calendar days left to answer; negative once the legal deadline has passed
+          description: Business days left after today (0 on the due day); negative once the legal deadline has passed
         createdAt:
           type: string
           format: date-time

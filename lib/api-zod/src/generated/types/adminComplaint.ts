@@ -42,7 +42,7 @@ export interface AdminComplaint {
   /** @nullable */
   respondedAt: Date | null;
   dueAt: Date;
-  /** Calendar days left to answer; negative once the legal deadline has passed */
+  /** Business days left after today (0 on the due day); negative once the legal deadline has passed */
   daysRemaining: number;
   createdAt: Date;
 }
