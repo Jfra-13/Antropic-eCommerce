@@ -53,7 +53,9 @@ respuesta se envía al consumidor por correo electrónico.
 
 Al registrar, el consumidor recibe en pantalla y por correo electrónico:
 
-- un **código correlativo único** (`LR-000001`, `LR-000002`…), sin huecos ni repeticiones;
+- un **código correlativo único y creciente** (`LR-000001`, `LR-000002`…). Nunca se repite.
+  El sistema evita los huecos causados por datos inválidos. No garantiza que no haya huecos
+  cuando falla la base de datos en medio de un registro, porque un número asignado no se recupera;
 - la **fecha** del registro (en hora de Lima);
 - la Hoja completa con las secciones anteriores;
 - la **fecha límite de respuesta**;
@@ -68,7 +70,11 @@ siguiente al registro, en hora de Lima.
 Criterio aplicado: se cuentan de lunes a viernes **sin descontar feriados**. Descontarlos movería
 la fecha más tarde. Al no hacerlo, la fecha que calcula el sistema es siempre igual o anterior a la
 fecha legal, nunca posterior. En el peor caso, el negocio responde uno o dos días antes de lo
-exigido.
+exigido, o el panel marca como vencido un registro al que legalmente le queda un día.
+
+La fecha límite se fija al registrar y no se recalcula. Los registros creados antes del
+2026-10-20 llevan la fecha del plazo anterior (30 días calendario). La base de producción no tiene
+ninguno.
 
 El panel de administración ordena los registros por urgencia legal y muestra los días hábiles
 restantes. Los registros vencidos aparecen en rojo. El personal recibe un aviso por correo con
@@ -90,9 +96,9 @@ cada registro nuevo, siempre que el correo de avisos esté configurado en el ser
    también incluye la disconformidad no relacionada con los productos o servicios.
 2. **Domicilio del consumidor.** Hoy es opcional, porque la respuesta se envía por correo. Hay que
    confirmar si debe ser obligatorio.
-3. **Suspensión del plazo** por una oferta de solución del proveedor (hasta 5 días hábiles, según
-   la modificación de 2022). El sistema no la aplica, y el plazo sigue corriendo. Hay que confirmar
-   si se necesita.
+3. **Suspensión del plazo** por una oferta de solución del proveedor. Fuentes secundarias sobre
+   la modificación de 2022 la sitúan en un máximo de 5 días hábiles. Hay que confirmar la cifra y
+   si se necesita. El sistema no la aplica, y el plazo sigue corriendo.
 4. **Responsable de responder.** Debe designarse a la persona que responde dentro del plazo. Hoy el
    sistema permite responder tanto al administrador como al personal.
 
