@@ -160,10 +160,10 @@ git mv artifacts/antropic-admin artifacts/backoffice
    pago en bucket **privado**).
 3. **Aplicar el esquema:** `pnpm --filter @workspace/db run migrate`. La base del clon nace
    vacía, así que las migraciones se replican en orden y no hace falta línea base.
-4. **RLS activado tabla por tabla**, y verificado ejecutando
-   `pnpm --filter @workspace/scripts run verify-rls` contra el proyecto real. PostgREST queda
-   expuesto sobre la misma base y la anon key es pública por diseño: sin RLS, cualquiera lee
-   las tablas sin pasar por el Express.
+4. **Verificar RLS** con `pnpm --filter @workspace/scripts run verify-rls` contra el proyecto
+   real. `migrate` ya lo activa en todas las tablas (`0006`); la sonda comprueba que la base lo
+   recibió. PostgREST queda expuesto sobre la misma base y la anon key es pública por diseño:
+   sin RLS, cualquiera lee las tablas sin pasar por el Express.
 5. **Primer administrador**, promovido a mano por SQL — no existe todavía ningún admin que
    pueda promover a nadie. El procedimiento está en `docs/COMANDOS.md` §1.4.
 6. **Catálogo:** `pnpm --filter @workspace/scripts run seed` carga datos de ejemplo. Es un

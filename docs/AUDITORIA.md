@@ -131,15 +131,19 @@ API** en el borde.
   con el clon, porque toca `products`, `orders`, `order_items` y todos los totales ya guardados.
 - **¿Quién responde los reclamos dentro de los 30 días?** El sistema avisa; alguien tiene que
   contestar.
-- **Prueba de RLS**: la sonda está escrita y sin ejecutar (`pnpm --filter @workspace/scripts run
-  verify-rls`). Necesita credenciales del proyecto Supabase real. **Es probable que salga roja.**
+- **RLS en el proyecto real**: salió roja, y se corrigió el 2026-10-20 (§3.2, evidencia en §11.11).
+  Las 19 tablas estaban abiertas a la anon key; durante cuánto tiempo y si alguien las leyó no se
+  sabe todavía. **Pendiente: decidir si corresponde comunicar una brecha según la Ley 29733.**
+- **No ejecutar `baseline-migrations` en producción todavía.** La base real no tiene `complaints`
+  ni `consents`, que crea la `0000`: la línea base la daría por aplicada sin ejecutarla y esas
+  tablas no se crearían nunca (§11.11).
 
 ### Recomendaciones
 
 - **Protege `main`** (§1.1): sin eso, el CI bloqueante que se montó en la Fase 3 se puede saltar
   con un push directo.
-- **Ejecuta la sonda de RLS pronto.** Es el hueco de seguridad con mayor impacto potencial y el
-  único que no se puede cerrar desde el código de la aplicación.
+- **Corre `verify-rls` después de cada despliegue que toque el esquema.** La prueba de CI
+  garantiza que las migraciones activan RLS; solo la sonda comprueba que la base real las recibió.
 - **El clon arranca sin historial** (§1.2): `git clone --depth 1`, así `localhost.har` no viaja.
   No hay credenciales dentro, pero son 5,5 MB de peso muerto. Procedimiento en `docs/CLONACION.md`.
 
@@ -553,20 +557,22 @@ Aquí RLS no es el control principal, pero **PostgREST está expuesto sobre la m
 y la anon key es pública por diseño. Sin RLS, cualquiera puede leer las tablas directamente sin
 pasar por el Express.
 
-Lo que se puede cerrar desde el código está cerrado (la clave fuera del bundle). Los otros tres
-ítems necesitan el proyecto Supabase real y siguen abiertos: no se marcan por inferencia.
+El 2026-10-19 la sonda contra el proyecto real salió roja: **RLS apagado en las 19 tablas**, sin
+políticas, y `anon` con SELECT e INSERT en todas. Corregido el 2026-10-20 en producción y en el
+repo (evidencia en §11.11).
 
-- [ ] RLS habilitado en todas las tablas, verificado tabla por tabla
-- [~] Probado con la anon key desde fuera de la app. **La sonda está escrita y sin ejecutar**:
-      `pnpm --filter @workspace/scripts run verify-rls` interroga a PostgREST para saber qué tablas
-      expone (en vez de partir de una lista fija, que se queda obsoleta en cuanto se añade una) y
-      prueba cada una con la anon key. Sale con código 1 si alguna devuelve filas. Requiere
-      credenciales del proyecto real, que no están disponibles en el entorno de desarrollo; hay que
-      correrla contra Supabase y guardar la salida como evidencia
+- [x] RLS habilitado en todas las tablas, verificado tabla por tabla en el catálogo
+      (`pg_class.relrowsecurity`) de producción. En el repo, cada `pgTable` llama a
+      `.enableRLS()` y la migración `0006` lo aplica; `rls.integration.test.ts` falla en CI si una
+      tabla de `public` queda sin RLS o si aparece una política
+- [x] Probado con la anon key desde fuera de la app: `verify-rls` da 0 filas en las 19 tablas y
+      sale con 0. Sin políticas, tampoco un usuario autenticado lee ni escribe nada por PostgREST
 - [x] `SUPABASE_SERVICE_ROLE_KEY` nunca en el bundle del cliente — verificado sobre el build real
       de store y admin, y bloqueado en CI por `scripts/check-client-bundle.mjs` (evidencia en
       §11.11, Fase E)
-- [ ] Vistas y funciones RPC revisadas
+- [x] Vistas y funciones RPC revisadas: `public` no tiene vistas ni funciones en producción.
+      `verify-rls` falla si aparece una vista o una función ejecutable por `anon`, y la prueba de
+      integración falla si aparece una vista
 
 ### 3.3 🔴 BLOQUEANTE — Integridad de precios y stock
 
@@ -874,8 +880,10 @@ Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en com
       token, el enlace a la cuenta, la idempotencia y la ruta de la constancia, más 2 de regresión
       para las violaciones de unicidad que respondían 500. Las siete guardas nuevas, **verificadas
       por mutación**: rota cada una, falla exactamente su prueba (§11.10)
-- [ ] **Prueba de RLS**: leer pedidos de otro usuario con la anon key debe fallar. La sonda está
-      escrita (§3.2) pero necesita credenciales de Supabase; no se puede ejecutar en CI todavía
+- [x] **Prueba de RLS**: `rls.integration.test.ts` corre en CI sobre la base que construye
+      `migrate` y exige RLS en toda tabla de `public`, cero políticas y cero vistas. Contra el
+      proyecto real, `verify-rls` (necesita credenciales, no corre en CI). Ambas verificadas
+      plantando el defecto (§11.11)
 - [ ] E2E con Playwright del flujo completo. El login depende de Supabase (magic link / OAuth), que
       es externo y no reproducible en CI sin un proyecto de pruebas dedicado. Los tramos sin sesión
       (catálogo, Libro de Reclamaciones) sí serían automatizables hoy
@@ -1612,6 +1620,75 @@ Límite conocido: una clave partida o codificada a propósito en el código no l
 escaneo de texto. Lo que cubre es el accidente real: una variable `VITE_` apuntada al valor
 equivocado, o código de cliente que intenta leer la variable del servidor.
 
+**RLS en el proyecto Supabase real (§3.2)**
+
+Hallazgo del 2026-10-19: la anon key, que es pública y va en el bundle, leía por PostgREST
+`orders`, `order_items`, `profiles`, `payment_proofs`, `coupons`, `coupon_redemptions`, `carts`,
+`cart_items`, `return_tickets`, `settings` y las tablas del catálogo. `stock_alerts` y
+`wishlists` respondían 200 con 0 filas. Se contaron filas sin leer su contenido. Las escrituras
+no se probaron, para no tocar producción.
+
+Catálogo de producción, leído el 2026-10-20 en una transacción `READ ONLY`, solo nombres y
+flags:
+
+| Qué | Resultado |
+|---|---|
+| Tablas en `public` | 19, todas con `relrowsecurity = false` y 0 políticas |
+| Permisos de `anon` | SELECT e INSERT en las 19: las escrituras anónimas eran posibles |
+| Vistas y funciones en `public` | ninguna, así que no hay RPC expuesta |
+| Triggers sobre `auth.users` | ninguno, así que activar RLS no rompe el registro |
+| Rol de la API | `postgres`, dueño de las tablas, con `rolbypassrls = true`: RLS no le afecta ni con `FORCE` |
+| `drizzle.__drizzle_migrations` | no existe (la base se creó con `push`) |
+
+`stock_alerts` y `wishlists` también tenían RLS apagado: estaban vacías, no protegidas. Por eso
+un 200 sin filas no prueba nada, y `verify-rls` ahora lee el flag del catálogo.
+
+**Corrección en producción (2026-10-20, aprobada por el dueño):** `ALTER TABLE … ENABLE ROW
+LEVEL SECURITY` en las 19 tablas, en una transacción que solo hacía `COMMIT` si después todas
+daban `relrowsecurity = true`. Sin `FORCE` y sin políticas. Rollback: el mismo SQL con
+`DISABLE`.
+
+| Comprobación posterior | Resultado |
+|---|---|
+| Catálogo | `rls = true` en las 19 |
+| Sonda con la anon key | HTTP 200 y 0 filas en las 19 |
+| Lectura como `postgres` (la API) | conteos no nulos en `products` y `orders`: la API sigue viendo los datos |
+| `pnpm --filter @workspace/scripts run verify-rls` | PASS, exit 0 |
+
+**En el repo:** cada `pgTable` llama a `.enableRLS()` y la migración `0006_enable_rls.sql`
+(generada) lo aplica a las 23 tablas, incluidas las 4 que producción todavía no tiene. Volver a
+activarlo donde ya está activo no hace nada, así que la `0006` es segura sobre producción.
+`artifacts/api-server/src/test/rls.integration.test.ts` corre en CI sobre la base que construye
+`migrate`.
+
+`verify-rls` se reescribió: el descubrimiento por `GET /rest/v1/` ya no servía, porque Supabase
+limita ese documento a la service_role key y con la anon key daba 401 antes de probar nada. Ahora
+lee el catálogo por `DATABASE_URL` en solo lectura y después sondea cada tabla con la anon key.
+Imprime conteos, nunca filas.
+
+Verificado plantando cada defecto en el Postgres de Docker (PostgREST simulado con un servidor
+local):
+
+| Caso | Resultado |
+|---|---|
+| El PostgREST simulado devuelve una fila de `orders` | `verify-rls` exit 1, «orders: returned rows to the anon key» |
+| `wishlists` con RLS apagado y vacía (el caso que el script viejo daba por bueno) | `verify-rls` exit 1, «wishlists: RLS disabled»; la prueba de integración falla con `["wishlists"]` |
+| Una vista y una función con EXECUTE para `anon` en `public` | `verify-rls` exit 1 con ambas; la prueba falla por la vista |
+| `CREATE POLICY … USING (true)` en `orders` | la prueba de integración falla |
+| Base limpia | `verify-rls` exit 0; la suite de integración local, 104 pruebas en verde |
+
+**Pendiente, y no es código:**
+
+- **Ley 29733.** Durante un tiempo desconocido, datos personales de clientes (perfiles, pedidos
+  con dirección de entrega, constancias de pago) se pudieron leer, y quizá escribir, con una clave
+  pública. Si había clientes reales, toca evaluar con el abogado si corresponde comunicarlo a la
+  ANPD y a los afectados. Los logs de API de Supabase (peticiones a `/rest/v1/` con el rol `anon`)
+  son la evidencia de si alguien accedió; están limitados a la retención del plan.
+- **Línea base de producción.** La `0000` crea `complaints` y `consents`, que la base real no
+  tiene. `baseline-migrations` marcaría la `0000` como aplicada sin ejecutarla, y esas dos tablas
+  no se crearían nunca: el Libro de Reclamaciones fallaría en producción. Antes de la línea base
+  hay que crearlas, o hacer la línea base de otra forma.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
@@ -1622,7 +1699,7 @@ credenciales reales, de trámites o de terceros.
 - [ ] Reporte de la suite E2E pasando
 - [ ] Reporte de Lighthouse móvil de home, categoría, producto y checkout
 - [ ] Resultado del escaneo de secretos y del audit de dependencias
-- [ ] Evidencia de la prueba de RLS fallando correctamente con la anon key
+- [x] Evidencia de la prueba de RLS fallando correctamente con la anon key (§11.11)
 - [ ] Evidencia de la prueba de concurrencia de stock
 - [ ] Reporte de conciliación de un día real: pedidos aprobados vs. movimientos Yape
 - [ ] Evidencia de una restauración de respaldo ejecutada de verdad

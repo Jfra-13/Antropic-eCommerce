@@ -92,8 +92,11 @@ en verde) · E (scripts/check-client-bundle.mjs al final de `pnpm run build`: di
 nombre de la variable, sin `sb_secret_` y sin JWT con role=service_role; probado plantando
 secretos falsos, evidencia en §11.11) · F (§3.1/§3.2 cerrados en lo que no necesita
 credenciales, revisión con contexto limpio sin hallazgos bloqueantes, prueba de roles
-endurecida, PR #23 listo para revisión). Lo que queda de §3.2 (RLS, vistas y RPC) necesita el
-proyecto Supabase real.
+endurecida, PR #23 listo para revisión) · G (RLS: el proyecto real lo tenía apagado en las 19
+tablas; activado en producción el 2026-10-20, migración 0006 con .enableRLS() en cada tabla,
+prueba de integración que exige RLS sin políticas ni vistas, verify-rls reescrito sobre el
+catálogo; evidencia en §11.11). Queda abierto, y no es código: evaluar la Ley 29733 con el
+abogado, y la línea base de producción (ver "Al desplegar por primera vez").
 
 Antes de escribir código, dime tu plan.
 ```
@@ -169,8 +172,8 @@ configurada más una prueba del enlace a la cuenta con un inicio de sesión real
 
 ### Bloqueado por credenciales, no por código
 
-- Sonda de RLS (§3.2): `pnpm --filter @workspace/scripts run verify-rls` necesita el proyecto
-  Supabase real. Está escrita, sin ejecutar, y es probable que salga roja.
+- Sonda de RLS (§3.2): ejecutada. Salió roja el 2026-10-19 y verde el 2026-10-20, después de
+  activar RLS. Necesita `DATABASE_URL`, `SUPABASE_URL` y `SUPABASE_ANON_KEY` del proyecto real.
 - E2E con login (§9.2): depende de Supabase. Los tramos sin sesión (catálogo, Libro de
   Reclamaciones) sí son automatizables hoy con el Chromium preinstalado.
 - Render en navegador de las pantallas del panel que exigen sesión: historial de pago y aviso de
@@ -201,6 +204,12 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
    ```
 
    Verificado en local reproduciendo ese escenario exacto; ver §11.5.
+
+   **BLOQUEANTE, no lo ejecutes tal cual.** La base real no tiene `complaints` ni `consents`, y las
+   crea la `0000`. La línea base da la `0000` por aplicada sin ejecutarla, así que esas dos tablas
+   no se crearían nunca y el Libro de Reclamaciones fallaría en producción. Faltan también
+   `payment_events` y `notification_deliveries`; esas sí las crean `0001` y `0002`. Hay que
+   resolverlo antes del primer despliegue. Después de `migrate`, corre `verify-rls`.
 
 2. **Programar el job de caducidad** (Fase 6). Sin un scheduler que lo invoque, los pedidos que
    nadie pagó se quedan en `pendiente_pago` para siempre:
