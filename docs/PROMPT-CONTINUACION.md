@@ -213,6 +213,9 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
    `payment_events` y `notification_deliveries`; esas sí las crean `0001` y `0002`. Hay que
    resolverlo antes del primer despliegue. Después de `migrate`, corre `verify-rls`.
 
+   **En curso:** ensayo hecho, respaldo hecho, B2 probado sin confirmar. Estado, pasos pendientes
+   y comandos en `docs/LINEA-BASE-PRODUCCION.md`.
+
 2. **Programar el job de caducidad** (Fase 6). Sin un scheduler que lo invoque, los pedidos que
    nadie pagó se quedan en `pendiente_pago` para siempre:
 
