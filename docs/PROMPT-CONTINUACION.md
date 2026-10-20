@@ -95,8 +95,10 @@ credenciales, revisión con contexto limpio sin hallazgos bloqueantes, prueba de
 endurecida, PR #23 listo para revisión) · G (RLS: el proyecto real lo tenía apagado en las 19
 tablas; activado en producción el 2026-10-20, migración 0006 con .enableRLS() en cada tabla,
 prueba de integración que exige RLS sin políticas ni vistas, verify-rls reescrito sobre el
-catálogo; evidencia en §11.11). Queda abierto, y no es código: evaluar la Ley 29733 con el
-abogado, y la línea base de producción (ver "Al desplegar por primera vez").
+catálogo; evidencia en §11.11; los datos eran de prueba, sin brecha que comunicar). Queda
+abierta la línea base de producción (ver "Al desplegar por primera vez"). Libro de Reclamaciones:
+plazo corregido a 15 días hábiles (rama claude/libro-15-dias-habiles) y descripción para el
+abogado en docs/negocio/LIBRO-RECLAMACIONES.md, pendiente de su firma y de sus cuatro decisiones.
 
 Antes de escribir código, dime tu plan.
 ```
@@ -184,7 +186,7 @@ configurada más una prueba del enlace a la cuenta con un inicio de sesión real
 ### Bloqueado por trámites o decisiones del negocio
 
 Textos legales del abogado · inscripción ante la ANPD · **régimen tributario y si la empresa es
-afecta a IGV** (bloquea la Fase 8) · quién responde los reclamos en 30 días · SPF/DKIM/DMARC del
+afecta a IGV** (bloquea la Fase 8) · quién responde los reclamos en 15 días hábiles · SPF/DKIM/DMARC del
 dominio · plan de pago de Supabase y PITR.
 
 ### Tarea manual pendiente en GitHub

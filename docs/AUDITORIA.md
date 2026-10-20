@@ -129,11 +129,11 @@ API** en el borde.
   catálogo, snapshot fiscal congelado en el pedido). Lo que falta es que **el contador confirme el
   régimen tributario**; sin eso no se escribe el cálculo. Es lo único pendiente que sí se encarece
   con el clon, porque toca `products`, `orders`, `order_items` y todos los totales ya guardados.
-- **¿Quién responde los reclamos dentro de los 30 días?** El sistema avisa; alguien tiene que
+- **¿Quién responde los reclamos dentro de los 15 días hábiles?** El sistema avisa; alguien tiene que
   contestar.
 - **RLS en el proyecto real**: salió roja, y se corrigió el 2026-10-20 (§3.2, evidencia en §11.11).
-  Las 19 tablas estaban abiertas a la anon key; durante cuánto tiempo y si alguien las leyó no se
-  sabe todavía. **Pendiente: decidir si corresponde comunicar una brecha según la Ley 29733.**
+  Las 19 tablas estaban abiertas a la anon key. Los datos eran de prueba, así que no hubo brecha
+  que comunicar según la Ley 29733.
 - **No ejecutar `baseline-migrations` en producción todavía.** La base real no tiene `complaints`
   ni `consents`, que crea la `0000`: la línea base la daría por aplicada sin ejecutarla y esas
   tablas no se crearían nunca (§11.11).
@@ -364,6 +364,19 @@ evidencia está en §11.2.
 Base normativa: Ley N° 29571 reglamentada por D.S. N° 011-2011-PCM, modificada por la Ley N° 32495
 (noviembre 2025) para incluir explícitamente a las plataformas digitales de comercio electrónico.
 
+**Plazo corregido el 2026-10-20.** La Fase 2 implementó 30 días calendario, el plazo original del
+reglamento. La Ley N° 31435 y el D.S. N° 101-2022-PCM (vigente desde agosto de 2022) lo redujeron
+a **15 días hábiles improrrogables**. Ahora `complaints/mappers.ts` calcula el fin, en hora de
+Lima, del 15.º día hábil siguiente al registro. Cuenta de lunes a viernes **sin descontar
+feriados**, a propósito: así la fecha solo puede caer antes que la legal, nunca después. La Hoja,
+la página, el aviso al personal y el panel dicen 15 días hábiles. Las tablas de evidencia de la
+Fase 2 en §11.2 y §11.3 registran el comportamiento de entonces y no se reescriben.
+
+**Documento para el abogado:** `docs/negocio/LIBRO-RECLAMACIONES.md` describe el Libro tal como
+funciona y deja cuatro decisiones abiertas para el asesor: la definición literal de «queja», si
+el domicilio es obligatorio, la suspensión del plazo por una oferta de solución, y el responsable
+de responder. El documento incluye un bloque de conformidad para firmar.
+
 - [x] Enlace visible de forma permanente en el footer de todas las páginas, con su propia columna
       "Legal" — `Footer.tsx`
 - [x] Formulario con los datos mínimos, en `/libro-de-reclamaciones`. Cada campo de la tabla existe
@@ -389,7 +402,7 @@ Base normativa: Ley N° 29571 reglamentada por D.S. N° 011-2011-PCM, modificada
       relación con la de consentimientos de marketing, y el formulario lo dice explícitamente
 - [x] Panel en el backoffice con estado y plazo restante, ordenado por urgencia legal: abiertos
       primero, vencimiento más cercano arriba, vencidos marcados en rojo — `pages/Complaints.tsx`
-- [~] Proceso interno para responder en 30 días calendario: el sistema calcula, muestra y ordena por
+- [~] Proceso interno para responder en 15 días hábiles improrrogables: el sistema calcula, muestra y ordena por
       el plazo, pero **el proceso y la persona que responde son decisión del negocio**
 - [ ] Responsable asignado en el negocio — trámite organizativo, no código
 
@@ -866,7 +879,7 @@ Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en com
 - [x] Integración de la cola de verificación: aprobar dos veces (idempotente), aprobar un pedido que
       nunca pasó por verificación (rechazado por la máquina de estados), reversión atómica
 - [x] Integración del Libro de Reclamaciones y del registro de consentimiento: correlativo sin
-      huecos, plazo de 30 días persistido, validación de menor de edad sin escritura parcial,
+      huecos, plazo legal persistido, validación de menor de edad sin escritura parcial,
       historial append-only y contexto no falsificable
 - [x] Pruebas contra base de datos efímera. **El arnés se niega a ejecutarse contra cualquier host
       que no sea local** (`src/test/db.ts`), porque truncan tablas; sin `DATABASE_URL` no hay valor
@@ -1587,7 +1600,7 @@ Huecos (corregidos en la Fase D):
 Decisión abierta (negocio, no código): **quién responde los reclamos.** Hoy un empleado puede
 contestar un reclamo (`PATCH /admin/complaints/:id`), y esa respuesta es la que se le envía al
 consumidor como parte de la Hoja de Reclamación. La matriz de roles es anterior al Libro de
-Reclamaciones y no lo menciona, y «quién responde en 30 días» ya figura como trámite pendiente.
+Reclamaciones y no lo menciona, y «quién responde en 15 días hábiles» ya figura como trámite pendiente.
 Si el negocio lo restringe al admin, el cambio es un `adminOnly` en esa ruta y una línea en la
 clasificación de la prueba.
 
@@ -1681,11 +1694,10 @@ local):
 
 **Pendiente, y no es código:**
 
-- **Ley 29733.** Durante un tiempo desconocido, datos personales de clientes (perfiles, pedidos
-  con dirección de entrega, constancias de pago) se pudieron leer, y quizá escribir, con una clave
-  pública. Si había clientes reales, toca evaluar con el abogado si corresponde comunicarlo a la
-  ANPD y a los afectados. Los logs de API de Supabase (peticiones a `/rest/v1/` con el rol `anon`)
-  son la evidencia de si alguien accedió; están limitados a la retención del plan.
+- **Ley 29733: no aplica.** Las tablas expuestas eran legibles, y quizá escribibles, con una
+  clave pública. Pero el dueño confirmó el 2026-10-20 que los perfiles y pedidos de la base son
+  de prueba, no de clientes reales, así que no hubo datos personales expuestos que comunicar a la
+  ANPD. Si la tienda ya hubiera tenido clientes, esta evaluación habría sido obligatoria.
 - **Línea base de producción.** La `0000` crea `complaints` y `consents`, que la base real no
   tiene. `baseline-migrations` marcaría la `0000` como aplicada sin ejecutarla, y esas dos tablas
   no se crearían nunca: el Libro de Reclamaciones fallaría en producción. Antes de la línea base
@@ -1716,7 +1728,7 @@ credenciales reales, de trámites o de terceros.
 Actualizadas respecto al documento original, descartando las que ya tienen respuesta en el código.
 
 1. **¿Quién responde los reclamos dentro del plazo legal?** El sistema puede estar perfecto y aun así
-   hay multa si nadie contesta en 30 días.
+   hay multa si nadie contesta en 15 días hábiles.
 2. **¿Está inscrito el banco de datos ante la ANPD?** Es trámite, no código, y se olvida hasta la
    fiscalización.
 3. **¿La empresa es afecta a IGV?** *(Reformulada.)* La pregunta original —si los precios incluyen
