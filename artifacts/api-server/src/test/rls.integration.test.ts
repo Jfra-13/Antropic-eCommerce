@@ -25,6 +25,20 @@ describe("row level security", () => {
     expect(result.rows.filter((r) => !r.rls).map((r) => r.relname)).toEqual([]);
   });
 
+  it("has no policies, so neither anon nor a logged-in user can read through PostgREST", async () => {
+    // RLS without policies is a deny-all. The first policy turns that into an allow-list, and
+    // `authenticated` is any account anyone can sign up for: one written loosely hands every
+    // customer the other customers' orders. Adding one is a deliberate decision, so it fails here
+    // until this test is updated with it.
+    const result = await db.execute<{ table: string; policy: string }>(sql`
+      SELECT c.relname AS table, p.polname AS policy
+      FROM pg_policy p
+      JOIN pg_class c ON c.oid = p.polrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+    `);
+    expect(result.rows).toEqual([]);
+  });
+
   it("exposes no views, which would bypass RLS when owned by postgres", async () => {
     const result = await db.execute<{ relname: string }>(sql`
       SELECT c.relname
