@@ -18,6 +18,12 @@ if (!Number.isInteger(poolMax) || poolMax < 1) {
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: poolMax });
+// An idle client the server or the pooler disconnects emits 'error' on the pool, and an
+// unhandled 'error' event kills the process. The pool already discards that client; a request
+// that needs a connection gets a fresh one.
+pool.on("error", (err) => {
+  console.error("Idle Postgres client error", err);
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
