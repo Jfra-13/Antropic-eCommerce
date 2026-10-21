@@ -29,7 +29,11 @@ Los frontends no van aquí: son estáticos y se sirven desde un CDN.
   50 conexiones de la API más las de los jobs. Si sube `--max-instances`, revisa el límite de
   conexiones del plan de Supabase.
 - **`TRUST_PROXY=1`.** Cloud Run pone un único proxy delante del contenedor. Sin esto, el rate
-  limit vería a todos los visitantes con la misma IP.
+  limit vería a todos los visitantes con la misma IP. Vale para la URL `*.run.app`; un CDN o un
+  balanceador delante suma un salto y hay que subir el número.
+- **El rate limit es por instancia** (store en memoria, `lib/rate-limit.ts`). Con
+  `--max-instances=10`, el límite efectivo puede llegar a 10 veces el configurado y se reinicia
+  en cada arranque en frío. Un store compartido (Redis) lo corrige cuando haga falta.
 - **Secretos en Secret Manager**, nunca en `--set-env-vars`: las variables normales se ven en
   la consola y en `gcloud run services describe`.
 
@@ -54,12 +58,12 @@ gcloud auth configure-docker $REGION-docker.pkg.dev
 Cada uno se crea una vez; el valor se lee de la entrada estándar, no queda en el historial:
 
 ```
-for s in DATABASE_URL SUPABASE_SERVICE_ROLE_KEY SUPABASE_ANON_KEY RESEND_API_KEY; do
+for s in DATABASE_URL SUPABASE_SERVICE_ROLE_KEY RESEND_API_KEY; do
   read -rs -p "$s: " v && printf '%s' "$v" | gcloud secrets create $s --data-file=- && echo
 done
 
 SA=$(gcloud projects describe $PROJECT --format='value(projectNumber)')-compute@developer.gserviceaccount.com
-for s in DATABASE_URL SUPABASE_SERVICE_ROLE_KEY SUPABASE_ANON_KEY RESEND_API_KEY; do
+for s in DATABASE_URL SUPABASE_SERVICE_ROLE_KEY RESEND_API_KEY; do
   gcloud secrets add-iam-policy-binding $s --member=serviceAccount:$SA \
     --role=roles/secretmanager.secretAccessor
 done
@@ -83,7 +87,7 @@ ENV="^;^NODE_ENV=production;LOG_LEVEL=info;TRUST_PROXY=1;DB_POOL_MAX=5;\
 CORS_ORIGINS=https://<tienda>,https://<admin>;SUPABASE_URL=https://<ref>.supabase.co;\
 STORE_URL=https://<tienda>;RESEND_FROM=<remitente>;ADMIN_NOTIFICATION_EMAIL=<correo>"
 SECRETS="DATABASE_URL=DATABASE_URL:latest,SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,\
-SUPABASE_ANON_KEY=SUPABASE_ANON_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest"
+RESEND_API_KEY=RESEND_API_KEY:latest"
 
 gcloud run deploy antropic-api --image=$IMAGE:$TAG --region=$REGION \
   --allow-unauthenticated --port=8080 --min-instances=0 --max-instances=10 --concurrency=80 \
@@ -139,6 +143,7 @@ logs aparecen en Cloud Logging con el mensaje `expire-orders finished`.
 - CI/CD automático hacia Cloud Run. Por ahora el despliegue es manual, con los comandos de
   arriba.
 - `migrate` antes de desplegar una versión con migraciones nuevas: se corre desde una máquina
-  con acceso a la base (`docs/COMANDOS.md`), antes del `gcloud run deploy`.
+  con acceso a la base (`docs/COMANDOS.md`), antes del `gcloud run deploy`, con la URL directa o
+  la del pooler en modo sesión (puerto 5432), no con la 6543 de modo transacción.
 - La cuenta de servicio por defecto de Compute tiene permisos amplios. Con más de un servicio,
   conviene una cuenta propia para la API con solo `secretAccessor`.

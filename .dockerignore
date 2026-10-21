@@ -3,7 +3,9 @@
 **/.env
 **/.env.*
 !**/.env.example
-*.har
+**/*.har
+**/*.pem
+**/*.key
 
 **/node_modules
 **/dist
