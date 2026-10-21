@@ -6,8 +6,9 @@ Estado al 2026-10-20. Era bloqueante antes del primer despliegue: sin esto, `com
 ## Dónde nos quedamos
 
 **Resuelta: B2 a B5 ejecutados en producción el 2026-10-20.** `verify-rls` dio PASS y la huella
-final es idéntica a `full.fp` (395 líneas). Evidencia en `docs/AUDITORIA.md` §11.11. Siguen
-abiertos los pasos 6 a 8 de "Pendiente": rotar la contraseña, subir los commits y los PRs.
+final es idéntica a `full.fp` (395 líneas). Evidencia en `docs/AUDITORIA.md` §11.11. Commits
+subidos. Quedan abiertos el paso 6 (contraseña, aplazado por el dueño al final del proyecto) y el
+paso 8 (PRs).
 
 ## El problema, en corto
 
@@ -56,24 +57,21 @@ arreglo, nunca con la versión anterior.
 `apply-missing.cjs --dry-run` contra producción aplicó las 15 sentencias y la huella quedó
 idéntica (321 líneas). Después hizo ROLLBACK. Al volver a leer, producción seguía sin cambios.
 
-## Pendiente, en orden
+## Pasos
 
-Cada escritura en producción necesita la confirmación explícita del dueño, una por una.
+Cada escritura en producción necesitó la confirmación explícita del dueño, una por una.
 
-1. **B2, ejecución real.** Primero vuelve a leer la huella y comprueba que sigue igual a `prod.fp`.
-   Después aplica `missing.sql` sin `--dry-run`. Solo hace COMMIT si la huella queda idéntica.
-2. **B3.** `baseline-migrations`, con el arreglo `a6a4060`. Debe imprimir
-   `Baselined 1 migration(s)`; si dice 7, detente.
-3. **B4.** `migrate`: aplica 0001–0006 en una sola transacción.
-4. **B5.** `verify-rls` debe dar PASS, y la huella debe ser idéntica a `full.fp`.
-5. **Documentar.** La evidencia va en `docs/AUDITORIA.md` §11.11. En `docs/PROMPT-CONTINUACION.md`,
-   la sección "Al desplegar por primera vez" debe decir que la línea base está resuelta y el comando
-   exacto que se usó. Un commit convencional por unidad.
-6. **Rotar la contraseña de la base de Supabase.** Un error de `pg_dump` mostró en el chat un
-   fragmento de la `DATABASE_URL`. La contraseña contiene un `@` sin codificar; en la nueva URL,
-   escríbelo como `%40`.
-7. **Subir los commits** (`a6a4060` y el de este documento), solo cuando el dueño lo pida.
-8. **PRs.** Cuando se fusione el #23, re-apunta el #24 a main (`gh pr edit 24 --base main`) y
+1. [x] **B2, ejecución real.** Huella previa igual a `prod.fp` (285). `missing.sql`: 15
+   sentencias, huella 321 = esperada, COMMIT.
+2. [x] **B3.** `baseline-migrations` con el arreglo `a6a4060`: `Baselined 1 migration(s)`.
+3. [x] **B4.** `migrate`: 0001–0006 aplicadas sin error.
+4. [x] **B5.** `verify-rls` PASS (23 tablas); huella idéntica a `full.fp` (395).
+5. [x] **Documentar.** `docs/AUDITORIA.md` §11.11 y `docs/PROMPT-CONTINUACION.md`, commit `e31313e`.
+6. [ ] **Rotar la contraseña de la base de Supabase.** Aplazado por el dueño: se hará al final del
+   proyecto. Un error de `pg_dump` mostró en el chat un fragmento de la `DATABASE_URL`. La
+   contraseña contiene un `@` sin codificar; en la nueva URL, escríbelo como `%40`.
+7. [x] **Subir los commits.** En `origin/claude/libro-15-dias-habiles` (PR #24).
+8. [ ] **PRs.** Cuando se fusione el #23, re-apunta el #24 a main (`gh pr edit 24 --base main`) y
    espera el CI.
 
 Pendiente fuera de esta tarea, sin cambios: las 4 decisiones del abogado
