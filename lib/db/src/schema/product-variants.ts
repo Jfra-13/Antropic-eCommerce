@@ -37,7 +37,7 @@ export const productVariants = pgTable(
     uniqueIndex("variants_product_size_color_uq").on(t.productId, t.size, t.color),
     check("variants_stock_non_negative", sql`${t.stock} >= 0`),
   ],
-);
+).enableRLS();
 
 export const insertProductVariantSchema = createInsertSchema(productVariants);
 export type ProductVariant = typeof productVariants.$inferSelect;

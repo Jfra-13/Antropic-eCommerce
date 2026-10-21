@@ -11,7 +11,7 @@ export const carts = pgTable("carts", {
     .unique()
     .references(() => profiles.id),
   ...timestamps,
-});
+}).enableRLS();
 
 export const insertCartSchema = createInsertSchema(carts);
 export type Cart = typeof carts.$inferSelect;

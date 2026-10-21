@@ -39,7 +39,7 @@ export const consents = pgTable(
     index("consents_user_purpose_idx").on(t.userId, t.purpose),
     index("consents_email_purpose_idx").on(t.email, t.purpose),
   ],
-);
+).enableRLS();
 
 export const insertConsentSchema = createInsertSchema(consents);
 export type Consent = typeof consents.$inferSelect;

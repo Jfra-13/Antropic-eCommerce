@@ -139,7 +139,10 @@ export async function getDelivery(id: string): Promise<NotificationDelivery | un
 export async function requeueDelivery(id: string): Promise<NotificationDelivery | undefined> {
   const [updated] = await db
     .update(notificationDeliveries)
-    .set({ status: "pendiente", attempts: 0, nextAttemptAt: new Date(), lastError: null })
+    // now() from the database, not new Date(): claimDueDeliveries compares against the
+    // database clock, and an API host whose clock runs a few ms ahead would leave the row
+    // "not yet due" until the next run.
+    .set({ status: "pendiente", attempts: 0, nextAttemptAt: sql`now()`, lastError: null })
     .where(and(eq(notificationDeliveries.id, id), eq(notificationDeliveries.status, "fallido")))
     .returning();
   return updated;

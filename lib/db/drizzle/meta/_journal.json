@@ -43,6 +43,13 @@
       "when": 1792392713877,
       "tag": "0005_bent_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792476865796,
+      "tag": "0006_enable_rls",
+      "breakpoints": true
     }
   ]
 }

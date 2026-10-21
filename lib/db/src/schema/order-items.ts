@@ -25,7 +25,7 @@ export const orderItems = pgTable(
     ...timestamps,
   },
   (t) => [index("order_items_order_idx").on(t.orderId)],
-);
+).enableRLS();
 
 export const insertOrderItemSchema = createInsertSchema(orderItems);
 export type OrderItem = typeof orderItems.$inferSelect;

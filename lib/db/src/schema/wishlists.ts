@@ -19,7 +19,7 @@ export const wishlists = pgTable(
     uniqueIndex("wishlists_user_product_uq").on(t.userId, t.productId),
     index("wishlists_user_idx").on(t.userId),
   ],
-);
+).enableRLS();
 
 export const insertWishlistSchema = createInsertSchema(wishlists);
 export type Wishlist = typeof wishlists.$inferSelect;

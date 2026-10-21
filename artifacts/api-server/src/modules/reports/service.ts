@@ -1,4 +1,5 @@
 import type { DashboardSummary, SalesReport } from "@workspace/api-zod";
+import type { Role } from "../../lib/auth";
 import { toCents, fromCents } from "../../lib/money";
 import {
   selectTopProducts,
@@ -23,11 +24,22 @@ function avgTicket(revenue: string, orders: number): string {
   return orders === 0 ? "0.00" : fromCents(Math.round(toCents(revenue) / orders));
 }
 
-export async function getDashboard(): Promise<DashboardSummary> {
+// The role matrix gives employees a limited dashboard with no financial figures: the day's
+// sales, the average ticket and revenue per product go to the admin only. Shaped here rather
+// than in the panel, because a figure hidden on screen has still travelled in the response.
+export async function getDashboard(role: Role): Promise<DashboardSummary> {
   const [totals, topProducts] = await Promise.all([
     selectDashboardTotals(),
     selectTopProducts(7, TOP_LIMIT),
   ]);
+
+  if (role !== "admin") {
+    return {
+      kpis: null,
+      alerts: dashboardAlerts(totals),
+      topProducts: topProducts.map((p) => ({ ...p, revenue: null })),
+    };
+  }
 
   return {
     kpis: {
@@ -37,13 +49,17 @@ export async function getDashboard(): Promise<DashboardSummary> {
       ordersTodayDelta: totals.ordersToday - totals.ordersYesterday,
       avgTicket: totals.avgTicket,
     },
-    alerts: {
-      pendingPayments: totals.pendingPayments,
-      abandonedCarts: totals.abandonedCarts,
-      lowStock: totals.lowStock,
-      newReturns: totals.newReturns,
-    },
+    alerts: dashboardAlerts(totals),
     topProducts,
+  };
+}
+
+function dashboardAlerts(totals: Awaited<ReturnType<typeof selectDashboardTotals>>) {
+  return {
+    pendingPayments: totals.pendingPayments,
+    abandonedCarts: totals.abandonedCarts,
+    lowStock: totals.lowStock,
+    newReturns: totals.newReturns,
   };
 }
 

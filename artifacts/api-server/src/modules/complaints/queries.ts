@@ -10,8 +10,16 @@ import { and, desc, asc, eq, sql, type SQL } from "drizzle-orm";
 type ComplaintStatus = Complaint["status"];
 type ComplaintType = Complaint["type"];
 
+// The orderId is what the consumer declares, unverified, and the book cannot refuse a filing
+// over it. An id with no order behind it is dropped inside the same INSERT: letting the FK
+// reject it would turn the filing into a 500, and the complaint_number already drawn from the
+// sequence would be lost, leaving a gap in the correlativo. Resolving it in a separate SELECT
+// first would reopen that window if the order disappeared in between.
 export async function insertComplaint(values: InsertComplaint): Promise<Complaint> {
-  const rows = await db.insert(complaints).values(values).returning();
+  const orderId = values.orderId
+    ? sql`(select ${orders.id} from ${orders} where ${orders.id} = ${values.orderId})`
+    : null;
+  const rows = await db.insert(complaints).values({ ...values, orderId }).returning();
   return rows[0]!;
 }
 

@@ -11,7 +11,7 @@ export const settings = pgTable("settings", {
     .defaultNow()
     .notNull()
     .$onUpdate(() => new Date()),
-});
+}).enableRLS();
 
 export const insertSettingSchema = createInsertSchema(settings);
 export type Setting = typeof settings.$inferSelect;

@@ -267,8 +267,15 @@ pnpm run typecheck        # tsc de libs + artifacts + scripts
 pnpm run test             # unitarias (dominio puro, sin base de datos)
 pnpm run build            # typecheck + build de todos los paquetes
 
-# Integración: Postgres REAL. Truncan tablas — apunta DATABASE_URL a una base desechable
-# y aplícale el esquema antes con `migrate`. No hay valor por defecto, a propósito.
+# Integración: Postgres REAL. Truncan tablas. Lo normal es la base desechable de Docker
+# (docker-compose.test.yml: postgres:16 como CI, en 127.0.0.1:5433, datos en memoria).
+# Levanta el contenedor (o reutiliza el que ya corre), aplica las migraciones y corre la suite:
+pnpm run test:integration:local
+pnpm run test:integration:local src/modules/notifications   # solo un archivo o carpeta
+pnpm run test:db:down                                       # apagarla (se pierden los datos)
+
+# Contra otra base desechable: DATABASE_URL explícito y `migrate` antes. No hay valor por
+# defecto, a propósito.
 DATABASE_URL=postgresql://…/scratch pnpm --filter @workspace/api-server run test:integration
 
 # Por paquete

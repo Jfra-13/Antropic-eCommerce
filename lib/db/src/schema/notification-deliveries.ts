@@ -69,7 +69,7 @@ export const notificationDeliveries = pgTable(
     // "Did this order's customer get their emails?" from the order screen.
     index("notification_deliveries_related_idx").on(t.relatedType, t.relatedId),
   ],
-);
+).enableRLS();
 
 export const insertNotificationDeliverySchema = createInsertSchema(notificationDeliveries);
 export type NotificationDelivery = typeof notificationDeliveries.$inferSelect;

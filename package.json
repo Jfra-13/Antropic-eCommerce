@@ -3,11 +3,13 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build && node scripts/check-client-bundle.mjs",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
-    "test:integration": "pnpm -r --if-present run test:integration"
+    "test:integration": "pnpm -r --if-present run test:integration",
+    "test:integration:local": "node scripts/test-integration-local.mjs",
+    "test:db:down": "docker compose -f docker-compose.test.yml down"
   },
   "private": true,
   "devDependencies": {

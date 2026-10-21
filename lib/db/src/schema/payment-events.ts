@@ -69,7 +69,7 @@ export const paymentEvents = pgTable(
       .on(t.provider, t.eventId)
       .where(sql`${t.eventId} is not null`),
   ],
-);
+).enableRLS();
 
 export const insertPaymentEventSchema = createInsertSchema(paymentEvents);
 export type PaymentEvent = typeof paymentEvents.$inferSelect;

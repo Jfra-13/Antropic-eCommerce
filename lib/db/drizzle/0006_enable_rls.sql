@@ -1,0 +1,23 @@
+ALTER TABLE "categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "occasions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "products" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_variants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_media" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "product_occasions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "profiles" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "carts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "cart_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "orders" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "order_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payment_proofs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "payment_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "coupons" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "coupon_redemptions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "wishlists" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "stock_alerts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "return_tickets" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "complaints" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "consents" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "notification_deliveries" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "pickup_points" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "settings" ENABLE ROW LEVEL SECURITY;

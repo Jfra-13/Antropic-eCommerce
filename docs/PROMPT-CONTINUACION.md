@@ -34,9 +34,10 @@ nunca por correo (AUDITORIA §1.4 y §11.10).
 Todo lo fusionado vive en main. Lo único pendiente de código es la Fase 8 (IGV), bloqueada por
 el contador.
 
-El entorno de desarrollo importa: se trabaja desde Claude Code en Windows (Git Bash), SIN
-Postgres local. Las pruebas de integración solo corren en CI: push y esperar el run en verde es
-parte de validar. Build local: `MSYS_NO_PATHCONV=1 PORT=3000 BASE_PATH=/`. No existe `rtk`; usa
+El entorno de desarrollo importa: se trabaja desde Claude Code en Windows (Git Bash). Hay
+Docker Desktop (arráncalo si el daemon no responde): `pnpm run test:integration:local` levanta un
+Postgres desechable igual al de CI, aplica las migraciones y corre la integración. Córrelo ANTES
+de cada push; CI es la confirmación, no el primer lugar donde se ejecuta una prueba. Build local: `MSYS_NO_PATHCONV=1 PORT=3000 BASE_PATH=/`. No existe `rtk`; usa
 los comandos normales. Tampoco hay acceso al proyecto Supabase real ni a la administración del
 repositorio en GitHub, así que las pantallas con sesión no se pueden ver en navegador; la API sí
 se puede probar levantando un JWKS local y firmando un token (se hizo en las Fases 6, 7 y 9).
@@ -80,6 +81,23 @@ Siguiente: revisión de seguridad que no necesita credenciales (AUDITORIA §3.1 
    antropic-store y antropic-admin (buscar la clave y el nombre de la variable en dist/), no solo
    en el código fuente, y dejar una comprobación que falle en CI si vuelve a aparecer.
 
+Trabajo en fases, rama claude/seguridad-idor, una sesión por fase. La tabla vive en AUDITORIA
+§11.11. Hecho: A (pedidos, constancias, invitado, claim — sin huecos) · B (returns,
+complaints, cart, wishlist, checkout, consentimientos — un hueco: orderId inexistente en
+/complaints da 500 y salta el correlativo; dos latentes) · C (admin y ops — dos huecos: el
+dashboard da cifras financieras al empleado, y ningún filtro de rol tiene prueba; decisión
+abierta: quién responde reclamos) · D (los tres huecos corregidos con su prueba, más la prueba
+de dos usuarios y el barrido de rutas de admin; evidencia en §11.11; PR #23 en borrador con CI
+en verde) · E (scripts/check-client-bundle.mjs al final de `pnpm run build`: dist/ sin el
+nombre de la variable, sin `sb_secret_` y sin JWT con role=service_role; probado plantando
+secretos falsos, evidencia en §11.11) · F (§3.1/§3.2 cerrados en lo que no necesita
+credenciales, revisión con contexto limpio sin hallazgos bloqueantes, prueba de roles
+endurecida, PR #23 listo para revisión) · G (RLS: el proyecto real lo tenía apagado en las 19
+tablas; activado en producción el 2026-10-20, migración 0006 con .enableRLS() en cada tabla,
+prueba de integración que exige RLS sin políticas ni vistas, verify-rls reescrito sobre el
+catálogo; evidencia en §11.11). Queda abierto, y no es código: evaluar la Ley 29733 con el
+abogado, y la línea base de producción (ver "Al desplegar por primera vez").
+
 Antes de escribir código, dime tu plan.
 ```
 
@@ -116,8 +134,8 @@ Matices de esa última revisión, aceptados a sabiendas (no son defectos):
 
 ### Lo que sigue pendiente, en orden recomendado
 
-1. **Seguridad sin credenciales** (§3.1 IDOR, §3.2 service role en el bundle). Es lo siguiente
-   que se puede hacer hoy; el prompt de arriba ya apunta ahí.
+1. **Seguridad sin credenciales** (§3.1 IDOR, §3.2 service role en el bundle): hecha, PR #23.
+   Falta fusionarlo.
 2. **Fase 8 · IGV y base fiscal** (§2.4). **Bloqueada por el contador**, no por código. El modelo
    ya está decidido: precio bruto en el catálogo y snapshot fiscal congelado en el pedido, con la
    derivación por resta para que base + impuesto cuadre siempre. Es el último cambio de esquema
@@ -154,8 +172,8 @@ configurada más una prueba del enlace a la cuenta con un inicio de sesión real
 
 ### Bloqueado por credenciales, no por código
 
-- Sonda de RLS (§3.2): `pnpm --filter @workspace/scripts run verify-rls` necesita el proyecto
-  Supabase real. Está escrita, sin ejecutar, y es probable que salga roja.
+- Sonda de RLS (§3.2): ejecutada. Salió roja el 2026-10-19 y verde el 2026-10-20, después de
+  activar RLS. Necesita `DATABASE_URL`, `SUPABASE_URL` y `SUPABASE_ANON_KEY` del proyecto real.
 - E2E con login (§9.2): depende de Supabase. Los tramos sin sesión (catálogo, Libro de
   Reclamaciones) sí son automatizables hoy con el Chromium preinstalado.
 - Render en navegador de las pantallas del panel que exigen sesión: historial de pago y aviso de
@@ -186,6 +204,12 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
    ```
 
    Verificado en local reproduciendo ese escenario exacto; ver §11.5.
+
+   **BLOQUEANTE, no lo ejecutes tal cual.** La base real no tiene `complaints` ni `consents`, y las
+   crea la `0000`. La línea base da la `0000` por aplicada sin ejecutarla, así que esas dos tablas
+   no se crearían nunca y el Libro de Reclamaciones fallaría en producción. Faltan también
+   `payment_events` y `notification_deliveries`; esas sí las crean `0001` y `0002`. Hay que
+   resolverlo antes del primer despliegue. Después de `migrate`, corre `verify-rls`.
 
 2. **Programar el job de caducidad** (Fase 6). Sin un scheduler que lo invoque, los pedidos que
    nadie pagó se quedan en `pendiente_pago` para siempre:

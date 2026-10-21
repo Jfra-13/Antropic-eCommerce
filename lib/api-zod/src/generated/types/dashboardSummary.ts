@@ -10,7 +10,8 @@ import type { DashboardKpi } from './dashboardKpi';
 import type { TopProduct } from './topProduct';
 
 export interface DashboardSummary {
-  kpis: DashboardKpi;
+  /** Sales figures for the day. Null for a caller without the admin role: the role matrix keeps financial figures from employees, and hiding them in the panel would not stop them from travelling in the response. */
+  kpis: DashboardKpi | null;
   alerts: DashboardAlerts;
   /** Best sellers over the last 7 days */
   topProducts: TopProduct[];

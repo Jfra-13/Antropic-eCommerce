@@ -23,7 +23,7 @@ export const products = pgTable(
     ...timestamps,
   },
   (t) => [index("products_category_idx").on(t.categoryId)],
-);
+).enableRLS();
 
 export const insertProductSchema = createInsertSchema(products);
 export type Product = typeof products.$inferSelect;

@@ -1,0 +1,22 @@
+# Throwaway Postgres for the integration tests, so they run locally before CI sees them.
+# Same image and credentials as the CI service container (.github/workflows/ci.yml).
+#
+# Port 5433, bound to 127.0.0.1 only: it never collides with a Postgres already on 5432 and is
+# not reachable from the network. The data lives in tmpfs, so stopping the container throws it
+# away — the tests truncate tables anyway, and nothing here is worth keeping.
+services:
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: antropic_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15

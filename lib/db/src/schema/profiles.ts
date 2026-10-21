@@ -41,7 +41,7 @@ export const profiles = pgTable(
       .on(sql`lower(${t.email})`)
       .where(sql`${t.isGuest} = false AND ${t.blocked} = true`),
   ],
-);
+).enableRLS();
 
 export const insertProfileSchema = createInsertSchema(profiles);
 export type Profile = typeof profiles.$inferSelect;

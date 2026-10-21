@@ -36,6 +36,7 @@ está en su sección; la evidencia de ejecución, en §11.
 | **7** | Observabilidad: outbox de notificaciones con reintentos y visibilidad en el panel, id de petición extremo a extremo, `/readyz` que sí comprueba la base, pantalla de Operaciones y `ErrorBoundary` en las dos SPA | §5, §8.3 · `docs/OBSERVABILIDAD.md`, `modules/notifications/outbox.ts` |
 | **7b** | SEO y rendimiento: metadatos y canónicas por ruta, `robots.txt` y `sitemap.xml` generados, JSON-LD, code-splitting por ruta y presupuesto de tamaño que falla el build | §4, §8.1 · `docs/SEO.md`, `src/lib/seo.ts`, `modules/seo/` |
 | **9** | Checkout de invitado: perfil de invitado por pedido, token de acceso en el enlace del correo, subida de constancia sin cuenta, paso de los pedidos a la cuenta presentando el token de cada uno (nunca por correo), contacto del pedido como única fuente de lectura, y aviso «Invitado» en el panel | §1.4 · `modules/orders/guest-access.ts`, `modules/orders/service.ts`, `pages/GuestOrder.tsx` |
+| **Seg.** | Revisión de seguridad sin credenciales: tabla ruta → control → prueba de cada endpoint que recibe un id, tres huecos corregidos con su prueba (referencia de pedido inexistente en reclamos, cifras financieras al empleado, filtros de rol sin prueba), prueba de dos clientes por HTTP, y comprobación en el build de que ningún secreto de service role llega al bundle | §3.1, §3.2, §11.11 · `routes/ownership.integration.test.ts`, `modules/admin/roles.integration.test.ts`, `scripts/check-client-bundle.mjs` |
 
 > **Fusión:** todas las fases hechas están en `main` (PR #5 la fase 6, PR #6 la fase 7, PR #7 la
 > 7b y PR #21 la 9, con merge commit). La 9 se fusionó tras tres rondas de revisión y una cuarta
@@ -130,15 +131,19 @@ API** en el borde.
   con el clon, porque toca `products`, `orders`, `order_items` y todos los totales ya guardados.
 - **¿Quién responde los reclamos dentro de los 30 días?** El sistema avisa; alguien tiene que
   contestar.
-- **Prueba de RLS**: la sonda está escrita y sin ejecutar (`pnpm --filter @workspace/scripts run
-  verify-rls`). Necesita credenciales del proyecto Supabase real. **Es probable que salga roja.**
+- **RLS en el proyecto real**: salió roja, y se corrigió el 2026-10-20 (§3.2, evidencia en §11.11).
+  Las 19 tablas estaban abiertas a la anon key; durante cuánto tiempo y si alguien las leyó no se
+  sabe todavía. **Pendiente: decidir si corresponde comunicar una brecha según la Ley 29733.**
+- **No ejecutar `baseline-migrations` en producción todavía.** La base real no tiene `complaints`
+  ni `consents`, que crea la `0000`: la línea base la daría por aplicada sin ejecutarla y esas
+  tablas no se crearían nunca (§11.11).
 
 ### Recomendaciones
 
 - **Protege `main`** (§1.1): sin eso, el CI bloqueante que se montó en la Fase 3 se puede saltar
   con un push directo.
-- **Ejecuta la sonda de RLS pronto.** Es el hueco de seguridad con mayor impacto potencial y el
-  único que no se puede cerrar desde el código de la aplicación.
+- **Corre `verify-rls` después de cada despliegue que toque el esquema.** La prueba de CI
+  garantiza que las migraciones activan RLS; solo la sonda comprueba que la base real las recibió.
 - **El clon arranca sin historial** (§1.2): `git clone --depth 1`, así `localhost.har` no viaja.
   No hay credenciales dentro, pero son 5,5 MB de peso muerto. Procedimiento en `docs/CLONACION.md`.
 
@@ -508,7 +513,8 @@ aplicabilidad no. Sin esa confirmación no se escribe el cálculo.
 
 ### 3.1 🔴 BLOQUEANTE — Superficie de la API
 
-**Cerrado en la Fase 1** salvo los dos últimos ítems. Cada punto se verificó ejecutando el servidor,
+**Cerrado en la Fase 1** salvo los dos últimos ítems; la revisión de IDOR se cerró en la revisión
+de seguridad (§11.11). Solo queda el captcha. Cada punto se verificó ejecutando el servidor,
 no solo compilándolo; la evidencia está en §11.1.
 
 - [x] **Allowlist de CORS** por entorno vía `CORS_ORIGINS` — `app.ts`. Producción falla al arrancar
@@ -537,7 +543,10 @@ no solo compilándolo; la evidencia está en §11.1.
       todos los visitantes en un mismo cubo y un solo cliente ruidoso bloquea a todos; con `true`
       a ciegas, un atacante forja `X-Forwarded-For` y estrena cubo en cada petición
 - [ ] Captcha o equivalente en formularios públicos
-- [ ] Endpoints revisados uno por uno para IDOR
+- [x] Endpoints revisados uno por uno para IDOR — tabla ruta → control → prueba en §11.11. Los
+      tres huecos encontrados se corrigieron con su prueba de integración; quedan dos latentes
+      documentados (`returns.photo_path`, `consents.email`) que se vuelven hueco con un cambio
+      concreto, y una decisión de negocio abierta (quién responde los reclamos)
 
 **Hallazgo lateral de la Fase 1:** `STORE_URL` se usaba en `modules/notifications/templates.ts` sin
 estar documentada en ningún `.env.example`. Ya está en el contrato como opcional.
@@ -548,16 +557,22 @@ Aquí RLS no es el control principal, pero **PostgREST está expuesto sobre la m
 y la anon key es pública por diseño. Sin RLS, cualquiera puede leer las tablas directamente sin
 pasar por el Express.
 
-- [ ] RLS habilitado en todas las tablas, verificado tabla por tabla
-- [~] Probado con la anon key desde fuera de la app. **La sonda está escrita y sin ejecutar**:
-      `pnpm --filter @workspace/scripts run verify-rls` interroga a PostgREST para saber qué tablas
-      expone (en vez de partir de una lista fija, que se queda obsoleta en cuanto se añade una) y
-      prueba cada una con la anon key. Sale con código 1 si alguna devuelve filas. Requiere
-      credenciales del proyecto real, que no están disponibles en el entorno de desarrollo; hay que
-      correrla contra Supabase y guardar la salida como evidencia
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` nunca en el bundle del cliente — verificar en el build de store y
-      admin, no solo en el código fuente
-- [ ] Vistas y funciones RPC revisadas
+El 2026-10-19 la sonda contra el proyecto real salió roja: **RLS apagado en las 19 tablas**, sin
+políticas, y `anon` con SELECT e INSERT en todas. Corregido el 2026-10-20 en producción y en el
+repo (evidencia en §11.11).
+
+- [x] RLS habilitado en todas las tablas, verificado tabla por tabla en el catálogo
+      (`pg_class.relrowsecurity`) de producción. En el repo, cada `pgTable` llama a
+      `.enableRLS()` y la migración `0006` lo aplica; `rls.integration.test.ts` falla en CI si una
+      tabla de `public` queda sin RLS o si aparece una política
+- [x] Probado con la anon key desde fuera de la app: `verify-rls` da 0 filas en las 19 tablas y
+      sale con 0. Sin políticas, tampoco un usuario autenticado lee ni escribe nada por PostgREST
+- [x] `SUPABASE_SERVICE_ROLE_KEY` nunca en el bundle del cliente — verificado sobre el build real
+      de store y admin, y bloqueado en CI por `scripts/check-client-bundle.mjs` (evidencia en
+      §11.11, Fase E)
+- [x] Vistas y funciones RPC revisadas: `public` no tiene vistas ni funciones en producción.
+      `verify-rls` falla si aparece una vista o una función ejecutable por `anon`, y la prueba de
+      integración falla si aparece una vista
 
 ### 3.3 🔴 BLOQUEANTE — Integridad de precios y stock
 
@@ -865,8 +880,10 @@ Prioridad aplicada: cobertura total de lo que mueve dinero, sin exigencia en com
       token, el enlace a la cuenta, la idempotencia y la ruta de la constancia, más 2 de regresión
       para las violaciones de unicidad que respondían 500. Las siete guardas nuevas, **verificadas
       por mutación**: rota cada una, falla exactamente su prueba (§11.10)
-- [ ] **Prueba de RLS**: leer pedidos de otro usuario con la anon key debe fallar. La sonda está
-      escrita (§3.2) pero necesita credenciales de Supabase; no se puede ejecutar en CI todavía
+- [x] **Prueba de RLS**: `rls.integration.test.ts` corre en CI sobre la base que construye
+      `migrate` y exige RLS en toda tabla de `public`, cero políticas y cero vistas. Contra el
+      proyecto real, `verify-rls` (necesita credenciales, no corre en CI). Ambas verificadas
+      plantando el defecto (§11.11)
 - [ ] E2E con Playwright del flujo completo. El login depende de Supabase (magic link / OAuth), que
       es externo y no reproducible en CI sin un proyecto de pruebas dedicado. Los tramos sin sesión
       (catálogo, Libro de Reclamaciones) sí serían automatizables hoy
@@ -1410,6 +1427,270 @@ Puertas locales: `typecheck` y 54 pruebas unitarias de la API en verde. Las de i
 corren en CI (no hay Postgres en este entorno): run `39218597119` sobre `f3f819b` en verde, con
 72 unitarias (54 API + 18 marca), 90 de integración y `build`.
 
+### 11.11 Revisión de IDOR (§3.1)
+
+Cada ruta que recibe el id de un recurso del cliente, en la URL o en el cuerpo: qué la protege y
+qué prueba lo demuestra. «Sin prueba» no es un hueco: el control existe y se lee en el código,
+pero nada falla si alguien lo quita.
+
+Las pruebas de la Fase D que pasan por HTTP viven en `routes/ownership.integration.test.ts` (un
+segundo cliente presenta los ids del primero en cada ruta; cada rechazo va emparejado con el
+dueño haciendo lo mismo con éxito, para que una ruta que rechaza a todos no pase por una que
+comprueba al dueño) y `modules/admin/roles.integration.test.ts`. Corren sobre el árbol de rutas
+real (`test/http.ts`); lo único simulado es la firma del JWT: el rol y el perfil se leen de la
+base como en producción.
+
+**Pedidos, constancias e invitado**
+
+| Ruta | Id | Control | Prueba |
+|---|---|---|---|
+| `GET /orders` | sesión | `listOrdersForUser`: `WHERE user_id = sesión` | «does not list or open another customer's orders» |
+| `GET /orders/:id` | URL | `getOrderForUser`: `WHERE id AND user_id = sesión` en la misma consulta; ajeno = 404 | «does not list or open another customer's orders» |
+| `POST /orders/:id/payment-proof/upload-url` | URL | `getOrderForUser` antes de firmar; la ruta firmada nace bajo `{orderId}/` | «does not let them upload a constancia to another customer's order» |
+| `POST /orders/:id/payment-proof` | URL + `path` | `getOrderForUser`, y `isProofPathForOrder` exige `{orderId}/{uuid}` de ese pedido | ruta ajena: «refuses a path that was issued for another order»; dueño: «does not let them upload a constancia to another customer's order» |
+| `GET /guest/orders/:id` | URL + `X-Order-Token` | `requireGuestOrder`: token comparado en tiempo constante; todo fallo = mismo 404 | «answers the same 404 for a wrong token, no token, an account order and a malformed id» |
+| `POST /guest/orders/:id/payment-proof[/upload-url]` | URL + token | `requireGuestOrder`; el dueño pasado al servicio es el del propio pedido | mismo middleware que arriba |
+| `POST /me/guest-orders/claim` | cuerpo `{orderId, accessToken}` | `claimGuestOrdersTx`: solo pedidos de perfil invitado, token en tiempo constante, nunca por email | «refuses a wrong token, and a token presented for another order», «never takes an order out of another account…» |
+
+Matiz aceptado (Fase 9): un pedido traspasado conserva su token, así que su enlace de invitado
+sigue abriéndolo. Quien tiene el token ya podía verlo.
+
+La comprobación de dueño en las constancias ocurre antes de `settlePaymentTx`, no dentro. No es
+un hueco: el único cambio de dueño posible es el traspaso invitado → cuenta, y quien sube ya
+tenía acceso legítimo al mismo pedido por cualquiera de los dos caminos.
+
+**Devoluciones, reclamos, carrito, favoritos, checkout y consentimientos (Fase B)**
+
+| Ruta | Id | Control | Prueba |
+|---|---|---|---|
+| `GET /returns?orderId` | query | `requireAuth`; `listMyReturns`: `WHERE user_id = sesión`, el `orderId` solo filtra dentro de lo propio; ajeno = lista vacía | «does not show or open returns on another customer's order» |
+| `POST /returns` | cuerpo `orderId` | `getOrderForReturn`: `WHERE id AND user_id = sesión`; ajeno = 404, antes de `hasOpenTicket` (no revela si otro pedido tiene ticket abierto) | «does not show or open returns on another customer's order» (404, no 409, con un ticket abierto del dueño) |
+| `POST /returns` | cuerpo `photoPath` | ninguno: texto libre que se guarda y nunca se resuelve a un archivo (no hay subida ni URL firmada; el panel solo pinta «foto adjunta») | **latente**, ver abajo |
+| `POST /complaints` | cuerpo `orderId` | ninguno, a propósito: es público y el `orderId` es una referencia declarada. El recibo y los dos correos se construyen solo con la fila del reclamo, nunca leen el pedido. `userId` sale de la sesión (`optionalAuth`), no del cuerpo | `userId`: «attributes the filing when the person happens to be signed in» (servicio). `orderId` inexistente: corregido en la Fase D, «drops an order reference that does not exist, without a 500 or a gap in the correlativo» |
+| `GET/POST /cart`, `PATCH/DELETE /cart/items/:variantId`, `POST /cart/merge` | URL / cuerpo `variantId` | `requireAuth`; el carrito se resuelve por `carts.user_id = sesión`, los `cart_items` se filtran por ese `cartId`. `variantId` es catálogo público | «does not show or change another customer's cart» (`GET`, `PATCH`, `DELETE`); `POST /cart/merge`: sin prueba |
+| `POST /guest/checkout/cart` | cuerpo `variantId[]` | no aplica: solo lee catálogo activo, no hay recurso de nadie | «reports deactivated variants and products, and unknown ids, as missing» |
+| `GET/POST /wishlist`, `DELETE /wishlist/:productId` | URL / cuerpo `productId` | `requireAuth`; `WHERE user_id = sesión`; `productId` es catálogo activo | «does not show or change another customer's wishlist» |
+| `POST /checkout/quote` | ninguno | `requireAuth`; carrito por sesión, el cliente no manda importes | sin prueba |
+| `POST /guest/checkout/quote` | cuerpo `variantId[]` | no aplica: catálogo | — |
+| `POST /orders` | cuerpo `idempotencyKey`, `pickupPointId` | carrito por sesión; `getOrderByIdempotencyKey`: `WHERE user_id = sesión AND key`; clave ajena = 409. `pickupPointId` pasa por `getActivePickupPoint` (catálogo) | «answers 409, not 500, when an account checkout reuses a key spent on a guest order» |
+| `POST /guest/orders` | cuerpo `idempotencyKey` | `replayGuestOrder`: solo pedidos con token, no reclamados, mismo email; una clave de cuenta = 409 | «will not hand an order and its token to a caller with a different email», «answers 409, not 500, for a key that belongs to an account order», «reports a claimed order as placed, without handing it back…» |
+| `POST /consents` | sesión + cuerpo `email` | `userId` de la sesión; IP y user-agent de la petición. El `email` del cuerpo no se verifica | contexto: «takes the request context from the caller's environment, not from the payload». `email`: **latente**, ver abajo |
+
+Hueco (corregido en la Fase D):
+
+- **`POST /complaints` con un `orderId` que no existe.** `complaints.order_id` tiene FK a
+  `orders` y `insertComplaint` no captura `23503`, así que la petición acaba en 500. Y
+  `complaint_number` es `serial`: el `nextval` ya consumido no se devuelve en el rollback, de
+  modo que cualquiera, sin sesión, puede abrir un salto en el correlativo del Libro de
+  Reclamaciones con un uuid inventado. La prueba «issues a gap-free correlativo» no lo ve porque
+  solo encadena altas válidas. Leído en el código, no ejecutado (no hay Postgres local): la
+  prueba de la Fase D es lo que lo confirma. Rechazar el reclamo no es la salida — el Libro no
+  puede exigir nada para recibirlo —; la referencia inválida se descarta antes del `INSERT`.
+  Que un reclamo apunte a un pedido ajeno existente sí es aceptable: es lo que el consumidor
+  declara, y no devuelve nada del pedido.
+
+  **Corrección:** `insertComplaint` resuelve la referencia dentro del mismo `INSERT`
+  (`order_id = (select id from orders where id = $1)`), así que una referencia inexistente se
+  guarda como `null` sin que la FK llegue a fallar. Un `SELECT` previo dejaría abierta la ventana
+  entre la consulta y la escritura. Prueba: «drops an order reference that does not exist, without
+  a 500 or a gap in the correlativo» (tres altas, la del medio con un uuid inventado: LR-000001,
+  000002, 000003).
+
+Latentes (no explotables hoy; se vuelven hueco con un cambio concreto):
+
+- **`returns.photo_path`** es una cadena que manda el cliente. El día que el panel la firme para
+  mostrar la foto, un cliente podrá apuntarla a la constancia de otro pedido. Cuando se
+  construya la subida, debe seguir el patrón de `isProofPathForOrder`: ruta emitida por el
+  servidor bajo `{orderId}/`.
+- **`consents.email`** lo escribe quien quiera: cualquiera puede registrar un alta o una baja a
+  nombre de un correo ajeno. Hoy nada lee `consents`, así que no tiene efecto. Un envío de
+  marketing que decida por esa columna necesitaría antes un consentimiento ligado a la sesión o
+  a un correo verificado.
+
+Matiz aceptado: en `POST /guest/orders` el secreto es la `idempotencyKey`, no el email (que no
+lo es). El contrato no le exige longitud mínima; la tienda la genera con `crypto.randomUUID()`,
+y una clave débil solo expone el pedido de quien la eligió.
+
+**Backoffice y operaciones (Fase C)**
+
+En `/admin/*` los ids son de recursos del negocio, no de un cliente, así que la pregunta deja
+de ser «¿es tuyo?» y pasa a ser «¿tu rol puede?». La base es una sola línea:
+`router.use("/admin", requireAuth, requireRole("employee", "admin"))` en
+`modules/admin/router.ts`. `adminRouter` se monta el último y ningún otro router declara rutas
+bajo `/admin`, así que no hay ruta que llegue antes que el filtro. El rol se lee de
+`profiles.role` en cada petición, no de un claim del JWT: degradar o bloquear a alguien surte
+efecto en su siguiente petición, sin esperar a que caduque el token.
+
+| Ruta | Id | Control | Prueba |
+|---|---|---|---|
+| todas las `/admin/*` | — | `requireAuth` + `requireRole("employee", "admin")`; un `customer` = 403, sin token = 401, bloqueado = 403 | «answers 403 to a customer on every admin route», «answers 401 with no token»; bloqueado: sin prueba |
+| `GET /admin/payments/queue`, `POST /admin/orders/:id/{approve,reject}`, `GET /admin/orders/:id/payment-events` | URL | personal (filtro global); el cambio de estado pasa por `settlePaymentTx` | barrido de rutas (ver abajo) |
+| `GET /admin/orders[/:id]`, `GET /admin/shipments`, `POST /admin/orders/:id/fulfillment` | URL | personal | barrido de rutas (ver abajo) |
+| `GET/POST /admin/products`, `PATCH /admin/products/:id`, `POST /admin/products/:id/{variants,media}`, `POST /admin/products/import`, `PATCH /admin/variants/:id`, `DELETE /admin/media/:id` | URL | personal | barrido de rutas (ver abajo) |
+| `POST/PATCH /admin/{categories,occasions}[/:id]` | URL | personal | barrido de rutas (ver abajo) |
+| `DELETE /admin/{products,categories,occasions}/:id` | URL | `requireRole("admin")` por ruta; más estricto que la matriz (que deja al empleado editar catálogo), a propósito: borrar no se deshace | barrido de rutas (ver abajo) |
+| `GET/POST/PATCH/DELETE /admin/coupons[/:id]` | URL | `adminOnly` | barrido de rutas (ver abajo) |
+| `GET/PATCH /admin/returns[/:id]` | URL | personal | barrido de rutas (ver abajo) |
+| `GET/PATCH /admin/complaints[/:id]` | URL | personal; responder es un acto legal, ver decisión abierta abajo | barrido de rutas (ver abajo) |
+| `GET/POST /admin/users`, `PATCH /admin/users/:id` | URL | `adminOnly`; `updateUser` rechaza cambiar el rol o el bloqueo propios (`SELF_MODIFY`), así que siempre queda al menos el admin que actúa | barrido de rutas (ver abajo) |
+| `GET/PUT /admin/config`, `POST /admin/config/media/upload-url`, `GET/POST/PATCH/DELETE /admin/pickup-points[/:id]` | URL | `adminOnly` | barrido de rutas (ver abajo) |
+| `GET /admin/reports` | — | `adminOnly` | barrido de rutas (ver abajo) |
+| `GET /admin/dashboard` | — | personal; `getDashboard(role)`: `kpis` y `topProducts[].revenue` en `null` salvo para el admin | «keeps sales figures out of an employee's dashboard, and gives them to the admin» |
+| `GET /admin/ops`, `GET /admin/notifications`, `POST /admin/notifications/:id/retry` | URL | personal. La lista del outbox no expone el cuerpo renderizado (solo destinatario, asunto, estado); el reintento solo acepta un envío `fallido` | barrido de rutas (ver abajo) |
+
+Las rutas públicas de este bloque (`GET /config`, `GET /pickup-points`, `/sitemap.xml`,
+`/healthz`, `/readyz`) no reciben ids ni escriben. `GET /config` devuelve una proyección
+(`getPublicConfig`), no la configuración de administración.
+
+Huecos (corregidos en la Fase D):
+
+- **El empleado recibe las cifras financieras del dashboard.** `getDashboard()` no conoce el
+  rol: `salesToday`, `salesTodayDeltaPct` y `avgTicket` salen igual para un empleado que para
+  el admin. La matriz (requerimientos §6, `FLUJOS-ROLES-Y-MEJORAS.md` §3) da al empleado una
+  vista limitada, sin cifras financieras, y pone ventas del día y ticket promedio en el
+  dashboard del admin. Ocultarlo en el panel no corrige nada: el dato ya viajó en la respuesta.
+  Corrección elegida: la API arma la respuesta según el rol (`getDashboard(role)`), y en el
+  contrato `kpis` pasa a ser nulable. Se descartó un endpoint separado por rol, porque obliga a
+  duplicar la consulta y cada métrica nueva tendría que decidir a cuál de los dos va.
+
+  **Corrección:** además de los `kpis`, la Fase D encontró `topProducts[].revenue` (ingreso por
+  producto), que el panel pintaba junto a las unidades; también pasa a ser nulable y va en `null`
+  para el empleado, que sigue viendo qué se vende y cuántas unidades. `GET /admin/reports` usa el
+  mismo esquema pero es solo admin. El panel omite la fila de KPIs y la columna de ingreso cuando
+  vienen en `null`. Prueba (HTTP, para que un router que pasara el rol equivocado también falle):
+  «keeps sales figures out of an employee's dashboard, and gives them to the admin».
+
+  Matiz aceptado (revisión de la Fase F): lo que se le quita al empleado son los **agregados**.
+  El total de cada pedido sigue llegándole en `/admin/orders[/:id]` y en la cola de pagos,
+  porque aprobar un pago es justamente comparar el monto de la constancia con ese total. Con
+  paciencia podría sumarlos; impedirlo le impediría verificar pagos, que es su trabajo.
+- **Ningún filtro de rol tiene prueba.** Si alguien borra el `router.use` o un `adminOnly`,
+  ninguna prueba falla. La Fase D no añade una prueba por ruta, que se queda vieja con la
+  primera ruta nueva. Añade una sola que recorre las rutas registradas en el router de admin y
+  exige que cada una esté clasificada como «personal» o «solo admin»: comprueba que un
+  `customer` recibe 403 en todas, y un `employee` 403 en las de solo admin. Una ruta nueva sin
+  clasificar hace fallar la prueba, así que la decisión de rol no se puede saltar.
+
+  **Corrección:** `modules/admin/roles.integration.test.ts` lee `adminRouter.stack` y lo compara
+  con un mapa ruta → «staff» | «admin» en ambos sentidos: «classifies every route registered on
+  the admin router, and only those». Luego «answers 403 to a customer on every admin route» y
+  «answers 403 to an employee on admin-only routes, and lets them through the staff ones»: la
+  segunda mitad detecta también una ruta de personal que quedara solo para admin. Los `:id` se
+  sustituyen por un uuid que no existe, así que el barrido no escribe nada.
+
+  Endurecida tras la revisión con contexto limpio (Fase F): la enumeración solo ve rutas
+  declaradas directamente en `adminRouter`, así que la prueba ahora rechaza cualquier
+  sub-router montado con `use` (sus rutas escaparían del barrido; verificado plantando uno: la
+  prueba falla). Y en las rutas de personal exige además `< 500`: una ruta que pasa el filtro
+  pero revienta es igual de inservible para el equipo.
+
+Decisión abierta (negocio, no código): **quién responde los reclamos.** Hoy un empleado puede
+contestar un reclamo (`PATCH /admin/complaints/:id`), y esa respuesta es la que se le envía al
+consumidor como parte de la Hoja de Reclamación. La matriz de roles es anterior al Libro de
+Reclamaciones y no lo menciona, y «quién responde en 30 días» ya figura como trámite pendiente.
+Si el negocio lo restringe al admin, el cambio es un `adminOnly` en esa ruta y una línea en la
+clasificación de la prueba.
+
+Observación: `PATCH /admin/users/:id` también acepta el id de un perfil de invitado. Cambiarle
+el rol o el bloqueo no tiene efecto, porque detrás no hay una cuenta con la que iniciar sesión.
+Corregirle el nombre o el teléfono actualiza el contacto de sus pedidos abiertos, que es lo que
+se espera cuando el personal arregla un dato.
+
+**Secretos en el bundle del cliente (Fase E, §3.2)**
+
+`scripts/check-client-bundle.mjs` corre al final de `pnpm run build`, así que CI lo ejecuta en
+el mismo paso que ya construía. Recorre todos los archivos de `dist/public` de la tienda y del
+panel (js, html, mapas, manifest) y falla si encuentra el nombre `SUPABASE_SERVICE_ROLE_KEY`, un
+prefijo `sb_secret_` o un JWT cuyo payload decodificado diga `role=service_role`. CI no tiene la
+clave real, así que buscar su valor siempre pasaría allí; decodificar caza una clave antigua sea
+cual sea su valor. También falla si un `dist` falta o está vacío, para no pasar sin mirar nada.
+
+Verificado en local el 2026-10-19, sobre el build real con los `.env` de desarrollo:
+
+| Caso | Resultado |
+|---|---|
+| Build limpio | exit 0; 2 JWT encontrados, uno por app, ambos `role=anon` (la anon key real: prueba que el decodificado funciona, no que no encontró nada) |
+| Valor literal de la service role key del `.env` raíz buscado en ambos `dist/` (solo en local; CI no la tiene) | 0 coincidencias |
+| `VITE_SUPABASE_ANON_KEY` = JWT inventado con `role=service_role` en el build de la tienda | exit 1, «contains a JWT with role=service_role» |
+| `VITE_SUPABASE_ANON_KEY` = `sb_secret_…` falso | exit 1, «contains an sb_secret_ key» |
+| Línea temporal en `antropic-admin/src/main.tsx` que nombra la variable (revertida) | exit 1, «mentions SUPABASE_SERVICE_ROLE_KEY» |
+| `dist` del panel retirado | exit 1, «no build output» |
+
+Límite conocido: una clave partida o codificada a propósito en el código no la ve ningún
+escaneo de texto. Lo que cubre es el accidente real: una variable `VITE_` apuntada al valor
+equivocado, o código de cliente que intenta leer la variable del servidor.
+
+**RLS en el proyecto Supabase real (§3.2)**
+
+Hallazgo del 2026-10-19: la anon key, que es pública y va en el bundle, leía por PostgREST
+`orders`, `order_items`, `profiles`, `payment_proofs`, `coupons`, `coupon_redemptions`, `carts`,
+`cart_items`, `return_tickets`, `settings` y las tablas del catálogo. `stock_alerts` y
+`wishlists` respondían 200 con 0 filas. Se contaron filas sin leer su contenido. Las escrituras
+no se probaron, para no tocar producción.
+
+Catálogo de producción, leído el 2026-10-20 en una transacción `READ ONLY`, solo nombres y
+flags:
+
+| Qué | Resultado |
+|---|---|
+| Tablas en `public` | 19, todas con `relrowsecurity = false` y 0 políticas |
+| Permisos de `anon` | SELECT e INSERT en las 19: las escrituras anónimas eran posibles |
+| Vistas y funciones en `public` | ninguna, así que no hay RPC expuesta |
+| Triggers sobre `auth.users` | ninguno, así que activar RLS no rompe el registro |
+| Rol de la API | `postgres`, dueño de las tablas, con `rolbypassrls = true`: RLS no le afecta ni con `FORCE` |
+| `drizzle.__drizzle_migrations` | no existe (la base se creó con `push`) |
+
+`stock_alerts` y `wishlists` también tenían RLS apagado: estaban vacías, no protegidas. Por eso
+un 200 sin filas no prueba nada, y `verify-rls` ahora lee el flag del catálogo.
+
+**Corrección en producción (2026-10-20, aprobada por el dueño):** `ALTER TABLE … ENABLE ROW
+LEVEL SECURITY` en las 19 tablas, en una transacción que solo hacía `COMMIT` si después todas
+daban `relrowsecurity = true`. Sin `FORCE` y sin políticas. Rollback: el mismo SQL con
+`DISABLE`.
+
+| Comprobación posterior | Resultado |
+|---|---|
+| Catálogo | `rls = true` en las 19 |
+| Sonda con la anon key | HTTP 200 y 0 filas en las 19 |
+| Lectura como `postgres` (la API) | conteos no nulos en `products` y `orders`: la API sigue viendo los datos |
+| `pnpm --filter @workspace/scripts run verify-rls` | PASS, exit 0 |
+
+**En el repo:** cada `pgTable` llama a `.enableRLS()` y la migración `0006_enable_rls.sql`
+(generada) lo aplica a las 23 tablas, incluidas las 4 que producción todavía no tiene. Por tabla
+es idempotente (activarlo donde ya está activo no hace nada), pero **exige que existan las 23**:
+sobre producción, la `0006` falla en `complaints` mientras la línea base no se resuelva (ver
+abajo). Falla dentro de su transacción, así que no deja nada a medias.
+`artifacts/api-server/src/test/rls.integration.test.ts` corre en CI sobre la base que construye
+`migrate`.
+
+`verify-rls` se reescribió: el descubrimiento por `GET /rest/v1/` ya no servía, porque Supabase
+limita ese documento a la service_role key y con la anon key daba 401 antes de probar nada. Ahora
+lee el catálogo por `DATABASE_URL` en solo lectura y después sondea cada tabla con la anon key.
+Imprime conteos, nunca filas.
+
+Verificado plantando cada defecto en el Postgres de Docker (PostgREST simulado con un servidor
+local):
+
+| Caso | Resultado |
+|---|---|
+| El PostgREST simulado devuelve una fila de `orders` | `verify-rls` exit 1, «orders: returned rows to the anon key» |
+| `wishlists` con RLS apagado y vacía (el caso que el script viejo daba por bueno) | `verify-rls` exit 1, «wishlists: RLS disabled»; la prueba de integración falla con `["wishlists"]` |
+| Una vista y una función con EXECUTE para `anon` en `public` | `verify-rls` exit 1 con ambas; la prueba falla por la vista |
+| `CREATE POLICY … USING (true)` en `orders` | la prueba de integración falla |
+| Base limpia | `verify-rls` exit 0; la suite de integración local, 104 pruebas en verde |
+
+**Pendiente, y no es código:**
+
+- **Ley 29733.** Durante un tiempo desconocido, datos personales de clientes (perfiles, pedidos
+  con dirección de entrega, constancias de pago) se pudieron leer, y quizá escribir, con una clave
+  pública. Si había clientes reales, toca evaluar con el abogado si corresponde comunicarlo a la
+  ANPD y a los afectados. Los logs de API de Supabase (peticiones a `/rest/v1/` con el rol `anon`)
+  son la evidencia de si alguien accedió; están limitados a la retención del plan.
+- **Línea base de producción.** La `0000` crea `complaints` y `consents`, que la base real no
+  tiene. `baseline-migrations` marcaría la `0000` como aplicada sin ejecutarla, y esas dos tablas
+  no se crearían nunca: el Libro de Reclamaciones fallaría en producción. Antes de la línea base
+  hay que crearlas, o hacer la línea base de otra forma.
+
 ### 11.9 Pendiente
 
 Un checklist no es una auditoría. Esto es lo que convierte lo anterior en evidencia. **Todo está
@@ -1420,7 +1701,7 @@ credenciales reales, de trámites o de terceros.
 - [ ] Reporte de la suite E2E pasando
 - [ ] Reporte de Lighthouse móvil de home, categoría, producto y checkout
 - [ ] Resultado del escaneo de secretos y del audit de dependencias
-- [ ] Evidencia de la prueba de RLS fallando correctamente con la anon key
+- [x] Evidencia de la prueba de RLS fallando correctamente con la anon key (§11.11)
 - [ ] Evidencia de la prueba de concurrencia de stock
 - [ ] Reporte de conciliación de un día real: pedidos aprobados vs. movimientos Yape
 - [ ] Evidencia de una restauración de respaldo ejecutada de verdad

@@ -22,7 +22,7 @@ export const paymentProofs = pgTable(
     ...timestamps,
   },
   (t) => [index("payment_proofs_order_idx").on(t.orderId)],
-);
+).enableRLS();
 
 export const insertPaymentProofSchema = createInsertSchema(paymentProofs);
 export type PaymentProof = typeof paymentProofs.$inferSelect;

@@ -9,6 +9,9 @@
 export interface TopProduct {
   productName: string;
   quantity: number;
-  /** Total revenue for this product in the period (money) */
-  revenue: string;
+  /**
+     * Total revenue for this product in the period (money). Null on the dashboard of a caller without the admin role: employees see what sells, not how much it brings in.
+     * @nullable
+     */
+  revenue: string | null;
 }

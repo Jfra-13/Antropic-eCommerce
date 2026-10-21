@@ -19,7 +19,7 @@ export const productMedia = pgTable(
     ...timestamps,
   },
   (t) => [index("media_product_idx").on(t.productId)],
-);
+).enableRLS();
 
 export const insertProductMediaSchema = createInsertSchema(productMedia);
 export type ProductMedia = typeof productMedia.$inferSelect;

@@ -9,7 +9,7 @@ export const pickupPoints = pgTable("pickup_points", {
   address: text("address").notNull(),
   active: boolean("active").notNull().default(true),
   ...timestamps,
-});
+}).enableRLS();
 
 export const insertPickupPointSchema = createInsertSchema(pickupPoints);
 export type PickupPoint = typeof pickupPoints.$inferSelect;
