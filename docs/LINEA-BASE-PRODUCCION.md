@@ -1,12 +1,13 @@
 # Línea base de producción: estado y cómo retomarla
 
-Estado al 2026-10-20. Bloqueante antes del primer despliegue: sin esto, `complaints` y `consents`
-no existen en producción y el Libro de Reclamaciones falla.
+Estado al 2026-10-20. Era bloqueante antes del primer despliegue: sin esto, `complaints` y
+`consents` no existían en producción y el Libro de Reclamaciones fallaba.
 
 ## Dónde nos quedamos
 
-**Paso B2 probado sin confirmar, pendiente de ejecución real.** Producción no ha recibido ninguna
-escritura: su huella sigue idéntica a la del inicio (285 líneas).
+**Resuelta: B2 a B5 ejecutados en producción el 2026-10-20.** `verify-rls` dio PASS y la huella
+final es idéntica a `full.fp` (395 líneas). Evidencia en `docs/AUDITORIA.md` §11.11. Siguen
+abiertos los pasos 6 a 8 de "Pendiente": rotar la contraseña, subir los commits y los PRs.
 
 ## El problema, en corto
 

@@ -134,9 +134,8 @@ API** en el borde.
 - **RLS en el proyecto real**: salió roja, y se corrigió el 2026-10-20 (§3.2, evidencia en §11.11).
   Las 19 tablas estaban abiertas a la anon key. Los datos eran de prueba, así que no hubo brecha
   que comunicar según la Ley 29733.
-- **No ejecutar `baseline-migrations` en producción todavía.** La base real no tiene `complaints`
-  ni `consents`, que crea la `0000`: la línea base la daría por aplicada sin ejecutarla y esas
-  tablas no se crearían nunca (§11.11).
+- **Línea base de producción resuelta el 2026-10-20.** Se crearon antes `complaints` y
+  `consents`, que la `0000` daba por existentes; la base real ya solo recibe `migrate` (§11.11).
 
 ### Recomendaciones
 
@@ -1671,8 +1670,8 @@ daban `relrowsecurity = true`. Sin `FORCE` y sin políticas. Rollback: el mismo 
 **En el repo:** cada `pgTable` llama a `.enableRLS()` y la migración `0006_enable_rls.sql`
 (generada) lo aplica a las 23 tablas, incluidas las 4 que producción todavía no tiene. Por tabla
 es idempotente (activarlo donde ya está activo no hace nada), pero **exige que existan las 23**:
-sobre producción, la `0006` falla en `complaints` mientras la línea base no se resuelva (ver
-abajo). Falla dentro de su transacción, así que no deja nada a medias.
+sobre producción, la `0006` fallaba en `complaints` hasta que se resolvió la línea base (ver
+abajo). Habría fallado dentro de su transacción, sin dejar nada a medias.
 `artifacts/api-server/src/test/rls.integration.test.ts` corre en CI sobre la base que construye
 `migrate`.
 
@@ -1698,10 +1697,23 @@ local):
   clave pública. Pero el dueño confirmó el 2026-10-20 que los perfiles y pedidos de la base son
   de prueba, no de clientes reales, así que no hubo datos personales expuestos que comunicar a la
   ANPD. Si la tienda ya hubiera tenido clientes, esta evaluación habría sido obligatoria.
-- **Línea base de producción.** La `0000` crea `complaints` y `consents`, que la base real no
-  tiene. `baseline-migrations` marcaría la `0000` como aplicada sin ejecutarla, y esas dos tablas
-  no se crearían nunca: el Libro de Reclamaciones fallaría en producción. Antes de la línea base
-  hay que crearlas, o hacer la línea base de otra forma.
+
+**Línea base de producción (resuelta el 2026-10-20, cada escritura aprobada por el dueño):** la
+`0000` crea `complaints` y `consents`, que la base real no tenía, y `baseline-migrations` la marca
+como aplicada sin ejecutarla. Por eso se crearon antes, a mano y comparando huellas. El ensayo en
+Docker encontró que el script registraba las 7 migraciones del journal y no solo la `0000`:
+`migrate` no habría aplicado nada e informaba éxito. Lo corrige `a6a4060`. Procedimiento y
+herramientas en `docs/LINEA-BASE-PRODUCCION.md`.
+
+| Paso | Resultado en producción |
+|---|---|
+| B1 · respaldo `pg_dump` 17 del schema `public` | restaurado en Docker, huella idéntica a producción |
+| Huella antes de escribir | 285 líneas, igual a la del inicio |
+| B2 · `missing.sql` (5 enums, 2 tablas, 4 FK, 4 índices) | 15 sentencias, huella 321 = esperada, `COMMIT` |
+| B3 · `baseline-migrations` | `Baselined 1 migration(s)` (solo `0000_initial_schema`) |
+| B4 · `migrate` | `0001`–`0006` aplicadas sin error |
+| B5 · `verify-rls` | PASS: 23 tablas con RLS, 0 filas a la anon key, 0 vistas, 0 funciones, 0 políticas |
+| B5 · huella final | 395 líneas, idéntica a una base migrada desde cero |
 
 ### 11.9 Pendiente
 
