@@ -10,7 +10,14 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Connections per process. With autoscaling the database sees instances × this, so production
+// sets it low and points DATABASE_URL at the Supabase pooler in transaction mode (port 6543).
+const poolMax = Number(process.env.DB_POOL_MAX?.trim() || 10);
+if (!Number.isInteger(poolMax) || poolMax < 1) {
+  throw new Error("DB_POOL_MAX must be a positive integer.");
+}
+
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: poolMax });
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
