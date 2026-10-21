@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import { db, complaints } from "@workspace/db";
 import * as service from "./service";
-import { LEGAL_RESPONSE_DAYS } from "./mappers";
+import { dueDateFrom } from "./mappers";
 import { resetDatabase, seedProfile, seedOrderInState } from "../../test/db";
 
 // The Libro de Reclamaciones is the most heavily fined thing in this codebase. These tests pin
@@ -74,12 +74,13 @@ describe("filing a complaint", () => {
     expect(row!.userId).toBe(userId);
   });
 
-  it("stamps the 30 calendar day legal deadline at filing time", async () => {
+  it("stamps the 15 business day legal deadline at filing time", async () => {
+    // The arithmetic is covered in mappers.test.ts; this proves the stored column uses it,
+    // measured from the database's own created_at.
     await service.createComplaint(validInput, null);
 
     const [row] = await db.select().from(complaints);
-    const days = (row!.dueAt.getTime() - row!.createdAt.getTime()) / 86_400_000;
-    expect(Math.round(days)).toBe(LEGAL_RESPONSE_DAYS);
+    expect(row!.dueAt.toISOString()).toBe(dueDateFrom(row!.createdAt).toISOString());
   });
 
   it("refuses a complaint for a minor with no guardian named", async () => {
@@ -122,7 +123,7 @@ describe("responding to a complaint", () => {
 
   it("does not stamp a response time for a bare status change", async () => {
     // Moving a file to `en_proceso` is not an answer, and must not look like one — the
-    // 30-day clock is measured against a real response.
+    // legal clock is measured against a real response.
     const adminId = await seedProfile({ role: "admin" });
     const filed = await service.createComplaint(validInput, null);
     const id = filed.ok ? filed.receipt.id : "";

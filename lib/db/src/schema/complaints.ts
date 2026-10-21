@@ -66,7 +66,7 @@ export const complaints = pgTable(
     response: text("response"),
     respondedAt: timestamp("responded_at", { withTimezone: true }),
     respondedBy: uuid("responded_by").references(() => profiles.id),
-    // Legal deadline: 30 calendar days from filing. Stored rather than recomputed so the
+    // Legal deadline: 15 business days from filing (complaints/mappers.ts). Stored rather than recomputed so the
     // backoffice can sort and filter by "what is about to go overdue" in one query, and so a
     // later change to the limit cannot silently rewrite the deadline of an existing file.
     dueAt: timestamp("due_at", { withTimezone: true }).notNull(),

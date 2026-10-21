@@ -1586,7 +1586,7 @@ export interface ComplaintReceipt {
   type: ComplaintReceiptType;
   status: ComplaintReceiptStatus;
   consumerEmail: string;
-  /** Legal deadline to respond (30 calendar days from filing) */
+  /** Legal deadline to respond (end of the 15th business day after filing, Lima time) */
   dueAt: string;
   createdAt: string;
 }
@@ -1659,7 +1659,7 @@ export interface AdminComplaint {
   /** @nullable */
   respondedAt: string | null;
   dueAt: string;
-  /** Calendar days left to answer; negative once the legal deadline has passed */
+  /** Business days left after today (0 on the due day); negative once the legal deadline has passed */
   daysRemaining: number;
   createdAt: string;
 }

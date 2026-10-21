@@ -50,7 +50,7 @@ function Receipt({ receipt }: { receipt: ComplaintReceipt }) {
         </p>
         <p className="font-sans text-sm text-foreground/90 leading-relaxed mt-3">
           Responderemos a más tardar el <strong>{formatDate(receipt.dueAt)}</strong>, dentro del
-          plazo de 30 días calendario que fija la ley.
+          plazo de 15 días hábiles improrrogables que fija la ley.
         </p>
       </div>
       <p className={`${hintClass} mt-6`}>

@@ -2212,7 +2212,7 @@ export const CreateComplaintResponse = zod.object({
   "type": zod.enum(['reclamo', 'queja']),
   "status": zod.enum(['pendiente', 'en_proceso', 'resuelto', 'cerrado']),
   "consumerEmail": zod.string(),
-  "dueAt": zod.coerce.date().describe('Legal deadline to respond (30 calendar days from filing)'),
+  "dueAt": zod.coerce.date().describe('Legal deadline to respond (end of the 15th business day after filing, Lima time)'),
   "createdAt": zod.coerce.date()
 }).describe('Proof of filing handed back to the consumer, with the legal deadline.')
 
@@ -2276,7 +2276,7 @@ export const ListComplaintsResponse = zod.object({
   "response": zod.string().nullable(),
   "respondedAt": zod.coerce.date().nullable(),
   "dueAt": zod.coerce.date(),
-  "daysRemaining": zod.number().describe('Calendar days left to answer; negative once the legal deadline has passed'),
+  "daysRemaining": zod.number().describe('Business days left after today (0 on the due day); negative once the legal deadline has passed'),
   "createdAt": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -2322,7 +2322,7 @@ export const RespondComplaintResponse = zod.object({
   "response": zod.string().nullable(),
   "respondedAt": zod.coerce.date().nullable(),
   "dueAt": zod.coerce.date(),
-  "daysRemaining": zod.number().describe('Calendar days left to answer; negative once the legal deadline has passed'),
+  "daysRemaining": zod.number().describe('Business days left after today (0 on the due day); negative once the legal deadline has passed'),
   "createdAt": zod.coerce.date()
 })
 

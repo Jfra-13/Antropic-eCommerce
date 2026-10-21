@@ -53,7 +53,9 @@ function hashOf(tag: string): string {
 }
 
 async function main(): Promise<void> {
-  const entries = readJournal();
+  // Only the baseline itself, 0000: it is the schema `push` built. Recording any later
+  // migration would skip its SQL for good, and `migrate` would still report success.
+  const entries = readJournal().slice(0, 1);
   if (entries.length === 0) {
     console.error("The migration journal is empty; nothing to baseline.");
     process.exit(2);

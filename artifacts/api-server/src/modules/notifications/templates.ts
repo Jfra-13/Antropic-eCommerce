@@ -237,7 +237,7 @@ export function complaintEmailHtml({
               : `<p style="margin:20px 0 0;color:#888;font-size:12px;line-height:1.6;">
                    El proveedor debe dar respuesta a más tardar el
                    <strong style="color:#333;">${formatDate(complaint.dueAt)}</strong>
-                   (30 días calendario, D.S. 011-2011-PCM).
+                   (15 días hábiles improrrogables, Ley 31435 y D.S. 101-2022-PCM).
                  </p>`
           }
         </td>

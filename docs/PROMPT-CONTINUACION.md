@@ -95,8 +95,11 @@ credenciales, revisión con contexto limpio sin hallazgos bloqueantes, prueba de
 endurecida, PR #23 listo para revisión) · G (RLS: el proyecto real lo tenía apagado en las 19
 tablas; activado en producción el 2026-10-20, migración 0006 con .enableRLS() en cada tabla,
 prueba de integración que exige RLS sin políticas ni vistas, verify-rls reescrito sobre el
-catálogo; evidencia en §11.11). Queda abierto, y no es código: evaluar la Ley 29733 con el
-abogado, y la línea base de producción (ver "Al desplegar por primera vez").
+catálogo; evidencia en §11.11; los datos eran de prueba, sin brecha que comunicar). Línea base
+de producción resuelta el 2026-10-20: la base real ya usa `migrate` (evidencia en §11.11).
+Libro de Reclamaciones:
+plazo corregido a 15 días hábiles (rama claude/libro-15-dias-habiles) y descripción para el
+abogado en docs/negocio/LIBRO-RECLAMACIONES.md, pendiente de su firma y de sus cuatro decisiones.
 
 Antes de escribir código, dime tu plan.
 ```
@@ -184,7 +187,7 @@ configurada más una prueba del enlace a la cuenta con un inicio de sesión real
 ### Bloqueado por trámites o decisiones del negocio
 
 Textos legales del abogado · inscripción ante la ANPD · **régimen tributario y si la empresa es
-afecta a IGV** (bloquea la Fase 8) · quién responde los reclamos en 30 días · SPF/DKIM/DMARC del
+afecta a IGV** (bloquea la Fase 8) · quién responde los reclamos en 15 días hábiles · SPF/DKIM/DMARC del
 dominio · plan de pago de Supabase y PITR.
 
 ### Tarea manual pendiente en GitHub
@@ -195,21 +198,17 @@ requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
 
 ### Al desplegar por primera vez
 
-1. La base de Supabase actual se creó con `push`, así que necesita línea base **una sola vez** antes
-   de que `migrate` funcione:
+1. **Línea base: resuelta el 2026-10-20.** La base de Supabase se creó con `push` y le faltaban
+   `complaints` y `consents`. Se crearon con `missing.sql` y después se corrió:
 
    ```
-   pnpm --filter @workspace/scripts run baseline-migrations
-   pnpm --filter @workspace/db run migrate
+   pnpm --filter @workspace/scripts run baseline-migrations   # "Baselined 1 migration(s)"
+   pnpm --filter @workspace/db run migrate                    # 0001–0006
+   pnpm --filter @workspace/scripts run verify-rls            # PASS
    ```
 
-   Verificado en local reproduciendo ese escenario exacto; ver §11.5.
-
-   **BLOQUEANTE, no lo ejecutes tal cual.** La base real no tiene `complaints` ni `consents`, y las
-   crea la `0000`. La línea base da la `0000` por aplicada sin ejecutarla, así que esas dos tablas
-   no se crearían nunca y el Libro de Reclamaciones fallaría en producción. Faltan también
-   `payment_events` y `notification_deliveries`; esas sí las crean `0001` y `0002`. Hay que
-   resolverlo antes del primer despliegue. Después de `migrate`, corre `verify-rls`.
+   **No se repite.** De aquí en adelante, la base real solo recibe `migrate`. Evidencia en
+   AUDITORIA §11.11; procedimiento en `docs/LINEA-BASE-PRODUCCION.md`.
 
 2. **Programar el job de caducidad** (Fase 6). Sin un scheduler que lo invoque, los pedidos que
    nadie pagó se quedan en `pendiente_pago` para siempre:
