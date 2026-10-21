@@ -72,6 +72,7 @@ pnpm workspace with two package roots, each with a different lifecycle:
   `PAGOS.md` (payment architecture + the contract a future gateway webhook must meet),
   `OBSERVABILIDAD.md` (where to look when something fails: request ids, health probes, the email
   outbox, and what is deliberately not wired up), `TUNELES.md` (Cloudflare Tunnel demo guide),
+  `DESPLIEGUE.md` (Cloud Run deployment: API image, service, the two jobs and their schedulers),
   `negocio/` (requirements, physical DB schema, role flows, style guide).
 - Shared `catalog:` versions for common deps (react, vite, tailwind, radix, etc.) are pinned once in
   `pnpm-workspace.yaml`; packages reference them as `"catalog:"` instead of hardcoding a version.

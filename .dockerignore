@@ -1,0 +1,10 @@
+# Secrets never enter the build context.
+.env
+**/.env
+**/.env.*
+!**/.env.example
+*.har
+
+**/node_modules
+**/dist
+.git
