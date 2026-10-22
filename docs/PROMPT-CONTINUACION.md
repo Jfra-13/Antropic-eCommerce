@@ -97,6 +97,8 @@ tablas; activado en producción el 2026-10-20, migración 0006 con .enableRLS() 
 prueba de integración que exige RLS sin políticas ni vistas, verify-rls reescrito sobre el
 catálogo; evidencia en §11.11; los datos eran de prueba, sin brecha que comunicar). Línea base
 de producción resuelta el 2026-10-20: la base real ya usa `migrate` (evidencia en §11.11).
+Despliegue de la API en Cloud Run (servicio, jobs expire-orders y retry-notifications con Cloud
+Scheduler, southamerica-east1): Dockerfile y guía en docs/DESPLIEGUE.md, rama claude/cloud-run-deploy.
 Libro de Reclamaciones:
 plazo corregido a 15 días hábiles (rama claude/libro-15-dias-habiles) y descripción para el
 abogado en docs/negocio/LIBRO-RECLAMACIONES.md, pendiente de su firma y de sus cuatro decisiones.
