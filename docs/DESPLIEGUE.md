@@ -72,6 +72,25 @@ done
 `DATABASE_URL` es la del pooler **en el puerto 6543**, con los caracteres especiales de la
 contraseña codificados (`@` es `%40`).
 
+`read -s` necesita una terminal interactiva: corre este bloque en una terminal propia, no desde
+una herramienta que capture la salida.
+
+### Sin email ni frontends todavía
+
+El primer despliegue puede salir antes de tener dominio verificado en Resend y antes de publicar
+los frontends:
+
+- **Email.** Quita `RESEND_API_KEY` de los dos loops de secretos y de `SECRETS`, y
+  `RESEND_FROM` de `ENV`. Son opcionales: cada correo queda en el outbox como fallido con
+  "sin configurar" y se reencola desde Operaciones cuando el email exista. Al activarlo, crea el
+  secreto, dale el binding y añádelo con `--update-secrets` / `--update-env-vars` al servicio y
+  a los dos jobs.
+- **CORS.** `CORS_ORIGINS` es obligatorio con `NODE_ENV=production`: sin él la API no arranca.
+  Mientras no haya frontends, usa `CORS_ORIGINS=https://pendiente.invalid`, que no deja pasar a
+  ningún navegador y no afecta a `curl` (que no manda `Origin`).
+- **`STORE_URL`.** Opcional, pero sin él el correo de un pedido de invitado sale sin enlace y
+  `/sitemap.xml` responde 503. Se pone cuando la tienda tenga dominio.
+
 ## Cada despliegue
 
 ```
