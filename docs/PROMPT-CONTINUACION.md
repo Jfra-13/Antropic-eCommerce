@@ -98,7 +98,9 @@ prueba de integración que exige RLS sin políticas ni vistas, verify-rls reescr
 catálogo; evidencia en §11.11; los datos eran de prueba, sin brecha que comunicar). Línea base
 de producción resuelta el 2026-10-20: la base real ya usa `migrate` (evidencia en §11.11).
 Despliegue de la API en Cloud Run (servicio, jobs expire-orders y retry-notifications con Cloud
-Scheduler, southamerica-east1): Dockerfile y guía en docs/DESPLIEGUE.md, rama claude/cloud-run-deploy.
+Scheduler, southamerica-east1): Dockerfile y guía en docs/DESPLIEGUE.md, fusionado en main
+(PR #25). Falta el primer despliegue real: ver "Al desplegar por primera vez" en
+docs/PROMPT-CONTINUACION.md.
 Libro de Reclamaciones:
 plazo corregido a 15 días hábiles (rama claude/libro-15-dias-habiles) y descripción para el
 abogado en docs/negocio/LIBRO-RECLAMACIONES.md, pendiente de su firma y de sus cuatro decisiones.
@@ -199,6 +201,22 @@ ramas y la API directa da 403. Configuración exacta: requerir PR, 0 aprobacione
 requerido **`build`**, exigir rama al día, bloquear force-push y borrado.
 
 ### Al desplegar por primera vez
+
+**Pendiente (2026-10-23): alta en Google Cloud, a cargo del dueño.** La imagen y la guía están
+en main (PR #25), pero todavía no hay cuenta de facturación ni proyecto GCP. Se quedó en el
+formulario de información fiscal de Perú ("¿Registrado en Perú como contribuyente de IVA?"). La
+respuesta no se puede cambiar después sin pasar por payments.google.com:
+
+- **No**: la cuenta es personal o el RUC no está afecto al IGV. Google suma 18% de IGV a cada
+  factura.
+- **Sí**: factura una empresa con RUC afecto al IGV. Google no cobra IGV, y la empresa lo
+  declara como utilización de servicios de no domiciliados. Confirmarlo antes con el contador.
+
+Después: crear el proyecto y vincular la facturación. Luego seguir `docs/DESPLIEGUE.md` desde
+Cloud Shell (en la máquina de trabajo no hay `gcloud`), incluida la sección "Sin email ni
+frontends todavía": sin `RESEND_*` y con `CORS_ORIGINS=https://pendiente.invalid`. Verificar con
+`gcloud run jobs execute … --wait` para cada job y `/api/readyz` en 200 sobre la URL
+`*.run.app`. Los puntos 2 a 4 de abajo los cubre ese despliegue.
 
 1. **Línea base: resuelta el 2026-10-20.** La base de Supabase se creó con `push` y le faltaban
    `complaints` y `consents`. Se crearon con `missing.sql` y después se corrió:
